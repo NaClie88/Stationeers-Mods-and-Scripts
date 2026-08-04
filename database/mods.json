@@ -1,0 +1,73 @@
+{
+  "_schema_notes": "Registry of mods the user may want reflected in generated guides. Each mod is OFF by default (status: planned) until its items/recipes are actually added to recipes.json with source set to 'mod:<key>'. A future guide generator reads a per-guide mod config (which mods are 'active') and filters recipes.json by the 'source' field accordingly -- vanilla items always included, mod items only if that mod is active for the requested guide. This keeps vanilla and modded content cleanly separable without restructuring the schema when a new mod is added -- just add an entry here and start tagging recipes.json entries with source: 'mod:<key>'.",
+  "_new_devices_and_enabled_goals_notes": "Two fields per mod beyond the basics: 'new_devices' lists concrete new items/mechanics the mod adds (these are recipe.json candidates once sourced). 'enabled_goals' is the more important one -- it captures NEW PROJECT-LEVEL GOALS that only make sense once the mod's devices exist, not just item substitutions for existing projects. A mod can leave every existing category/project untouched and still be worth including purely for what it unlocks in enabled_goals. When a mod's status moves from 'planned' to 'active', anything in enabled_goals is a candidate to become a real lettered project in the main guide (e.g. a new Category C or L sub-project), same process as adding any other project -- pick a category, assign the next available number, link it in project_requirements.json.",
+  "revolt": {
+    "display_name": "Re-Volt",
+    "description": "Electrical overhaul mod -- revises power distribution simulation (recursive networks allowed, per-battery charge/discharge-rate limits, delayed cable burn-out based on overload severity vs instant fuse blows, multiple power sources on a grid share load equally, transformers/APCs properly apply their own draw upstream).",
+    "requires": [
+      "StationeersLaunchPad",
+      "BepInEx"
+    ],
+    "steam_workshop_id": "3587239682",
+    "github": "https://github.com/Sukasa/ReVolt",
+    "status": "planned",
+    "likely_affected_categories": [
+      "C1 (Energy Infrastructure)",
+      "L1 (Power Automation)",
+      "B4 (Emergency Power)"
+    ],
+    "new_devices": [
+      {
+        "name": "Circuit Breaker (Small)",
+        "function": "Resettable time-delay fuse -- trips instead of burning out, can be reset rather than replaced"
+      },
+      {
+        "name": "Circuit Breaker (Large)",
+        "function": "Same as Small, higher current rating"
+      },
+      {
+        "name": "Circuit Breaker (Smart)",
+        "function": "Same resettable trip behavior, adjustable/loggable trip points"
+      },
+      {
+        "name": "Cable Tray",
+        "function": "Routes many cables through one structure instead of separate runs -- cables must match color and watt limit to share a tray. Reduces object count and space for complex wiring."
+      },
+      {
+        "name": "Load Center",
+        "function": "Controls entire sets of devices (lights, atmospherics, doors, equipment, logic devices) as one group, without needing a separate power network per group"
+      },
+      {
+        "name": "Optoisolator",
+        "function": "4-network bidirectional data link that keeps power isolated between the connected networks"
+      },
+      {
+        "name": "Data Diode",
+        "function": "2-network one-way data link, power isolated"
+      },
+      {
+        "name": "Modular Battery -- Charger",
+        "function": "Splits the old single-battery role: Charger governs how generators feed into storage (generators should connect here, not directly to a Battery Bank)"
+      },
+      {
+        "name": "Modular Battery -- Battery Bank",
+        "function": "The storage component of the modular battery split -- has its own charge/discharge-rate limit, may need paralleling for high loads"
+      },
+      {
+        "name": "Modular Battery -- Inverter",
+        "function": "The output component of the modular battery split -- AC/DC power concepts introduced"
+      }
+    ],
+    "enabled_goals": [
+      {
+        "goal": "Breaker Room / Central Power Management",
+        "description": "A dedicated room housing Circuit Breakers, Load Centers, and Cable Trays for the whole base's power distribution, positioned next to the backup battery bank so one location shows and controls the entire power picture -- generation, storage, and every downstream circuit. Not buildable in vanilla the same way since vanilla lacks resettable breakers and multi-device Load Centers; this is a genuinely new category of project the mod unlocks, not a reskin of an existing one.",
+        "why_it_matters": "In vanilla, an overloaded circuit burns out a fuse (single-use, must be replaced) and there's no clean way to group many devices under one controllable point without a full logic/IC10 setup per group. Re-Volt's resettable breakers plus Load Centers make a real centralized breaker room both possible and worthwhile -- flip a breaker back on instead of fabricating a new fuse, and manage lighting/atmospherics/doors as grouped circuits instead of one wire each.",
+        "candidate_placement": "Would slot into Category C (Core Infrastructure) as a new project once active, likely C3 -- sits alongside C1 (Energy Infrastructure) since it's the control layer over what C1 generates and B4/E1-adjacent backup batteries store. Not yet added as a lettered project in the main guide -- noted here until Re-Volt moves from 'planned' to 'active'.",
+        "user_noted": true
+      }
+    ],
+    "integration_note": "Not yet reflected in recipes.json or project_requirements.json. When ready to add: (1) tag new/changed items with source: 'mod:revolt', (2) note which vanilla power-project checkpoints change behavior under this mod (e.g. battery charge/discharge rate limits affect B4/C1 sizing math -- you may need to parallel Battery Banks for high loads where vanilla just used one big battery), (3) add a 'revolt' key to any future per-guide mod config, (4) promote 'Breaker Room' from enabled_goals into an actual lettered project (see candidate_placement) once ready to build it out in the main guide."
+  },
+  "_build_order_principle": "VANILLA IS THE DEFAULT SUPPORTED BUILD, not a mandatory sequence step. This project supports two parallel configurations: a pure-vanilla build (fully self-sufficient on its own) and a modded build (layers mod content on top). This isn't about requiring a single player to finish vanilla before touching mods -- it's about compatibility: most people this gets shared with won't have every mod installed, so the vanilla path must stand alone, complete, and correct without assuming any mod exists. Mod content (new_devices, enabled_goals) is always an optional additional configuration, never a silent substitution into the base recipes/build -- someone building vanilla-only should never hit a step that assumes a mod is present."
+}
