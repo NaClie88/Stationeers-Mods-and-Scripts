@@ -1,0 +1,114 @@
+{
+  "_schema_notes": "Each entry is one craftable item/kit. 'ingredients' lists material+amount where confirmed; 'null' amount means the item is known to require that material but exact quantity is not yet verified in this database -- fill in as sourced, don't guess. 'source' distinguishes vanilla from mod content so a guide generator can include/exclude mod items per the user's mod config. 'verified' is false until every ingredient has a non-null amount and a citation in 'notes'. This file is a seed, not a complete catalog -- populate incrementally, ideally citing a wiki page or in-game observation per entry.",
+
+  "kit_autolathe": {
+    "display_name": "Kit (Autolathe)",
+    "source": "vanilla",
+    "built_with": "starting_crate",
+    "tier": "T1",
+    "ingredients": [],
+    "power_draw_w": null,
+    "craft_time_s": null,
+    "verified": true,
+    "notes": "Free -- included in starting Construction Supplies crate on Normal start. Not fabricated."
+  },
+  "kit_arc_furnace": {
+    "display_name": "Kit (Arc Furnace)",
+    "source": "vanilla",
+    "built_with": "starting_crate",
+    "tier": "T1",
+    "ingredients": [],
+    "power_draw_w": null,
+    "craft_time_s": null,
+    "verified": true,
+    "notes": "Free -- included in starting Construction Supplies crate on Normal start. Not fabricated."
+  },
+  "kit_electronics_printer": {
+    "display_name": "Kit (Electronics Printer)",
+    "source": "vanilla",
+    "built_with": "Autolathe",
+    "tier": "T1",
+    "ingredients": [
+      {"material": "Iron", "amount_g": null},
+      {"material": "Copper", "amount_g": null},
+      {"material": "Gold", "amount_g": 2}
+    ],
+    "power_draw_w": null,
+    "craft_time_s": null,
+    "verified": false,
+    "notes": "Gold cost (2g) confirmed via Community Wiki Ingot(Gold) page. Iron/Copper amounts referenced qualitatively (\"needs Iron, Copper, and Gold\" per community thread) but exact grams not yet sourced -- needs in-game confirmation or wiki recipe page fetch."
+  },
+  "kit_hydraulic_pipe_bender": {
+    "display_name": "Kit (Hydraulic Pipe Bender)",
+    "source": "vanilla",
+    "built_with": "Autolathe",
+    "tier": "T1",
+    "ingredients": [
+      {"material": "Iron", "amount_g": null},
+      {"material": "Copper", "amount_g": null},
+      {"material": "Gold", "amount_g": 2}
+    ],
+    "power_draw_w": null,
+    "craft_time_s": null,
+    "verified": false,
+    "notes": "Gold cost (2g) confirmed via Community Wiki Ingot(Gold) page. Iron/Copper amounts not yet sourced."
+  },
+  "medium_radiator": {
+    "display_name": "Kit (Medium Radiator)",
+    "source": "vanilla",
+    "built_with": "Hydraulic Pipe Bender",
+    "tier": "T1",
+    "ingredients": [
+      {"material": "Copper", "amount_g": 5},
+      {"material": "Steel", "amount_g": 5},
+      {"material": "Invar", "amount_g": 5}
+    ],
+    "power_draw_w": null,
+    "craft_time_s": null,
+    "verified": true,
+    "notes": "Fully confirmed via Community Wiki Medium_Radiator page item box."
+  },
+  "steel_ingot_first_batch": {
+    "display_name": "Ingot (Steel) -- first furnace batch",
+    "source": "vanilla",
+    "built_with": "Arc Furnace",
+    "tier": "T1",
+    "ingredients": [
+      {"material": "Iron Ore", "amount_g": 150},
+      {"material": "Coal", "amount_g": 50},
+      {"material": "Ice (Oxite)", "amount_units": "1-2 (2 if cold world)"},
+      {"material": "Ice (Volatiles)", "amount_units": "2-4 (4 if cold world)"}
+    ],
+    "power_draw_w": null,
+    "craft_time_s": null,
+    "verified": true,
+    "notes": "This isn't a fixed recipe -- Oxite/Volatiles are furnace FUEL (raise temperature), not a fixed ratio to Iron/Coal. The 150g Iron : 50g Coal (3:1) ratio and 1-2/2-4 ice quantities are the documented minimum to reach steel-smelting temperature (~2000K). Confirmed via Community Wiki Guide (Mining)."
+  },
+  "solder_ingot": {
+    "display_name": "Ingot (Solder)",
+    "source": "vanilla",
+    "built_with": "Furnace",
+    "tier": "T1",
+    "ingredients": [
+      {"material": "Iron", "amount_ratio": "equal parts"},
+      {"material": "Lead", "amount_ratio": "equal parts"}
+    ],
+    "power_draw_w": null,
+    "craft_time_s": null,
+    "verified": false,
+    "notes": "Ratio confirmed (equal parts Iron+Lead) but not an absolute gram value -- needs a target batch size decision before this can be a fixed recipe entry. Requires controlled low-temperature smelt, not just fuel amount."
+  },
+  "portable_air_scrubber": {
+    "display_name": "Portable Air Scrubber",
+    "source": "vanilla",
+    "built_with": null,
+    "tier": null,
+    "ingredients": [],
+    "power_draw_w": 20.5,
+    "craft_time_s": null,
+    "internal_tank_l": 250,
+    "verified": true,
+    "notes": "Power draw (20.5W/tick) and tank volume (250L) confirmed via Community Wiki Portable_Air_Scrubber page. Recipe/ingredients not yet sourced -- item box for build cost not fetched."
+  },
+  "kit_medium_radiator_NOTE": "See medium_radiator above -- kept as example of a fully verified entry to match against when adding new items."
+}

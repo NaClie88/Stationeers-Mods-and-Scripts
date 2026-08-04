@@ -1,0 +1,139 @@
+{
+  "mars": {
+    "display_name": "Mars",
+    "hazard_profile": "Thin atmosphere, moderate temperature swings, no extremes",
+    "confirmed_conditions": "Day ~20\u00b0C, night -53\u00b0C. Thin CO2/N2/Ar atmosphere usable for pressurization. Occasional dust storms damage exposed items and solar panels.",
+    "atmosphere": "thin, breathable-adjacent (CO2/N2/Ar)",
+    "temperature": "day +20C / night -53C",
+    "gravity": "standard",
+    "ice_available": true,
+    "is_baseline": true,
+    "priority_mod": "None \u2014 this is the reference world the P0\u2013P6 order was written for.",
+    "radiator_note": "Standard Convection Radiators work fine \u2014 thin atmosphere still counts as an environment for convection purposes, though it's less efficient than a thick atmosphere.",
+    "cooling_note": null,
+    "heating_note": null,
+    "mining_note": "Standard mining list applies unmodified.",
+    "sources": [
+      "stationeers-wiki.com/Mars",
+      "xgamingserver.com world guide"
+    ]
+  },
+  "moon": {
+    "display_name": "Moon",
+    "hazard_profile": "Vacuum + partial gravity",
+    "confirmed_conditions": "No atmosphere at all (full vacuum). Reduced gravity. Ice deposits present. Solar storms spike heat and suit O2 burn rate.",
+    "atmosphere": "vacuum",
+    "temperature": "extreme swing, no atmospheric buffering",
+    "gravity": "reduced",
+    "ice_available": true,
+    "is_baseline": false,
+    "priority_mod": "Insert \u201cSeal & Pressurize\u201d at P0.5 \u2014 with zero ambient atmosphere, your first sealed room is more urgent than on Mars, since there's no thin atmosphere to buy you any margin. Reduced gravity also changes jump/fall behavior \u2014 budget extra time for mobility, not danger.",
+    "radiator_note": "Convection Radiators DO NOT WORK here \u2014 they require an atmosphere to exchange heat with, and the Moon has none. You MUST use Radiation Radiators (Medium Radiator or Pipe Radiator set to radiation mode) for any piped cooling. Radiation-mode radiators will cool a pipe down to about 50K in vacuum, but they only radiate (don't capture) and do so at a much slower rate than convection \u2014 plan for slow heat shedding, not fast.",
+    "cooling_note": "Passive radiative cooling is real but slow \u2014 oversize your radiator array rather than relying on a couple of units.",
+    "heating_note": null,
+    "mining_note": "Standard mining list applies; ice is present, but remember it melts in direct sunlight even in vacuum \u2014 mine in shadow or process at night.",
+    "sources": [
+      "stationeers-wiki.com/Medium_Radiator",
+      "stationeers-wiki.com/Pipe_Radiator",
+      "stationeers-wiki.com/Ingame_Guides_-_Weather"
+    ]
+  },
+  "europa": {
+    "display_name": "Europa",
+    "hazard_profile": "Extreme cold",
+    "confirmed_conditions": "Substantial, breathable, but reliably freezing atmosphere. Batteries lose charge over time just from exposure to the cold.",
+    "atmosphere": "present but freezing",
+    "temperature": "extreme cold, constant",
+    "gravity": "standard",
+    "ice_available": true,
+    "is_baseline": false,
+    "priority_mod": "Insert \u201cPower + Heating\u201d at P0.5, ahead of P1 \u2014 you need continuous power before anything else, because cold alone drains batteries even when idle. Grow lights and heaters both compete for this same early power budget, so oversize P1 (power) accordingly.",
+    "radiator_note": "Convection Radiators work here (atmosphere is present) \u2014 unlike vacuum worlds, standard radiator/cooler tech functions normally. Your problem is heat retention, not heat rejection.",
+    "cooling_note": null,
+    "heating_note": "REUSE FURNACE WASTE HEAT: route the Arc Furnace's smelting heat into your shelter's early heating loop instead of venting it. This is a documented cold-world technique and turns a byproduct into your first heat source, cutting your Night 1 power burden.",
+    "mining_note": "Standard list applies; Brutal start on Europa is confirmed to include a Wind Turbine because solar is unreliable here.",
+    "sources": [
+      "stationeers-wiki.com/Worlds",
+      "official patch notes v0.2.5025.22811"
+    ]
+  },
+  "venus": {
+    "display_name": "Venus",
+    "hazard_profile": "Heavy, hot, high-pressure atmosphere",
+    "confirmed_conditions": "In-game pressure is 239 kPa (2.36x Earth standard) -- mostly CO2 and Hydrochloric Acid with some Nitrogen and trace Pollutants, extreme heat, no surface ice. (Earlier version of this entry incorrectly cited real-world Venus data of ~92 bar/96% CO2 from Wikipedia -- corrected here to the actual in-game figure.)",
+    "atmosphere": "heavy CO2, high pressure",
+    "temperature": "extreme heat",
+    "gravity": "standard",
+    "ice_available": false,
+    "is_baseline": false,
+    "priority_mod": "Insert \u201cCooling System\u201d at P0.5, ahead of everything else \u2014 heat alone can destroy tanks/canisters within minutes if left exposed. Also see the High-Pressure Structural Accommodation project \u2014 239 kPa ambient sits close to Iron Wall's 150 kPa burst threshold once interior/exterior differential is accounted for, so material choice (Composite/Blast Door over Iron) matters here.",
+    "radiator_note": "Convection Radiators work (atmosphere is present) but are fighting a losing battle against ambient heat \u2014 you're cooling INTO a hot environment, not a cold one, so expect much higher power draw than Mars/Europa cooling setups.",
+    "cooling_note": "No ice means Water/Oxite/Volatiles mining is not an option \u2014 substitute an imported/synthesized source. Venus starts (including Brutal) are confirmed to include a Water canister and Oxygen tank specifically because ice mining isn't viable here.",
+    "heating_note": null,
+    "mining_note": "Skip ice-mining steps entirely (Oxite, Volatiles, Water Ice) \u2014 rely on the starting canister/tank supplement instead. Standard ore mining (Iron/Copper/Gold/Silicon) still applies.",
+    "sources": [
+      "stationeers-wiki.com/Venus",
+      "stationeers-wiki.com/Active_Vent",
+      "stationeers-wiki.com/Hardsuit",
+      "community-compiled burst pressure reference (Steam Community)"
+    ],
+    "pressure_note": "Confirmed structural burst pressures: Iron Wall 150 kPa, Composite Wall/Door 300 kPa, Airlock portal 1 MPa, Blast Doors have no documented limit. Stage airlocks across multiple chambers rather than one big pressure jump. The Active Vent's default PressureExternal assumes 100 kPa exterior and needs IC10 reprogramming above that. Documented player technique: reduce Hardsuit target pressure to 14-30 kPa during EVA to reduce convective heat transfer."
+  },
+  "vulcan": {
+    "display_name": "Vulcan",
+    "hazard_profile": "Extreme heat, autoignition risk",
+    "confirmed_conditions": "Very hot, no ice deposits. Volatiles-related fuels are especially autoignition-prone in this heat.",
+    "atmosphere": "hot, planet-specific composition",
+    "temperature": "extreme heat",
+    "gravity": "standard",
+    "ice_available": false,
+    "is_baseline": false,
+    "priority_mod": "Insert \u201cCooling System\u201d at P0.5 \u2014 same urgency as Venus. Additionally, treat fuel/volatile storage as a standing hazard from Day 1, not a later-game concern.",
+    "radiator_note": "Convection Radiators work (atmosphere present) but face the same uphill battle as Venus \u2014 cooling into an already-hot environment costs more power than cooling on a temperate world.",
+    "cooling_note": "Isolate fuel storage from your shelter earlier than the framework's default Project 3.5 timeline \u2014 Vulcan's ambient heat pushes stored fuel closer to its autoignition point than on any other world.",
+    "heating_note": null,
+    "mining_note": "Skip ice-mining steps entirely (no ice deposits exist on Vulcan) \u2014 rely on starting canister/tank supplement (confirmed: Vulcan Brutal start includes an Oxygen tank + 12L Water canister).",
+    "sources": [
+      "stationeers-wiki.com/Worlds",
+      "official patch notes v0.2.5025.22811"
+    ]
+  },
+  "space": {
+    "display_name": "Space / Orbit / Asteroid Belt",
+    "hazard_profile": "Vacuum, no gravity, no ground",
+    "confirmed_conditions": "No atmosphere, no gravity, no solid ground to build on in the traditional sense. Official Asteroid start condition provides an Ingots Crate, Rocket Crate, and pre-filled Liquid Oxygen + Liquid Volatiles tanks instead of raw ore.",
+    "atmosphere": "vacuum",
+    "temperature": "extreme, no atmospheric buffering",
+    "gravity": "none",
+    "ice_available": false,
+    "is_baseline": false,
+    "priority_mod": "Entirely different P0: there is no \u201cmine ore from ground\u201d step \u2014 replace the Day 1/Night 1 mining projects with asteroid-surface mining or reliance on the pre-filled ingot/liquid crates the Asteroid start condition actually provides. Structures must be ANCHORED (no gravity to hold loose items in place) \u2014 treat anchoring/mounting as a new P0 step before any other placement. No day/night solar cycle in the way Mars has one \u2014 prioritize non-solar power (nuclear, wind if available, or imported fuel) over Solar Panel placement in P1.",
+    "radiator_note": "Same as Moon: Convection Radiators DO NOT WORK (no atmosphere). Radiation Radiators are mandatory for any piped cooling, and they radiate slowly \u2014 oversize your radiator array from the start rather than retrofitting later.",
+    "cooling_note": null,
+    "heating_note": null,
+    "mining_note": "Standard ground-mining mechanics do not apply. Rely on the Asteroid start's pre-filled Ingots Crate, Rocket Crate, Liquid Oxygen tank, and Liquid Volatiles tank (confirmed via official patch notes) instead of a Day 1 mining run.",
+    "sources": [
+      "official patch notes v0.2.5025.22811 (Asteroids StartCondition)"
+    ]
+  },
+  "mimas": {
+    "display_name": "Mimas",
+    "hazard_profile": "Extremely low gravity, weak solar, no water ice",
+    "confirmed_conditions": "Tiny moon, very low gravity, distant from the sun (weak solar output). Water ice removed from spawn resources (patch-confirmed). Reduced coal.",
+    "atmosphere": "vacuum",
+    "temperature": "extreme, no atmospheric buffering",
+    "gravity": "extremely low",
+    "ice_available": false,
+    "is_baseline": false,
+    "priority_mod": "Insert \u201cNon-Solar Power\u201d into P1 \u2014 solar is documented as unreliable this far out; Mimas Brutal start is confirmed to include a Wind Turbine and swaps the Solar Power package for a Gas Power package for this reason. Since water ice isn't available, Hydration (Project 0.1) must route through a different source.",
+    "radiator_note": "Same vacuum constraint as Moon/Space: Convection Radiators do not work. Radiation Radiators are mandatory, and radiate slowly.",
+    "cooling_note": null,
+    "heating_note": null,
+    "mining_note": "No water ice available \u2014 skip that mining step entirely and plan an imported/synthesized water source. Coal is reduced compared to other worlds, so don't over-plan Steel production around it.",
+    "sources": [
+      "official patch notes v0.2.4966.22676",
+      "official patch notes v0.2.5025.22811",
+      "stationeers-wiki.com/Worlds"
+    ]
+  }
+}

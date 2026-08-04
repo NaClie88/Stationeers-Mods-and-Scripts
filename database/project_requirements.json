@@ -1,0 +1,36 @@
+{
+  "_schema_notes": "Maps project IDs (from the main guide's A1/B2/etc. scheme) to the recipe items (keyed to recipes.json) each one needs, plus a quantity where relevant. This is the join table a future guide generator uses: for a given project, look up its items here, then pull cost/power data from recipes.json to produce a total. Populate incrementally alongside recipes.json -- a project entry with an empty 'items' list just means nobody has linked it yet, not that it needs nothing.",
+
+  "A2": {
+    "display_name": "Night 1 Fabrication Sequence",
+    "items": [
+      {"item_id": "kit_autolathe", "qty": 1},
+      {"item_id": "kit_arc_furnace", "qty": 1},
+      {"item_id": "steel_ingot_first_batch", "qty": 1},
+      {"item_id": "kit_electronics_printer", "qty": 1}
+    ]
+  },
+  "C2": {
+    "display_name": "Fabrication Setup",
+    "items": [
+      {"item_id": "kit_electronics_printer", "qty": 1},
+      {"item_id": "kit_hydraulic_pipe_bender", "qty": 1}
+    ]
+  },
+  "G1": {
+    "display_name": "Thermal Regulation -- Minimum Viable",
+    "items": []
+  },
+  "G3": {
+    "display_name": "Cooling Subsystem (Full)",
+    "items": [
+      {"item_id": "medium_radiator", "qty": "varies -- see G3 checkpoints for sizing guidance"}
+    ]
+  },
+  "_unlinked_projects_todo": [
+    "A1", "A3", "A4", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9",
+    "C1", "D1", "D1b", "D2", "E1", "E2", "F1", "F2", "G2", "G4",
+    "H1", "H2", "H3", "I1", "I2", "J1", "J2", "K1", "L1", "L2",
+    "M1", "N1", "N2", "O1", "P1"
+  ]
+}

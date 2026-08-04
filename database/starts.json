@@ -1,0 +1,40 @@
+{
+  "normal": {
+    "display_name": "Normal (Standard Start)",
+    "description": "Full multi-crate lander. Difficulty settings (Easy/Normal/Stationeer) change consumption rates, respawn conditions, and whether you must open your helmet to eat/drink \u2014 they do NOT change crate contents.",
+    "shelter_needs_mining": false,
+    "mining_targets": [
+      {"item": "Iron Ore", "amount": "150g minimum", "reason": "matches documented first furnace batch"},
+      {"item": "Coal", "amount": "50g minimum", "reason": "3:1 iron:coal ratio for first furnace run"},
+      {"item": "Ice (Oxite)", "amount": "1-2 chunks (2 if cold)", "reason": "furnace fuel component"},
+      {"item": "Ice (Volatiles)", "amount": "2-4 chunks (4 if cold)", "reason": "furnace fuel component, burns hot"},
+      {"item": "Copper Ore", "amount": "50-100g (a stack or two)", "reason": "Iron age priority tier, heavy downstream use"},
+      {"item": "Silicon", "amount": "a stack or two", "reason": "glass sheets, later water filtration"},
+      {"item": "Gold Ore", "amount": "opportunistic, 1 stack if found", "reason": "Steel age tier \u2014 not worth a dedicated detour"},
+      {"item": "Ice (Water)", "amount": "per session length (~4 pieces/player/day)", "reason": "drinking water on top of 3 starting bottles"}
+    ],
+    "sources": ["stationeers-wiki.com/Starting_Gear", "stationeers-wiki.com/Guide_(Mining)"]
+  },
+  "brutal": {
+    "display_name": "Brutal (Minimal Start Condition)",
+    "description": "Single crate, confirmed via official patch notes as 'the bare minimum needed for survival.' Independent of difficulty slider \u2014 usually paired with Stationeer difficulty for the full hardcore experience. Exact itemized contents are not fully published; verify your crate's tooltip in-game.",
+    "shelter_needs_mining": true,
+    "confirmed_facts": [
+      "Single crate (vs Normal's 6+ crates)",
+      "Iron Frames ARE included (confirmed via community guide)",
+      "Door kits are NOT included by default (confirmed via forum report)",
+      "Active Vent removed, replaced with Power Controller (confirmed patch note)",
+      "Autolathe and Arc Furnace still present",
+      "World-specific supplements exist: Europa Brutal includes Wind Turbine; Vulcan/Venus Brutal include Oxygen tank + 12L Water canister"
+    ],
+    "mining_targets": [
+      {"item": "Iron Ore", "amount": "3 stacks (150g)", "reason": "frames/steel/foundation \u2014 you likely have zero spare frames"},
+      {"item": "Copper Ore", "amount": "2 stacks (100g)", "reason": "needed sooner, no crate spares to lean on"},
+      {"item": "Coal", "amount": "50g", "reason": "furnace fuel"},
+      {"item": "Gold Ore", "amount": "some, opportunistic", "reason": "Electronics Printer gating resource"},
+      {"item": "Silicon", "amount": "some", "reason": "glass sheets \u2014 no 50-sheet crate stock like Normal start"},
+      {"item": "Ice (Oxite + Volatiles)", "amount": "some of each", "reason": "furnace fuel, breathable-mix fallback"}
+    ],
+    "sources": ["official patch notes v0.2.5025.22811", "Steam guide 'Surviving Every Planet, Brutally' (ID 3394899504)"]
+  }
+}
