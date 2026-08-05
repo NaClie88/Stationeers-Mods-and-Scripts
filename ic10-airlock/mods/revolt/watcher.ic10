@@ -1,0 +1,104 @@
+# Watcher chip - Re-Volt Data Diode variant. HYPOTHESIS, unverified
+# in-game - see PARTS_DELTA.md "Simplification candidate" before
+# trusting this. Assumes a Data Diode is wired between this housing's
+# data network (input side) and Cycle's (output side), and that the
+# diode really does bridge device visibility across networks the way
+# its own commit description claims. If that assumption is wrong, use
+# the vanilla ic10-airlock/watcher.ic10 + two Logic Transmitters
+# instead - this file is not a drop-in fallback.
+#
+# Same Power Tier monitor + Button reader + zone-gate control as
+# vanilla. The one real change: no Logic Transmitter, no Mode write, no
+# packing Tier+buttons into one Setting value. Cycle now reads this
+# chip's Buttons and LED directly across the diode instead of receiving
+# a relayed value - see cycle.ic10 in this same folder.
+
+alias Battery d0
+alias LED d1
+alias Gate d2
+
+define BtnHash -1591419276
+define BtnEName HASH("AirlockBtnE")
+define BtnIName HASH("AirlockBtnI")
+define BtnCName HASH("AirlockBtnC")
+define WakeHold 20
+define ColorGreen 2
+define ColorYellow 5
+define ColorRed 4
+
+move r0 0
+move r7 0
+
+loop:
+l r1 Battery Charge
+l r2 Battery Maximum
+div r1 r1 r2
+mul r1 r1 100
+
+beq r0 0 fromNorm
+beq r0 1 fromLow
+j fromCrit
+
+fromNorm:
+bgt r1 90 stay
+move r0 1
+j stay
+
+fromLow:
+bge r1 93 up
+ble r1 10 down
+j stay
+up:
+move r0 0
+j stay
+down:
+move r0 2
+j stay
+
+fromCrit:
+bgt r1 13 riseCrit
+j stay
+riseCrit:
+move r0 1
+
+stay:
+s LED On 1
+beq r0 0 ledGreen
+beq r0 1 ledYellow
+s LED Color ColorRed
+j ledDone
+ledGreen:
+s LED Color ColorGreen
+j ledDone
+ledYellow:
+s LED Color ColorYellow
+ledDone:
+
+lbn r3 BtnHash BtnEName Activate 0
+lbn r4 BtnHash BtnIName Activate 0
+lbn r5 BtnHash BtnCName Activate 0
+
+move r6 0
+beq r0 0 forceHold
+beq r0 2 forceHold
+bnez r3 forceHold
+bnez r4 forceHold
+bnez r5 forceHold
+j checkHold
+forceHold:
+move r6 1
+checkHold:
+bnez r6 doHold
+bgtz r7 stillHeld
+s Gate On 0
+j endLoop
+stillHeld:
+sub r7 r7 1
+j gateOn
+doHold:
+move r7 WakeHold
+gateOn:
+s Gate On 1
+endLoop:
+yield
+j loop

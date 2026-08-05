@@ -19,13 +19,24 @@ the resource database.
 - **`PARTS_DELTA.md`** — every vanilla part this build uses, checked
   against Re-Volt's feature set: confirmed-unaffected, optional upgrade,
   or needs in-game verification before you trust it. Start here.
-- **Forked scripts** (`watcher.ic10`, `cycle.ic10`, `gas_sensor.ic10`) —
-  not present yet. Added here only if in-game verification under
-  Re-Volt shows the vanilla script actually breaks (e.g. a LogicType the
-  script reads doesn't exist on whatever device ends up wired to that
-  pin) — see the status table in `PARTS_DELTA.md`. Until then, the
-  vanilla scripts in `ic10-airlock/*.ic10` are used unmodified; nothing
-  is confirmed broken yet, just unconfirmed.
+- **`watcher.ic10`, `cycle.ic10`** — a **hypothesis fork**, not a
+  confirmed-working replacement. Drops the vanilla Logic Transmitter
+  Active/Passive relay pair in favor of a Data Diode, on the assumption
+  that the diode really does bridge device visibility across the two
+  networks (Cycle reads Watcher's Buttons and LED directly instead of
+  receiving a relayed value) — see PARTS_DELTA.md's "Simplification
+  candidate" section for the reasoning and what's still unconfirmed.
+  **Do not build against these until that assumption is checked
+  in-game** — if it's wrong, use the vanilla scripts + two Logic
+  Transmitters instead, this pair is not a safe fallback.
+  Note: dropping the relay didn't shrink the code much (Watcher: 79
+  lines vs. vanilla's 88; Cycle: actually grew to 112 vs. vanilla's 104,
+  since reconstructing Tier from the LED's color costs more lines than
+  the old div/mod unpack did) — the real payoff is fewer physical parts
+  and no manual pairing step, not simpler code.
+- **`gas_sensor.ic10`** — not forked. The vanilla version in
+  `ic10-airlock/` never touches the Transmitter/Receiver pair, so it's
+  unaffected by any of this and used as-is.
 
 ## Status
 

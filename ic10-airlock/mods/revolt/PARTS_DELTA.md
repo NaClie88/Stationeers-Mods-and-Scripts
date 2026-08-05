@@ -62,10 +62,31 @@ a Data Diode needs a physical data cable run between the two housings.
 Pair this with a Cable Tray run (below) so it doesn't add its own
 separate cable path across the build.
 
-**Not yet forked into a script.** Once the network-bridging behavior is
-confirmed in-game, fork `watcher.ic10`/`cycle.ic10` into this folder
-with the packing scheme removed (or kept, if verification shows it's
-still needed) — don't touch the vanilla scripts in `ic10-airlock/`.
+**Forked, as a hypothesis** — `watcher.ic10` and `cycle.ic10` in this
+folder drop the Transmitter pair on the assumption above. Cycle reads
+Watcher's Buttons directly by name (same `BtnHash`/name constants
+Watcher itself uses) and reads Watcher's LED `Color` directly for Tier
+instead of unpacking a relayed value. **`LEDHash` in `cycle.ic10` is a
+fresh, unconfirmed type-hash** — same standard as `BtnHash`, verify
+against Stationpedia before trusting it; if it's wrong, Cycle silently
+sees nothing (batch-read semantics, no error) and Tier defaults to
+Critical, which would leave the airlock permanently locked down — check
+this one early, not last.
+
+Dropping the relay didn't meaningfully shrink the code, for what it's
+worth: Watcher goes from 88 to 79 lines (loses the Transmitter alias,
+`Mode` write, and packing block), but Cycle actually grows from 104 to
+112 (reconstructing Tier from a color comparison costs more lines than
+the old div/mod unpack). Both are still well inside the 128-line limit
+either way — the actual payoff of this swap is fewer physical parts and
+no manual pairing step, not simpler code.
+
+**Do not build against these forked scripts until the Data Diode's
+network-bridging is confirmed in-game** — if it turns out to only relay
+a single value rather than bridging visibility, these scripts don't
+work and the vanilla `ic10-airlock/watcher.ic10` +
+`ic10-airlock/cycle.ic10` + two Logic Transmitters remains the correct
+build even under Re-Volt.
 
 ## Cable Tray: smaller footprint, not just fewer cable objects
 
