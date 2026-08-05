@@ -512,6 +512,39 @@ weak direction" as previously hedged. Still worth confirming timing
 in-game, but there's no longer a physics reason to expect it to be
 slow.
 
+**The actual worst case, per project owner (2026-08-05), isn't "slow"
+— it's "never."** The stall vanilla's Skip/"Cancel Pressurize" button
+mostly exists for in practice is the pipe network sitting at true
+vacuum (nothing in it at all) while a pressurize target asks for more
+than zero. That's not a resistant-but-eventually-completing case, it's
+a target that can never be met no matter how long the vent runs —
+which is why players end up hitting Cancel and manually lowering their
+target pressure on the fly, rather than just waiting it out.
+
+**Why this doesn't normally cripple a small airlock:** a 1-2 grid
+chamber's volume is small enough that even the game's default vent
+flow rate can pump it down (or, once the network has *something* in
+it, up) within a reasonable time — the true zero-supply dead-end above
+is what actually bites, not raw slowness at this scale. **Once
+chamber volume grows past that (2-grid+), the flow rate stops being
+enough** — this is the real reason larger airlocks graduate to
+powered Active Vents instead of relying on default flow to move the
+larger gas volume in reasonable time. That's directly relevant here:
+one of the project owner's planned 2-grid airlock builds is going to
+be an actual test case for this mod, so the flow-rate assumptions
+above get real in-game validation, not just inference.
+
+**Connects back to the inline-tank risk above:** the zero-supply
+dead-end has a mirror case on the evacuate side. If the inline tank's
+pressure ever reaches or exceeds whatever's left in the chamber, there
+is no differential left to drive flow at all — not just slow, but
+stopped, the same category of failure as a vacuum network on the
+pressurize side. That's the concrete reason `ExtendVentRelief` draining
+the tank back toward its source room between cycles isn't just a
+nice-to-have — a tank that's allowed to sit chronically full is what
+would actually produce this dead-end during a future Critical-tier
+`ForceEvacuate()`, not merely a slower one.
+
 ## Considered and declined: Smart Breaker diagnostics
 
 Raised as a brainstorm idea, not built — worth recording why rather
