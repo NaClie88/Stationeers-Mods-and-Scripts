@@ -68,6 +68,18 @@ CREDITS/SOURCES file without hunting back through chat history.
   (Re-Volt mod feature list: Circuit Breakers, Cable Tray, Load Centers, Modular Batteries)
 - Steam Workshop, Re-Volt — https://steamcommunity.com/sharedfiles/filedetails/?id=3587239682
 
+### Re-Volt device implementation status (2026-08-05, for `ic10-airlock/mods/revolt/`)
+- Raw README, https://raw.githubusercontent.com/Sukasa/ReVolt/main/README.md
+  (Features vs. Future Content split — confirms Modular Battery split and per-battery charge/discharge-rate limits are still "Future Content," not shipped, as of this fetch. Also confirms the README itself is stale: Cable Tray, Load Center, Optoisolator, and Data Diode are shipped per the commit log but appear in neither list.)
+- GitHub commit c03324d, "Add optoisolator and data diode" (2026-07-05) — https://github.com/Sukasa/ReVolt/commit/c03324db03fa14d87521e38339c94a7077d2da53
+  (Optoisolator: "transfer data signals between up to four networks, bidirectionally," cannot chain through a second optoisolator. Data Diode: "the output network to see all data devices on the input network, but not vice-versa" — one-way, network-bridging.)
+- GitHub commit 474861f, cable tray junction fix (2026-07-29) — https://github.com/Sukasa/ReVolt/commit/474861f894e2b1721af1842f2cba41a0855edffd
+  (Localization string: "A Cable Tray junction box, connecting up to 6 directions... connected cables with a matching capacity and colour will be tied together.")
+- GitHub commit 5ab21b8, smart breaker data-port fix (2026-07-11) — confirms Circuit Breaker (incl. Smart variant with a data port) is implemented, not just planned
+- GitHub commits 18d5044 and eb4398c, load center stationpedia/logic patches (2026-07-04) — confirms Load Center is implemented with logic functions, exact LogicType not yet confirmed
+- Commit-history search for `battery`/`modular`/`charger`/`bank`/`inverter` (2026-08-05) — zero matches, supporting the README's "Future Content" placement of Modular Batteries
+- **Caveat:** the commit contents above were retrieved through an AI-summarizing fetch tool, not a direct diff read — treat the quoted strings as high-confidence, not byte-verified. See `ic10-airlock/mods/revolt/PARTS_DELTA.md` for the full analysis this feeds into.
+
 ## Steam Workshop scripts referenced (for cycling logic patterns, not directly quoted)
 - "Emergency Bulkhead Lockdown" — https://steamcommunity.com/sharedfiles/filedetails/?id=2258102536
 - "Airlock Control" — https://steamcommunity.com/sharedfiles/filedetails/?id=1524868713

@@ -22,49 +22,60 @@
         "path": "ic10-airlock/",
         "variant_path": "ic10-airlock/mods/revolt/",
         "status": "unverified",
-        "note": "Standalone build, not part of the lettered guide/recipes.json chain. Vanilla files in ic10-airlock/ are never edited for this mod -- Re-Volt-specific parts/wiring deltas live entirely under variant_path, see PARTS_DELTA.md there for the open questions (dedicated-battery swap mechanic, Charge/Maximum LogicType location)."
+        "note": "Standalone build, not part of the lettered guide/recipes.json chain. Vanilla files in ic10-airlock/ are never edited for this mod -- Re-Volt-specific parts/wiring deltas live entirely under variant_path. As of 2026-08-05: Data Diode is flagged as a likely replacement for the two-Logic-Transmitter Active/Passive pair (fewer parts, removes the manual pairing step), and Cable Tray as a footprint reducer for the build's spillover wiring. The dedicated-battery swap-mechanic risk is downgraded to not-currently-applicable since Modular Battery hasn't shipped yet -- see PARTS_DELTA.md for full detail and re-check status."
       }
     ],
+    "_implementation_status_notes": "Added 2026-08-05, sourced from the mod's raw README (Features vs. Future Content) plus a commit-log search -- see SOURCES.md 'Re-Volt device implementation status' section for citations. The README undercounts what's actually shipped (Cable Tray/Load Center/Optoisolator/Data Diode are live in the commit log but listed in neither its Features nor Future Content section), so 'shipped' below is commit-log-confirmed, not README-confirmed. Re-check before relying on 'not yet shipped' after any time has passed -- this mod is under active development.",
     "new_devices": [
       {
         "name": "Circuit Breaker (Small)",
-        "function": "Resettable time-delay fuse -- trips instead of burning out, can be reset rather than replaced"
+        "function": "Resettable time-delay fuse -- trips instead of burning out, can be reset rather than replaced",
+        "implementation_status": "shipped -- confirmed via commit 5ab21b8 (2026-07-11, smart breaker data-port fix)"
       },
       {
         "name": "Circuit Breaker (Large)",
-        "function": "Same as Small, higher current rating"
+        "function": "Same as Small, higher current rating",
+        "implementation_status": "shipped -- see Circuit Breaker (Small)"
       },
       {
         "name": "Circuit Breaker (Smart)",
-        "function": "Same resettable trip behavior, adjustable/loggable trip points"
+        "function": "Same resettable trip behavior, adjustable/loggable trip points",
+        "implementation_status": "shipped -- confirmed via commit 5ab21b8, which fixes a data-port bug, confirming it exposes logic data"
       },
       {
         "name": "Cable Tray",
-        "function": "Routes many cables through one structure instead of separate runs -- cables must match color and watt limit to share a tray. Reduces object count and space for complex wiring."
+        "function": "Routes many cables through one structure instead of separate runs -- cables must match color and watt limit to share a tray. Reduces object count and space for complex wiring, and lets power and data runs share the same physical path instead of needing separate routes (see ic10-airlock/mods/revolt/PARTS_DELTA.md for a worked example against the airlock build's footprint).",
+        "implementation_status": "shipped -- confirmed via commit 474861f (2026-07-29, junction fix); not mentioned in the README at all"
       },
       {
         "name": "Load Center",
-        "function": "Controls entire sets of devices (lights, atmospherics, doors, equipment, logic devices) as one group, without needing a separate power network per group"
+        "function": "Controls entire sets of devices (lights, atmospherics, doors, equipment, logic devices) as one group, without needing a separate power network per group",
+        "implementation_status": "shipped -- confirmed via commits 18d5044 and eb4398c (both 2026-07-04, stationpedia/logic patches); not mentioned in the README at all"
       },
       {
         "name": "Optoisolator",
-        "function": "4-network bidirectional data link that keeps power isolated between the connected networks"
+        "function": "4-network bidirectional data link that keeps power isolated between the connected networks",
+        "implementation_status": "shipped -- confirmed via commit c03324d (2026-07-05); not mentioned in the README at all"
       },
       {
         "name": "Data Diode",
-        "function": "2-network one-way data link, power isolated"
+        "function": "2-network one-way data link, power isolated. Per commit c03324d: \"the output network to see all data devices on the input network, but not vice-versa\" -- implies it bridges device visibility across the two networks, not just relaying a single value.",
+        "implementation_status": "shipped -- confirmed via commit c03324d (2026-07-05); not mentioned in the README at all"
       },
       {
         "name": "Modular Battery -- Charger",
-        "function": "Splits the old single-battery role: Charger governs how generators feed into storage (generators should connect here, not directly to a Battery Bank)"
+        "function": "Splits the old single-battery role: Charger governs how generators feed into storage (generators should connect here, not directly to a Battery Bank)",
+        "implementation_status": "NOT yet shipped -- listed under the README's \"Future Content,\" and a commit-log search for battery/modular/charger/bank/inverter returned zero matches (checked 2026-08-05)"
       },
       {
         "name": "Modular Battery -- Battery Bank",
-        "function": "The storage component of the modular battery split -- has its own charge/discharge-rate limit, may need paralleling for high loads"
+        "function": "The storage component of the modular battery split -- has its own charge/discharge-rate limit, may need paralleling for high loads",
+        "implementation_status": "NOT yet shipped -- see Modular Battery -- Charger"
       },
       {
         "name": "Modular Battery -- Inverter",
-        "function": "The output component of the modular battery split -- AC/DC power concepts introduced"
+        "function": "The output component of the modular battery split -- AC/DC power concepts introduced",
+        "implementation_status": "NOT yet shipped -- see Modular Battery -- Charger"
       }
     ],
     "enabled_goals": [
