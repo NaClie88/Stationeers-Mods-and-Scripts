@@ -102,12 +102,17 @@ notes only, not part of the item name.
 
 IC Housing pins, 4 of 6 used:
 
-| Pin | Device |
-|---|---|
-| `d0` | dedicated Power Controller (the one inside the chamber) |
-| `d1` | the shared Light |
-| `d2` | the zone-gate Power Controller |
-| `d3` | Logic Transmitter |
+- **`d0`**
+  Dedicated Power Controller (the one inside the chamber).
+
+- **`d1`**
+  The shared Light.
+
+- **`d2`**
+  The zone-gate Power Controller.
+
+- **`d3`**
+  Logic Transmitter.
 
 Nothing else connects to this housing — the three Buttons are read by
 name over the network (see step 6), not pin-wired. Load `Watcher` from
@@ -118,14 +123,24 @@ the same always-on circuit as the dedicated Power Controller itself.
 
 IC Housing pins, **all 6 used**:
 
-| Pin | Device |
-|---|---|
-| `d0` | the shared Light (same physical Light as Watcher — wire it to both housings) |
-| `d1` | exterior Portal |
-| `d2` | interior Portal |
-| `d3` | Active Vent |
-| `d4` | Logic Receiver |
-| `d5` | the chamber Gas Sensor |
+- **`d0`**
+  The shared Light — same physical Light as Watcher, wire it to both
+  housings.
+
+- **`d1`**
+  Exterior Portal.
+
+- **`d2`**
+  Interior Portal.
+
+- **`d3`**
+  Active Vent.
+
+- **`d4`**
+  Logic Receiver.
+
+- **`d5`**
+  The chamber Gas Sensor.
 
 Load `Cycle` from the prototype doc. **This entire housing, along with
 both Portals and the Vent, sits on the zone-gate Power Controller's
@@ -139,10 +154,11 @@ it simply doesn't run at all while idle.
 Only build this if you installed the two exterior/interior-facing Gas
 Sensors (not the chamber one from step 4, which belongs to Cycle).
 
-| Pin | Device |
-|---|---|
-| `d0` | exterior-facing Gas Sensor |
-| `d1` | interior-facing Gas Sensor |
+- **`d0`**
+  Exterior-facing Gas Sensor.
+
+- **`d1`**
+  Interior-facing Gas Sensor.
 
 Load the Gas Sensor chip from the prototype doc. If you skip this chip
 entirely, Cycle still works — it just never enters the Propped-Open
