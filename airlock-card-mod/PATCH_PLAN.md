@@ -64,6 +64,14 @@ Each `IAirlockHost` member below needs one real answer.
   equivalent (see `GAP_ANALYSIS.md`) — this will likely need its own
   new field/method entirely, fed by two Gas Sensor references the way
   `gas_sensor.ic10` does it, not a hook into anything existing.
+- **`AllowPowerDownWhilePropped`** — not a device read at all, a setup
+  toggle (project owner, 2026-08-05). No decompiler work needed —
+  needs an actual settings surface for the end user to opt in (a new
+  Console setting field, most likely, following whatever pattern
+  vanilla's own Interior/Exterior #Pa settings already use). Off by
+  default; correctness of `FailsafeController` doesn't depend on this
+  existing at all for Milestone 2 — safe to stub as always-`false`
+  until a settings UI is worth building.
 - **`ForceEvacuateAndUnlock()`** — the important one. Find whatever
   method vanilla's own Critical-adjacent logic (if any exists) or its
   normal evacuate-cycle method looks like, so this can call *into* it
@@ -148,6 +156,63 @@ Two things needed from Milestone 1.5 beyond the above:
    `GAP_ANALYSIS.md` says it should, for everything except the new
    Critical-tier override.
 
+## Throttling how often the patch actually runs
+
+Project owner's request: don't run `UpdateTier()`/`ApplyTierEffects()`
+on every single game tick if the game runs many ticks per second — a
+quarter-second response delay is completely unnoticeable to a player,
+and skipping most invocations is real, measurable savings if the
+per-tick update method this patches into runs at high frequency.
+
+**Important correction on the mechanism, though: this should be a
+skip-counter, not a "wait statement."** A literal blocking wait
+(`Thread.Sleep` or similar) inside a Harmony `Postfix` would run on
+Unity's main thread — the same thread the whole game simulation and
+rendering run on — and would stall the entire game for that duration,
+every time it fired. That's the opposite of the intended effect: real
+lag, not saved processing. The correct approach is non-blocking:
+count invocations and only run the real logic every Nth one, skipping
+the rest for free.
+
+```csharp
+private static int ticksSinceLastCheck = 0;
+private const int TicksPerCheck = /* TBD, see below */;
+
+private static void Postfix(/* real class */ __instance)
+{
+    if (++ticksSinceLastCheck < TicksPerCheck) return;
+    ticksSinceLastCheck = 0;
+
+    var controller = GetOrCreateController(__instance);
+    controller.UpdateTier();
+    controller.ApplyTierEffects();
+}
+```
+
+**`TicksPerCheck` needs Stationeers' actual simulation tick rate to set
+correctly** — not found/confirmed anywhere in this project yet. Once
+known, pick `TicksPerCheck` so `TicksPerCheck / tick_rate` ≈ the target
+delay (a quarter second, per the request above).
+
+**This has a real knock-on effect that has to be handled, not just a
+detail:** `FailsafeController`'s `WakeHoldTicks` constant (currently
+20) represents 20 *invocations*, which the IC10 build's own comments
+already flag as "an unvalidated starting guess" at IC10's native
+per-tick cadence. If this patch only invokes `ApplyTierEffects()` every
+`TicksPerCheck` game ticks instead of every one, 20 invocations now
+spans `20 * TicksPerCheck` real game ticks — a much longer real-world
+hold than originally intended, growing directly with whatever
+`TicksPerCheck` ends up being. **Recalibrate `WakeHoldTicks` once both
+numbers are known**, so the actual held-open duration stays the
+in-game-verifiable duration the IC10 build already targets, not an
+accidental multiple of it.
+
+Tier-threshold responsiveness (the 90/93/10/13 charge percentages)
+isn't a concern at a quarter-second check interval — charge doesn't
+meaningfully change that fast, so throttling `UpdateTier()` the same
+way as `ApplyTierEffects()` should be safe. Worth a sanity check once
+this is actually running, not just assumed.
+
 ## Once these are known
 
 Write a class like:
@@ -160,7 +225,8 @@ internal static class AdvancedAirlockFailsafePatch
     // ConditionalWeakTable keyed on the patched instance is the usual
     // Harmony pattern for "attach new per-instance state to an
     // existing class," but confirm this project's chosen approach
-    // once real types are known.
+    // once real types are known. Combine with the throttling counter
+    // above -- both belong in this same Postfix.
     private static void Postfix(/* real class */ __instance)
     {
         var controller = GetOrCreateController(__instance);

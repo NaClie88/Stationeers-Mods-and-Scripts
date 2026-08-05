@@ -79,6 +79,12 @@ inherit for free by patching instead of replacing.
    deliberately not part of the IC10 build's core wake path either
    (see "Graceful degradation" below for why) — a genuinely new
    optional extra, not a port of anything.
+7. **Opt-in power-down while propped open (`AllowPowerDownWhilePropped`)**
+   — not in the IC10 build at all, and not vanilla either: lets Deep
+   Idle engage even during a genuine atmosphere match, provided the
+   three Gas Sensors keep monitoring from the always-on circuit and a
+   mismatch forces an immediate wake. Off by default. Genuinely new,
+   see "Graceful degradation" below.
 
 ## Reusing vanilla's Skip instead of custom Button C hardware
 
@@ -299,6 +305,13 @@ first).
 - **No Presence/Motion Sensor.** `PresenceDetected` defaults false — no
   auto-cycling, Console UI and/or hardware buttons work exactly as
   before, nothing else changes.
+- **`AllowPowerDownWhilePropped` left off (the default).** No behavior
+  change at all from everything else already described — Propped-Open
+  keeps forcing power on for as long as the match holds, same as
+  before this setting existed. Turning it on is an explicit,
+  deliberate choice with its own placement requirement (see
+  `STATE_TABLE.md`'s "New" callout on the Low tier) — never something
+  a host silently opts into.
 - **No dedicated Power Controller at all.** `DedicatedBatteryChargeRatio`
   should default to 100 (always Normal), not 0 — a host with nothing
   to monitor should behave like vanilla with no fail-safe layer, not

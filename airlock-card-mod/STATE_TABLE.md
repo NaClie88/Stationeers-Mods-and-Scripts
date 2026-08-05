@@ -2,10 +2,8 @@
 
 Every state `ApplyTierEffects()` can actually produce, laid out for
 review. Traced directly from `src/FailsafeController.cs` as it stands
-today. Two open questions from the first pass of this table: Propped-
-Open's tier scope is now resolved and implemented; Button C's exact
-interaction with Critical's forced evacuation is still open — see the
-changelog at the bottom.
+today. All open questions from earlier passes of this table are now
+resolved — see the changelog at the bottom for what changed and when.
 
 ## Tier: Normal
 
@@ -29,9 +27,9 @@ see changelog), then, only if both hold, on
 |---|---|---|---|---|---|
 | `false` | — | — | — | **On, continuously** | Called if matched — power's already on regardless. |
 | — | `false` | — | — | **On, continuously** | Called if matched — power's already on regardless. No APC found to switch, so there's nothing to idle even if buttons exist. |
-| `true` | `true` | `true` | — | On, `wakeHoldRemaining` reset to 20 | Called if matched. If the *only* reason `wakeRequested` is true is a match (no button/click/presence), this is what's actually keeping the circuit awake. |
+| `true` | `true` | `true` | — | On, `wakeHoldRemaining` reset to 20 | Called if matched. If the *only* reason `wakeRequested` is true is a match (no button/click/presence), this is what's actually keeping the circuit awake — unless `AllowPowerDownWhilePropped` is enabled, see below. |
 | `true` | `true` | `false` | `> 0` | On (coasting on the hold timer), decrements by 1 | Called if matched (power's still on from the countdown). |
-| `true` | `true` | `false` | `0` | **Off** — Deep Idle | Not called — no atmosphere match to check even matters, since `PropAtmosphereMatched` being true would have kept `wakeRequested` true and prevented reaching this row at all. |
+| `true` | `true` | `false` | `0` | **Off** — Deep Idle | Not called by default — a steady match would normally have kept `wakeRequested` true and prevented reaching this row. **Reachable on purpose if `AllowPowerDownWhilePropped` is enabled** — see below. |
 
 **Resolved (2026-08-05):** whether Propped-Open applies beyond Normal
 tier now falls entirely out of where the Gas Sensors are physically
@@ -50,6 +48,21 @@ wired, not a Tier check:
   all in the first place — see the no-buttons row above, where power's
   unconditionally on regardless.
 
+**New (2026-08-05): `AllowPowerDownWhilePropped` lets the last row
+above be reached even while genuinely matched.** Setup-time choice
+(`IAirlockHost.AllowPowerDownWhilePropped`), not a live sensor read —
+off by default. When enabled, a *steady* match no longer forces power
+on by itself, on the assumption that a door doesn't need continuous
+power just to stay in position (still unconfirmed, see "Transition
+notes" below) and all three Gas Sensors are wired to the always-on
+circuit so monitoring continues regardless. Critically, this doesn't
+turn off monitoring — a match breaking (`mismatchJustAppeared` in the
+code) still forces an immediate wake even with this enabled, tracked
+via a one-tick-lookback flag (`wasIdlingWhileProppedOpen`) so an
+ordinary not-matched tick elsewhere in the game is never mistaken for
+"the propped state just broke." Doors get closed/managed normally once
+that wake happens, same as any other Low-tier wake.
+
 ## Tier: Critical
 
 Downstream power is always forced on — has to be, to run the
@@ -61,19 +74,28 @@ full stop.** That part of the question is fully closed.
 | `ButtonCHeld` | Result |
 |---|---|
 | `false` | `ForceEvacuateAndUnlock()` runs: close both doors → evacuate to `TargetExt` → unlock both doors once chamber sensor confirms. If the doors were propped open coming into this tier, this explicitly closes them as its first action. |
-| `true` | `ForceEvacuateAndUnlock()` is **skipped** — nothing acts on the doors this tick, they're left exactly as they physically were. **Still open — see below.** |
+| `true` | `ForceEvacuateAndUnlock()` is **skipped** — nothing acts on the doors this tick, they're left exactly as they physically were. |
 
-**Still open: does `ButtonCHeld == true` skip the evacuation
-unconditionally, the way the original IC10 design does, or should it
-now always run regardless of Button C?** Your answer to "propped-open
-must not persist into Critical" is fully satisfied either way — that
-part never depended on Button C. What's still unresolved is whether
-your answer was also meant to touch Button C's own skip behavior, which
-exists in the original design specifically so someone trapped inside
-during a real Critical event can cancel the automatic venting rather
-than have it run while they're standing in the chamber. Asked
-separately in chat rather than guessed at here, since it's safety-
-critical and changes previously-tested, documented behavior either way.
+**Resolved (2026-08-05).** `ButtonCHeld`'s row above stays exactly as
+coded — unconditional skip when held, unchanged from the original IC10
+design's tested behavior. Nothing about the propped-open answer ever
+required changing it; that question was fully independent, as noted
+above.
+
+What actually resolves the ambiguity: this code path is now expected to
+be the **fallback**, not the primary mechanism. Since the Console sits
+inside the chamber by default (`GAP_ANALYSIS.md`, "Reusing vanilla's
+Skip instead of custom Button C hardware"), a trapped player likely
+never needs `ButtonCHeld` at all — they use vanilla's own Skip button
+at the Console that's already there, and (pending Milestone 1.5)
+`ForceEvacuateAndUnlock()` calling into vanilla's own evacuate method
+means that Skip affordance comes along for free, no `ButtonCHeld` check
+in the loop at that point. `ButtonCHeld` remains on `IAirlockHost`
+purely for anyone who builds the optional physical button anyway, in
+which case it should behave exactly like the original design — which
+is what's already implemented. No code change was needed here; the
+open question was really "which path is primary," not "what should the
+skip behavior be," and that's now answered.
 
 ## Transition notes
 
@@ -118,9 +140,7 @@ critical and changes previously-tested, documented behavior either way.
   Low-tier wake condition rather than gated by a Tier check, so it now
   naturally extends into Low tier when (and only when) the end user's
   Gas Sensor wiring choice makes that possible. Never applies in
-  Critical, unconditionally, confirmed. Button C's exact interaction
-  with Critical's forced evacuation remains open — asked directly in
-  chat.
+  Critical, unconditionally, confirmed.
 - **2026-08-05:** Added `HasDownstreamController` — Deep Idle now
   requires both a confirmed-safe wake mechanism (`HasWakeButtons`) and
   something to actually switch (`HasDownstreamController`), gated
@@ -128,3 +148,18 @@ critical and changes previously-tested, documented behavior either way.
   its logic on its power-source side, not downstream — meaning the
   card has to actually confirm one is present and controllable rather
   than assume it.
+- **2026-08-05:** Button C's interaction with Critical resolved. No
+  code change — `ButtonCHeld`'s unconditional skip stays exactly as
+  coded, unchanged from the original IC10 design. What resolved the
+  ambiguity was recognizing this path is now the *fallback*: with the
+  Console inside the chamber by default, vanilla's own Skip button
+  likely covers the trapped-player case without `ButtonCHeld` ever
+  entering into it — see `GAP_ANALYSIS.md`'s "Reusing vanilla's Skip
+  instead of custom Button C hardware."
+- **2026-08-05:** Added `AllowPowerDownWhilePropped` — opt-in,
+  off by default, lets Deep Idle engage even with a genuine atmosphere
+  match, provided all three Gas Sensors are wired to the always-on
+  circuit. A mismatch that breaks a prior propped-and-idling state
+  still forces an immediate wake regardless of the setting, tracked via
+  `wasIdlingWhileProppedOpen` — monitoring never actually turns off,
+  only the "stay awake just because it's still matched" behavior does.

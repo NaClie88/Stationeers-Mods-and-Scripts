@@ -147,6 +147,28 @@ namespace AirlockCardMod
         // skipping the Gas Sensor chip in the IC10 build.
         bool PropAtmosphereMatched { get; }
 
+        // Setup-time choice, not a live sensor read (project owner,
+        // 2026-08-05): if true, a genuine atmosphere match by itself no
+        // longer forces downstream power on in Low tier -- the doors
+        // and Vent circuit is allowed to idle down even while propped
+        // open, on the assumption that (a) a door doesn't need
+        // continuous power just to stay in whatever position it's
+        // already in, only to move, and (b) all three Gas Sensors (the
+        // chamber one plus the exterior/interior-facing Propped-Open
+        // pair) are wired to the always-on circuit so they keep
+        // reading regardless. Point (a) is the same open question
+        // flagged in STATE_TABLE.md's transition notes -- still
+        // unconfirmed, Milestone 1.5/in-game territory, so this is an
+        // opt-in, not the default (false).
+        //
+        // Doesn't disable monitoring -- see the mismatch-while-idle
+        // handling in ApplyTierEffects: a match going false while this
+        // is enabled still forces a wake, so a real leak or reopened
+        // mismatch still gets caught and acted on. What this setting
+        // skips is re-affirming power for a *steady, unchanging* match,
+        // not surveillance of the chamber generally.
+        bool AllowPowerDownWhilePropped { get; }
+
         // Commands into whatever vanilla's own cycling logic exposes.
         // These are NOT reimplementations of vent/door control --
         // they're expected to call into the same code path vanilla's
@@ -187,6 +209,16 @@ namespace AirlockCardMod
 
         private readonly IAirlockHost host;
         private int wakeHoldRemaining;
+
+        // Tracks whether the *previous* tick was relying on
+        // AllowPowerDownWhilePropped to skip forcing power on (i.e.
+        // matched, saving-mode on, power possibly idle). Needed so a
+        // later mismatch can be recognized as "the propped state just
+        // broke" and force a wake, without treating every ordinary
+        // not-matched tick (the ordinary majority case, propped-open
+        // aside entirely) as a wake reason -- that would defeat Deep
+        // Idle for everyone, not just people using this option.
+        private bool wasIdlingWhileProppedOpen;
 
         public FailsafeController(IAirlockHost host)
         {
@@ -250,10 +282,19 @@ namespace AirlockCardMod
             //     the doors held open across Low tier the way buttons
             //     do. This is the intended behavior for that wiring
             //     choice, not a gap.
+            // AllowPowerDownWhilePropped only removes a STEADY match as
+            // a wake reason -- a match that just broke (mismatchJustAppeared)
+            // still forces a wake regardless of the setting, so a real
+            // leak or reopened mismatch always gets caught. See
+            // AllowPowerDownWhilePropped's doc comment above and
+            // wasIdlingWhileProppedOpen's doc comment on the field.
+            bool matchForcesWake = host.PropAtmosphereMatched && !host.AllowPowerDownWhilePropped;
+            bool mismatchJustAppeared = wasIdlingWhileProppedOpen && !host.PropAtmosphereMatched;
+
             bool wakeRequested =
                 host.ButtonEHeld || host.ButtonIHeld || host.ButtonCHeld ||
                 host.VanillaCycleRequested || host.PresenceDetected ||
-                host.PropAtmosphereMatched;
+                matchForcesWake || mismatchJustAppeared;
 
             switch (CurrentTier)
             {
@@ -264,6 +305,7 @@ namespace AirlockCardMod
                     // run the Vent and unlock the doors regardless of
                     // whether anyone's there to press anything.
                     UpdateDownstreamPower(forceOn: true);
+                    wasIdlingWhileProppedOpen = false; // doors are being closed, tracking no longer applies
 
                     // cycle.ic10: "bnez r8 endLoop" -- Button C held
                     // skips the forced evacuation this tick, matching
@@ -283,6 +325,7 @@ namespace AirlockCardMod
                     // *not* Deep Idle behavior, and shouldn't idle
                     // off"). Only Low tier below actually idles down.
                     UpdateDownstreamPower(forceOn: true);
+                    wasIdlingWhileProppedOpen = false; // power's unconditionally on in Normal, not idling
 
                     // Diverges from cycle.ic10 here (2026-08-05 design
                     // pass, project owner decision): the original
@@ -307,6 +350,7 @@ namespace AirlockCardMod
                     if (!host.HasWakeButtons || !host.HasDownstreamController)
                     {
                         UpdateDownstreamPower(forceOn: true);
+                        wasIdlingWhileProppedOpen = false; // not actually idle-capable, so not "idling while propped" either
                         if (host.PropAtmosphereMatched) host.HoldBothDoorsOpen();
                         break;
                     }
@@ -316,12 +360,22 @@ namespace AirlockCardMod
                     // the WakeHold countdown, otherwise it ticks down
                     // and cuts downstream power once it reaches zero.
                     // This is the actual Deep Idle power saving.
-                    // wakeRequested already folds in PropAtmosphereMatched
-                    // (see its comment above), so a genuine atmosphere
-                    // match keeps this branch awake on its own -- no
+                    // wakeRequested already folds in matchForcesWake and
+                    // mismatchJustAppeared (see their comments above),
+                    // so a genuine atmosphere match (or a mismatch that
+                    // just broke a prior AllowPowerDownWhilePropped
+                    // state) keeps this branch awake on its own -- no
                     // separate condition needed here.
                     UpdateDownstreamPower(forceOn: wakeRequested);
                     if (host.PropAtmosphereMatched) host.HoldBothDoorsOpen();
+
+                    // Recorded AFTER acting on PropAtmosphereMatched this
+                    // tick, so next tick's mismatchJustAppeared check
+                    // compares against what was actually true here, not
+                    // a stale value from before this tick's HoldBothDoorsOpen
+                    // call.
+                    wasIdlingWhileProppedOpen =
+                        host.PropAtmosphereMatched && host.AllowPowerDownWhilePropped;
                     break;
             }
         }
