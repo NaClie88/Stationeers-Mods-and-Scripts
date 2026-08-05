@@ -46,12 +46,17 @@ inherit for free by patching instead of replacing.
    mechanical fact about the door), not an active monitored response
    with staged behavior. This is `watcher.ic10`'s entire job, and it's
    wholly new.
-2. **The chamber-interior Button C override** — someone caught inside
-   during a forced Critical-tier evacuation can hold Button C to skip
-   it. This is the specific, motivating problem this whole project was
-   built to solve (see `SOURCES.md`: the Steam Community "Unlock (not
-   open) airlock door when the power is cut" discussion, which
-   confirms vanilla has no native answer to this at all). Wholly new.
+2. **The chamber-interior override** — someone caught inside during a
+   forced Critical-tier evacuation needs a way to skip it. This is the
+   specific, motivating problem this whole project was built to solve
+   (see `SOURCES.md`: the Steam Community "Unlock (not open) airlock
+   door when the power is cut" discussion, confirming vanilla has no
+   *automatic fail-safe* to override in the first place). **Downgraded
+   from "wholly new" (2026-08-05):** the vanilla Console UI already has
+   a Skip/"Cancel Pressurize" button (item above) for cancelling a
+   stalled phase — see "Reusing vanilla's Skip instead of custom Button
+   C hardware" below for why this may make a dedicated physical button
+   unnecessary, not just a design nicety.
 3. **Propped-Open state** — both doors held open when a Gas Sensor
    pair confirms matched atmosphere across the airlock, avoiding
    needless cycling. Not found in vanilla's documented behavior.
@@ -74,6 +79,55 @@ inherit for free by patching instead of replacing.
    deliberately not part of the IC10 build's core wake path either
    (see "Graceful degradation" below for why) — a genuinely new
    optional extra, not a port of anything.
+
+## Reusing vanilla's Skip instead of custom Button C hardware
+
+Project owner's observation (2026-08-05): the vanilla Console UI
+already exposes a Skip button (same one as the "Cancel Pressurize"
+button cited above, per project owner's recollection) for cancelling a
+stalled phase. Two things have to both be true for this to fully
+replace the custom Button C hardware from the IC10 design, not just
+partially cover it:
+
+1. **`ForceEvacuateAndUnlock()` should call *into* vanilla's own
+   evacuate-toward-target logic**, not reimplement vent sequencing from
+   scratch. This was already the plan in `PATCH_PLAN.md` (reuse
+   vanilla's cycling engine rather than rebuild it) — if that vanilla
+   method already carries its own Skip/Cancel affordance, wiring
+   `ForceEvacuateAndUnlock()` through it gets the override "for free,"
+   no separate `ButtonCHeld` check needed for the primary path.
+2. **A Console (or a Console Slave) has to actually be reachable from
+   *inside* the sealed chamber.** This is the part that isn't free —
+   vanilla's Console UI is used by standing at the Console itself,
+   which in the original IC10 layout sits *outside* the chamber. Skip
+   on that Console wouldn't help someone actually trapped inside.
+   Vanilla's own **Console Slaves** feature (confirmed above — master
+   and slaves "sync their action and state with each other") is the
+   candidate fix: build a second, slaved Console physically inside the
+   chamber, and a trapped player gets the same Skip capability using
+   nothing but vanilla's own systems.
+
+**Fully testable in-game right now, zero code required** — this
+doesn't wait on Milestone 1.5's decompiler pass at all:
+
+1. Build a vanilla `Circuitboard (Advanced Airlock)` setup (no patch,
+   no mod).
+2. Slave a second Console inside the chamber, per vanilla's own Console
+   Slave instructions (`ic10-airlock_setup_guide.md`... no, this is the
+   vanilla UI's own labelling procedure, not this project's — see the
+   Community Wiki's "Circuitboard (Airlock)" page for the exact steps).
+3. Deliberately stall a Pressurize or Evacuate phase (e.g. no gas
+   available to reach target).
+4. From *inside* the chamber, at the slaved console, click Skip and
+   confirm it actually cancels the phase — proving both reachability
+   and that the sync behavior covers button-driven actions, not just
+   passive status display.
+
+If that holds up: `ButtonCHeld` stays on `IAirlockHost` as a fallback
+(e.g. for anyone who doesn't build a slave console and wants the old
+physical-button behavior instead), but it stops being the primary or
+assumed mechanism — the setup guide for this build would recommend the
+slave-console approach first, custom Button C hardware second.
 
 ## Power architecture
 

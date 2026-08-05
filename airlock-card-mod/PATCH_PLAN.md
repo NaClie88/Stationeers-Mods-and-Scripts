@@ -26,11 +26,17 @@ Each `IAirlockHost` member below needs one real answer.
   side uses `lbn` with a hashed name per button (`AirlockBtnE`/`I`/`C`,
   see `watcher.ic10`) — the vanilla class may use something else
   entirely, e.g. UI button click callbacks rather than any hashed
-  device read. `ButtonCHeld` is the one that matters most (the trapped
-  -player override); `ButtonEHeld`/`ButtonIHeld` only feed the
-  downstream-power wake logic (see below) — if vanilla has no concept
-  of a chamber-interior button at all, that one specifically is new
-  wiring, not a hook into existing behavior.
+  device read. `ButtonEHeld`/`ButtonIHeld` feed the downstream-power
+  wake logic — if vanilla has no concept of a chamber-interior button
+  at all, new wiring is needed for those. **`ButtonCHeld` specifically
+  is now a fallback, not the primary plan** — see Milestone 0.5 in
+  `README.md` and `GAP_ANALYSIS.md`'s "Reusing vanilla's Skip instead
+  of custom Button C hardware": if a Console Slave inside the chamber
+  already gives a trapped player Skip access to vanilla's own
+  stall-cancel mechanism, `ForceEvacuateAndUnlock()` may not need a
+  separate override check at all. Don't invest heavily in finding a
+  hashed-button hook for Button C until Milestone 0.5 comes back
+  negative.
 - **`HasWakeButtons`** — the actual gate for whether Deep Idle runs at
   all (see `GAP_ANALYSIS.md`'s "Graceful degradation" section). Just a
   presence check: does this circuit have a physical E or I button
@@ -66,7 +72,12 @@ Each `IAirlockHost` member below needs one real answer.
   vanilla methods, this needs to sequence both, matching
   `cycle.ic10`'s `tierCrit` block (lines 108-119): close both doors →
   run Vent evacuate to `TargetExt` → unlock both doors once the
-  chamber's Gas Sensor confirms it.
+  chamber's Gas Sensor confirms it. **Prefer calling vanilla's own
+  evacuate-toward-target method over a custom implementation** if one
+  exists — per the Skip-button reasoning above, that's very likely the
+  same method whose stall already carries vanilla's own Skip/Cancel
+  affordance, meaning the trapped-player override comes along for free
+  rather than needing a hand-rolled check.
 - **`HoldBothDoorsOpen()`** — likely a direct call into whatever method
   vanilla uses to open a door (called twice, once per door), skipping
   the normal auto-close timer. Confirm whether vanilla's door-open call

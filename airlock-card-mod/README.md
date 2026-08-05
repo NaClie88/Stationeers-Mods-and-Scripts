@@ -82,6 +82,19 @@ tweaking the vanilla one's costs. Report back the real `PrefabName` and
 whatever structure you find — same as Milestone 1.5 below, this turns
 a guess into a fact.
 
+### Milestone 0.5 — test whether vanilla's Skip button already solves the trapped-player problem (no installs, in-game only)
+
+Also needs nothing beyond the base game. See `GAP_ANALYSIS.md`'s
+"Reusing vanilla's Skip instead of custom Button C hardware" section
+for the full reasoning — short version: build a vanilla Advanced
+Airlock Circuitboard, slave a second Console *inside* the chamber,
+stall a Pressurize/Evacuate phase on purpose, and confirm Skip on the
+inside console actually cancels it. If it does, this project's Button
+C hardware (from the original IC10 design) may not be needed at all for
+the mod-card version — the override comes free from vanilla's own
+Console Slave system instead. Worth doing before or alongside Milestone
+0, same "no installs needed" category.
+
 ### Milestone 1 — prove the toolchain (no real logic yet)
 
 Get the **stock, unmodified** `ExamplePatchMod` template building and
