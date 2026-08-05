@@ -208,12 +208,32 @@ namespace AirlockCardMod
 
             // Wake sources for Low tier, only consulted when
             // HasWakeButtons is true (see below) -- the confirmed-safe
-            // button reads, plus two secondary sources that are fine to
-            // include since they only ever add wake opportunities, never
-            // remove the button-based guarantee.
+            // button reads, plus secondary sources that only ever add
+            // wake opportunities, never remove the button-based
+            // guarantee. PropAtmosphereMatched is included here too
+            // (2026-08-05 design pass): whether this can ever actually
+            // be true during Deep Idle is entirely a function of where
+            // the end user physically wires their Gas Sensors, and
+            // that's exactly the intended behavior, not something this
+            // class needs to special-case:
+            //   - Gas Sensors on the switched downstream circuit (need
+            //     power) -> can only ever read true while downstream
+            //     power is already on, so this can never force a wake
+            //     from a truly Deep-Idle state on its own -- Propped-
+            //     Open stays implicitly powered-state-only, same as the
+            //     original IC10 design's reasoning, just no longer
+            //     enforced by a Tier check.
+            //   - Gas Sensors on the always-on circuit (confirmed to
+            //     work unpowered, same as Buttons) -> can read true
+            //     even while downstream power is off, so a genuine
+            //     atmosphere match becomes its own wake reason, keeping
+            //     the doors held open across Low tier the way buttons
+            //     do. This is the intended behavior for that wiring
+            //     choice, not a gap.
             bool wakeRequested =
                 host.ButtonEHeld || host.ButtonIHeld || host.ButtonCHeld ||
-                host.VanillaCycleRequested || host.PresenceDetected;
+                host.VanillaCycleRequested || host.PresenceDetected ||
+                host.PropAtmosphereMatched;
 
             switch (CurrentTier)
             {
@@ -244,10 +264,13 @@ namespace AirlockCardMod
                     // off"). Only Low tier below actually idles down.
                     UpdateDownstreamPower(forceOn: true);
 
-                    // cycle.ic10: checkProp -- only checked in Normal
-                    // tier, matching the design note that Propped-Open
-                    // only matters when the zone would otherwise be
-                    // fully powered anyway.
+                    // Diverges from cycle.ic10 here (2026-08-05 design
+                    // pass, project owner decision): the original
+                    // script only checked this in Tier 0/Normal. Now
+                    // also checked in Low (below) -- see wakeRequested's
+                    // comment above for why that's safe and intentional
+                    // rather than a drift from the port. Never checked
+                    // in Critical, in either version.
                     if (host.PropAtmosphereMatched) host.HoldBothDoorsOpen();
                     break;
 
@@ -262,6 +285,7 @@ namespace AirlockCardMod
                     if (!host.HasWakeButtons)
                     {
                         UpdateDownstreamPower(forceOn: true);
+                        if (host.PropAtmosphereMatched) host.HoldBothDoorsOpen();
                         break;
                     }
 
@@ -270,7 +294,12 @@ namespace AirlockCardMod
                     // the WakeHold countdown, otherwise it ticks down
                     // and cuts downstream power once it reaches zero.
                     // This is the actual Deep Idle power saving.
+                    // wakeRequested already folds in PropAtmosphereMatched
+                    // (see its comment above), so a genuine atmosphere
+                    // match keeps this branch awake on its own -- no
+                    // separate condition needed here.
                     UpdateDownstreamPower(forceOn: wakeRequested);
+                    if (host.PropAtmosphereMatched) host.HoldBothDoorsOpen();
                     break;
             }
         }
