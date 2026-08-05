@@ -31,6 +31,12 @@ namespace AirlockCardMod
         Critical = 2,
     }
 
+    public enum DoorSide
+    {
+        Exterior,
+        Interior,
+    }
+
     // Everything this controller needs from the host card/circuit, kept
     // as an interface so this class has no compile-time dependency on
     // real game types. The eventual Harmony patch adapts the real
@@ -147,6 +153,17 @@ namespace AirlockCardMod
         // skipping the Gas Sensor chip in the IC10 build.
         bool PropAtmosphereMatched { get; }
 
+        // Optional, per-door presence tracking (2026-08-05, project
+        // owner) -- distinct from the single generic PresenceDetected
+        // above. Requires a SECOND pair of Presence/Motion Sensors, one
+        // per door, mirroring the existing exterior/interior Gas Sensor
+        // placement. Feeds the exit-ordering decision when Propped-Open
+        // breaks: which door FailsafeController leaves open vs. closes.
+        // Both default false if unwired -- see "Graceful degradation"
+        // in GAP_ANALYSIS.md for what that falls back to.
+        bool ExteriorPresenceDetected { get; }
+        bool InteriorPresenceDetected { get; }
+
         // Setup-time choice, not a live sensor read (project owner,
         // 2026-08-05): if true, a genuine atmosphere match by itself no
         // longer forces downstream power on in Low tier -- the doors
@@ -212,6 +229,15 @@ namespace AirlockCardMod
         void ForceEvacuate();
         void UnlockDoors();
         void HoldBothDoorsOpen();
+
+        // Closes ONE specific door, leaves the other exactly as it was
+        // (2026-08-05, project owner -- exit-ordering when Propped-Open
+        // breaks). Not a lock -- same "close, don't lock" distinction
+        // as everywhere else in this design. The door left alone isn't
+        // actively re-commanded open either; it's simply not touched,
+        // same as any other door this design isn't currently managing.
+        void CloseDoor(DoorSide side);
+
         void SetWarningIndicator(Tier tier);
 
         // NEW capability, no vanilla equivalent (see GAP_ANALYSIS.md)
@@ -274,6 +300,23 @@ namespace AirlockCardMod
         // Idle for everyone, not just people using this option.
         private bool wasIdlingWhileProppedOpen;
 
+        // Broader than wasIdlingWhileProppedOpen above -- true whenever
+        // HoldBothDoorsOpen() was called on the PREVIOUS tick, in
+        // either Normal or Low, regardless of power state. Used purely
+        // to detect "Propped-Open just broke" as its own event (for
+        // exit-ordering, below), separate from the narrower Deep-Idle
+        // wake question the field above exists for.
+        private bool wasHoldingDoorsOpenLastTick;
+
+        // Which door a presence sensor most recently saw someone at,
+        // if ExteriorPresenceDetected/InteriorPresenceDetected are
+        // wired at all (2026-08-05, project owner exit-ordering
+        // feature). Null until the first detection; simple
+        // last-write-wins if a host ever reports both true on the
+        // exact same tick -- not worth more precision than that for an
+        // edge case this minor.
+        private DoorSide? lastDoorUsed;
+
         public FailsafeController(IAirlockHost host)
         {
             this.host = host ?? throw new ArgumentNullException(nameof(host));
@@ -320,6 +363,15 @@ namespace AirlockCardMod
             // flip on/off at any time.
             if (host.MaintenanceModeEnabled) return;
 
+            // Exit-ordering tracking (2026-08-05, project owner) --
+            // updated every tick regardless of Tier, since through-
+            // traffic can happen any time, not just while Propped-Open
+            // is active. Last-write-wins if a host ever reports both
+            // sensors true on the exact same tick -- see lastDoorUsed's
+            // doc comment on the field.
+            if (host.ExteriorPresenceDetected) lastDoorUsed = DoorSide.Exterior;
+            if (host.InteriorPresenceDetected) lastDoorUsed = DoorSide.Interior;
+
             // Wake sources for Low tier, only consulted when
             // HasWakeButtons is true (see below) -- the confirmed-safe
             // button reads, plus secondary sources that only ever add
@@ -353,6 +405,14 @@ namespace AirlockCardMod
             bool matchForcesWake = host.PropAtmosphereMatched && !host.AllowPowerDownWhilePropped;
             bool mismatchJustAppeared = wasIdlingWhileProppedOpen && !host.PropAtmosphereMatched;
 
+            // Separate from mismatchJustAppeared above (that one's
+            // scoped to the Deep-Idle wake question specifically) --
+            // this is the broader "was Propped-Open active at all last
+            // tick, in any tier, and did it just break" check that
+            // drives the exit-ordering decision (2026-08-05, project
+            // owner). See CloseNonPreferredDoor() below.
+            bool propOpenJustBroke = wasHoldingDoorsOpenLastTick && !host.PropAtmosphereMatched;
+
             bool wakeRequested =
                 host.ButtonEHeld || host.ButtonIHeld || host.ButtonCHeld ||
                 host.VanillaCycleRequested || host.PresenceDetected ||
@@ -368,6 +428,7 @@ namespace AirlockCardMod
                     // whether anyone's there to press anything.
                     UpdateDownstreamPower(forceOn: true);
                     wasIdlingWhileProppedOpen = false; // doors are being closed, tracking no longer applies
+                    wasHoldingDoorsOpenLastTick = false; // ForceEvacuate() (below) closes both doors itself -- exit-ordering doesn't apply here
 
                     // cycle.ic10: "bnez r8 endLoop" -- Button C held
                     // skips the forced evacuation this tick, matching
@@ -409,7 +470,22 @@ namespace AirlockCardMod
                     // comment above for why that's safe and intentional
                     // rather than a drift from the port. Never checked
                     // in Critical, in either version.
-                    if (host.PropAtmosphereMatched) host.HoldBothDoorsOpen();
+                    if (host.PropAtmosphereMatched)
+                    {
+                        host.HoldBothDoorsOpen();
+                        wasHoldingDoorsOpenLastTick = true;
+                    }
+                    else
+                    {
+                        // Exit-ordering (2026-08-05, project owner):
+                        // only acts the one tick Propped-Open actually
+                        // breaks -- propOpenJustBroke is false on every
+                        // other not-matched tick (the ordinary case,
+                        // propped-open aside entirely), so this doesn't
+                        // fire on every idle tick, just the transition.
+                        if (propOpenJustBroke) CloseNonPreferredDoor();
+                        wasHoldingDoorsOpenLastTick = false;
+                    }
                     break;
 
                 case Tier.Low:
@@ -426,7 +502,16 @@ namespace AirlockCardMod
                     {
                         UpdateDownstreamPower(forceOn: true);
                         wasIdlingWhileProppedOpen = false; // not actually idle-capable, so not "idling while propped" either
-                        if (host.PropAtmosphereMatched) host.HoldBothDoorsOpen();
+                        if (host.PropAtmosphereMatched)
+                        {
+                            host.HoldBothDoorsOpen();
+                            wasHoldingDoorsOpenLastTick = true;
+                        }
+                        else
+                        {
+                            if (propOpenJustBroke) CloseNonPreferredDoor();
+                            wasHoldingDoorsOpenLastTick = false;
+                        }
                         break;
                     }
 
@@ -442,17 +527,41 @@ namespace AirlockCardMod
                     // state) keeps this branch awake on its own -- no
                     // separate condition needed here.
                     UpdateDownstreamPower(forceOn: wakeRequested);
-                    if (host.PropAtmosphereMatched) host.HoldBothDoorsOpen();
+                    if (host.PropAtmosphereMatched)
+                    {
+                        host.HoldBothDoorsOpen();
+                    }
+                    else
+                    {
+                        if (propOpenJustBroke) CloseNonPreferredDoor();
+                    }
 
                     // Recorded AFTER acting on PropAtmosphereMatched this
-                    // tick, so next tick's mismatchJustAppeared check
-                    // compares against what was actually true here, not
-                    // a stale value from before this tick's HoldBothDoorsOpen
-                    // call.
+                    // tick, so next tick's mismatchJustAppeared/
+                    // propOpenJustBroke checks compare against what was
+                    // actually true here, not a stale value from before
+                    // this tick's HoldBothDoorsOpen call.
                     wasIdlingWhileProppedOpen =
                         host.PropAtmosphereMatched && host.AllowPowerDownWhilePropped;
+                    wasHoldingDoorsOpenLastTick = host.PropAtmosphereMatched;
                     break;
             }
+        }
+
+        // Favors keeping open whichever door was more recently used, if
+        // tracked (ExteriorPresenceDetected/InteriorPresenceDetected
+        // wired -- see lastDoorUsed). Otherwise defaults to the
+        // safety-first choice: close Exterior (the vacuum/hostile
+        // side), keep Interior open -- matches project owner's
+        // "lean toward the inner door, most likely first assigned"
+        // fallback (2026-08-05).
+        private void CloseNonPreferredDoor()
+        {
+            DoorSide doorToClose = lastDoorUsed.HasValue
+                ? (lastDoorUsed.Value == DoorSide.Exterior ? DoorSide.Interior : DoorSide.Exterior)
+                : DoorSide.Exterior;
+
+            host.CloseDoor(doorToClose);
         }
 
         private void UpdateDownstreamPower(bool forceOn)

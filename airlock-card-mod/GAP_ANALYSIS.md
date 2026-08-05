@@ -107,6 +107,22 @@ inherit for free by patching instead of replacing.
     door open indefinitely without the fail-safe layer fighting that.
     Vanilla's own cycling keeps running underneath, completely
     unaffected either way.
+11. **Propped-Open exit ordering** (project owner, 2026-08-05) — when a
+    genuine atmosphere match breaks, this design now actively decides
+    which single door to close and which to leave alone, rather than
+    leaving both doors' fate to vanilla's own ambiguous behavior.
+    Default: close Exterior (the vacuum/hostile side), keep Interior
+    open — a safety-first choice independent of the optional
+    enhancement below, matching the original IC10 build's own
+    single-Console/bidirectional-traffic assumption. **Optional
+    enhancement:** a second Presence/Motion Sensor pair
+    (`ExteriorPresenceDetected`/`InteriorPresenceDetected`, mirroring
+    the existing Gas Sensor placement) lets the design instead leave
+    open whichever door was most recently used, so a player doesn't
+    have to cycle back through a door they just walked through. Neither
+    piece existed in the IC10 build — genuinely new, and the second
+    piece is the first place this project tracks anything resembling
+    player movement.
 
 ## Reusing vanilla's Skip instead of custom Button C hardware
 
@@ -359,6 +375,13 @@ first).
   hypothetical.
 - **Maintenance mode left off (the default).** No behavior change —
   identical to every state already described above.
+- **No second Presence Sensor pair (exit-ordering tracking).**
+  `ExteriorPresenceDetected`/`InteriorPresenceDetected` default false —
+  `lastDoorUsed` never gets set, and `CloseNonPreferredDoor()` always
+  falls through to the safety-first default (close Exterior, keep
+  Interior). The exit-ordering *decision itself* still happens either
+  way — this only affects which door gets picked, not whether the
+  design makes an active choice at all.
 
 ## Presence sensor placement (auto-cycling)
 
@@ -377,6 +400,22 @@ its own purpose. The tradeoff for the convenience is its own
 (unconfirmed-magnitude) continuous draw on the always-on circuit,
 which is exactly why this project didn't make it part of the core
 design and keeps it strictly optional here too.
+
+## Considered and declined: Smart Breaker diagnostics
+
+Raised as a brainstorm idea, not built — worth recording why rather
+than letting it silently disappear. The pitch was reading a Re-Volt
+Smart Breaker's data port to tell "we intentionally cut downstream
+power (Deep Idle)" apart from "something else tripped the breaker
+unexpectedly." Project owner (2026-08-05): a non-issue for this
+design specifically — the airlock's downstream circuit is fed by its
+own dedicated, isolated Power Controller (see "Power architecture"
+above), not shared with other equipment that could overload it. If
+Re-Volt is installed, any real overload protection worth having
+(a breaker room, a normal breaker upstream) belongs at the base's
+general power infrastructure level, not inline with one airlock's own
+isolated feed. Not revisited unless the underlying architecture
+changes.
 
 ## What this means for the patch
 

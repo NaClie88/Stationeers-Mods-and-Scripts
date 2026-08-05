@@ -103,6 +103,15 @@ Each `IAirlockHost` member below needs one real answer.
   has an optional "don't auto-close" parameter, or whether this needs
   a small patch of its own to suppress the auto-close while Propped-Open
   is active.
+- **`CloseDoor(DoorSide)`** (2026-08-05, project owner exit-ordering
+  feature) — a direct call into whatever method vanilla uses to close
+  a door, but for exactly ONE of the two, not both. `DoorSide` maps
+  onto whichever internal identifiers vanilla uses for
+  Exterior/Interior (the same settings its own "interior"/"exterior"
+  atmosphere config already names, most likely).
+- **`ExteriorPresenceDetected`/`InteriorPresenceDetected`** — optional,
+  needs two new Presence/Motion Sensor references, same pattern as
+  `PropAtmosphereMatched`'s Gas Sensor pair. No vanilla equivalent.
 - **`SetWarningIndicator(Tier)`** — vanilla's Console likely has its
   own status display; decide whether this drives that, or a separate
   physical LED the way the IC10 build does (`watcher.ic10`'s

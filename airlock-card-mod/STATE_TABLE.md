@@ -23,8 +23,21 @@ directly from `watcher.ic10`'s `forceHold` on Tier 0.
 
 | `PropAtmosphereMatched` | Result |
 |---|---|
-| `false` | Normal vanilla cycling (button-driven pressurize/evacuate against target). |
+| `false` | Normal vanilla cycling (button-driven pressurize/evacuate against target) — **unless Propped-Open just broke this tick**, see below. |
 | `true` | `HoldBothDoorsOpen()` called every tick — both doors commanded open continuously, bypassing normal cycling for as long as the match holds. |
+
+**New (2026-08-05): exit ordering when Propped-Open breaks.** The one
+tick `PropAtmosphereMatched` transitions from true to false
+(`propOpenJustBroke`, detected via `wasHoldingDoorsOpenLastTick`),
+`CloseNonPreferredDoor()` runs instead of nothing: closes Exterior and
+leaves Interior alone by default (safety-first — Exterior is the
+vacuum/hostile side), or — if the optional
+`ExteriorPresenceDetected`/`InteriorPresenceDetected` sensor pair is
+wired — closes whichever door *wasn't* most recently used, leaving the
+more-recently-used one open. One-shot: only fires the tick the break
+happens, not every subsequent not-matched tick (that would just be
+ordinary cycling, not a Propped-Open exit). Same logic and same
+`CloseNonPreferredDoor()` call applies in every Low-tier row below too.
 
 ## Tier: Low
 
@@ -190,3 +203,11 @@ skip behavior be," and that's now answered.
   checked before any tier-specific logic, documented in its own section
   near the top of this doc since it supersedes every table below rather
   than fitting into any one of them.
+- **2026-08-05:** Added Propped-Open exit ordering. When a genuine
+  match breaks, the design now actively closes one specific door
+  (`CloseNonPreferredDoor()`) instead of leaving both doors' fate
+  ambiguous. Default favors keeping Interior open (safety-first); the
+  optional `ExteriorPresenceDetected`/`InteriorPresenceDetected` sensor
+  pair overrides that to favor whichever door was most recently used.
+  Never applies in Critical — `ForceEvacuate()`'s unconditional
+  both-doors-close already supersedes it there.
