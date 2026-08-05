@@ -21,7 +21,7 @@ trust the vanilla build under this mod.
 | Logic Switch ("Button") ×3 | read via `lbn` | 🟢 | Same. |
 | Gas Sensor ×1–3 | `ChamberSensor`/`SensExt`/`SensInt` | 🟢 | Atmospherics/data, not electrical. |
 | **Logic Transmitter ×2** | `Transmitter`/`Receiver` | 🔵 | The Active/Passive pair exists purely as a workaround for sharing data across two differently-powered circuits without merging them. Re-Volt's **Data Diode** does exactly that job natively — see "Simplification candidate" below. |
-| **Power Controller — zone gate** | `Gate` (d2, Watcher) | 🟡 | Re-Volt doesn't replace Power Controller outright, so vanilla wiring should keep working. **Load Center** is a purpose-built alternative — confirmed implemented (commits `18d5044`, `eb4398c`, 2026-07-04, "load center stationpedia and logic functions") — but its exact LogicType for gating output isn't confirmed yet. |
+| **Power Controller — zone gate** | `Gate` (d2, Watcher) | 🟡 | Re-Volt doesn't replace Power Controller outright, so vanilla wiring keeps working unmodified. **Load Center could replace it, but see "Load Center reconsidered" below — it's not a clean 1-for-1 swap for this specific build**, unlike the Data Diode. |
 | **Power Controller — dedicated battery** | `Battery` (d0, Watcher) | 🟡 | Downgraded from 🔴 — see "Modular Battery" below. Not an active risk *right now*, but will need re-checking once that ships. |
 
 ## Simplification candidate: Data Diode replaces the Transmitter pair
@@ -145,16 +145,68 @@ verification note once Modular Battery actually ships:
 2. Does `Charge`/`Maximum` move off whichever device ends up wired to
    `Battery` (d0)?
 
-## Other confirmed-implemented devices (not yet load-bearing for this build)
+## Load Center reconsidered — not recommended for this build
 
-- **Circuit Breaker (Small/Large/Smart)** — confirmed implemented,
-  commit `5ab21b8` (2026-07-11) fixes a Smart Breaker data-port bug,
-  confirming Smart Breakers do expose logic data as `database/mods.json`
-  claims. Still purely optional here — see the zone-gate row above.
-- **Load Center** — confirmed implemented and actively patched
-  (commits `18d5044`, `eb4398c`, both 2026-07-04). Exact gating
-  LogicType still unconfirmed; same caveat as the vanilla zone-gate
-  Power Controller's own unconfirmed `On` field.
+**Walking back the earlier "purpose-built alternative" framing.**
+Digging into the actual commits (`18d5044`, `eb4398c`, both
+2026-07-04) turned up more detail than the first pass had, and it
+changes the recommendation:
+
+- Load Center exposes `LogicSlotType.On` (writable) and
+  `LogicSlotType.Quantity` (readable) — **per slot**, not one flat
+  `On` field for the whole group. The commits show five power-class
+  slots: **Lights, Doors, Atmospherics, Equipment, Logic** (referred to
+  as `Button1`–`Button5` in the source).
+- That means gating "the whole Cycle zone" through a Load Center isn't
+  one write like the current `s Gate On 1` — this build's zone spans
+  three of those categories at once (Portals → Doors, Active Vent →
+  Atmospherics, the Cycle IC Housing itself → Logic), so Watcher would
+  need to write **three separate slot values** to bring the zone up or
+  down together, not one.
+- The actual value of a Load Center is managing *multiple, mixed-category
+  circuits* from a single dashboard point. This build already gates
+  everything through one dedicated, already-isolated Power Controller —
+  there's no second circuit here for a Load Center to consolidate
+  against. **For this specific build, swapping in a Load Center adds
+  script complexity (3 slot writes instead of 1) without removing any
+  hardware or wiring**, unlike the Data Diode swap.
+
+**Recommendation: skip this for the airlock build.** Load Center is
+still a real, confirmed-implemented device — just a better fit for a
+whole-base breaker room (see `database/mods.json` → `revolt.enabled_goals`,
+"Breaker Room / Central Power Management") than for this single
+isolated 3-device circuit. Exact slot-addressing IC10 syntax (`ls`/`ss`
+by slot index, vs. a plain named field) wasn't confirmed in this pass —
+not worth chasing further unless the recommendation above changes.
+
+## Circuit Breaker — additive, no script changes needed
+
+**Confirmed implemented**, commit `5ab21b8` (2026-07-11) fixes a Smart
+Breaker data-port bug, confirming Smart Breakers expose logic data (not
+just Small/Large's plain trip-and-reset behavior) as `database/mods.json`
+already claimed. Unlike the two devices above, this one doesn't touch
+Watcher or Cycle's code at all — it's a physical addition in series
+with the existing zone-gate circuit, not a device either script talks
+to.
+
+**Where it goes:** in series with the zone-gate Power Controller's
+output, between `Gate` and the rest of the Cycle zone (both Portals,
+the Vent, the Cycle IC Housing). Vanilla has no resettable protection
+on this circuit at all — an overload burns out a fuse that must be
+rebuilt from scratch. A Circuit Breaker here means a trip is a reset,
+not a rebuild.
+
+**Which variant:** Small or Large cover the trip-and-reset behavior;
+neither needs any script awareness since Watcher and Cycle never read
+from it. **Smart** is the only variant worth a second look, purely as
+an optional stretch: since it has a confirmed data port, Watcher could
+in principle read the breaker's trip state as bonus diagnostic info (a
+fourth condition alongside Tier for the LED, say). **Not built into
+either the vanilla or the Data Diode scripts** — this project's own
+rule against unrequested scope: don't add speculative complexity a
+requirement didn't ask for. If you want it, it's a small, isolable
+addition on top of whichever base script you're already running, not a
+reason to change the core design.
 
 ## Sources
 

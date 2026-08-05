@@ -19,6 +19,10 @@ the resource database.
 - **`PARTS_DELTA.md`** — every vanilla part this build uses, checked
   against Re-Volt's feature set: confirmed-unaffected, optional upgrade,
   or needs in-game verification before you trust it. Start here.
+- **`WIRING_DELTA.md`** — the practical build guide for the Data Diode
+  variant below: hardware list delta, pin-table delta, and what to
+  physically do differently from the vanilla setup guide. Read
+  `PARTS_DELTA.md` first for the *why*; this is the *what to build*.
 - **`watcher.ic10`, `cycle.ic10`** — a **hypothesis fork**, not a
   confirmed-working replacement. Drops the vanilla Logic Transmitter
   Active/Passive relay pair in favor of a Data Diode, on the assumption

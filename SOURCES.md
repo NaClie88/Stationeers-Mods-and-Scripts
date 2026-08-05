@@ -76,7 +76,9 @@ CREDITS/SOURCES file without hunting back through chat history.
 - GitHub commit 474861f, cable tray junction fix (2026-07-29) — https://github.com/Sukasa/ReVolt/commit/474861f894e2b1721af1842f2cba41a0855edffd
   (Localization string: "A Cable Tray junction box, connecting up to 6 directions... connected cables with a matching capacity and colour will be tied together.")
 - GitHub commit 5ab21b8, smart breaker data-port fix (2026-07-11) — confirms Circuit Breaker (incl. Smart variant with a data port) is implemented, not just planned
-- GitHub commits 18d5044 and eb4398c, load center stationpedia/logic patches (2026-07-04) — confirms Load Center is implemented with logic functions, exact LogicType not yet confirmed
+- GitHub commits 18d5044 and eb4398c, load center stationpedia/logic patches (2026-07-04) — confirms Load Center is implemented with logic functions; follow-up fetch of both commits' diffs (below) refined this into exact slot structure
+- GitHub commit 18d5044 diff — confirms Load Center exposes `LogicSlotType.On` (write) and `LogicSlotType.Quantity` (read); reads of any other LogicType return 0.0 rather than falling through
+- GitHub commit eb4398c diff — confirms five power-class slots (`Button1`-`Button5`): Lights, Doors, Atmospherics, Equipment, Logic — each independently gated, not one flat On field for the whole group. This is why `ic10-airlock/mods/revolt/PARTS_DELTA.md` recommends against a Load Center swap for the airlock build specifically (its zone spans three of those five categories at once)
 - Commit-history search for `battery`/`modular`/`charger`/`bank`/`inverter` (2026-08-05) — zero matches, supporting the README's "Future Content" placement of Modular Batteries
 - **Caveat:** the commit contents above were retrieved through an AI-summarizing fetch tool, not a direct diff read — treat the quoted strings as high-confidence, not byte-verified. See `ic10-airlock/mods/revolt/PARTS_DELTA.md` for the full analysis this feeds into.
 
