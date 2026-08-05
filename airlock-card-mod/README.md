@@ -86,14 +86,16 @@ a guess into a fact.
 
 Also needs nothing beyond the base game. See `GAP_ANALYSIS.md`'s
 "Reusing vanilla's Skip instead of custom Button C hardware" section
-for the full reasoning — short version: build a vanilla Advanced
-Airlock Circuitboard, slave a second Console *inside* the chamber,
-stall a Pressurize/Evacuate phase on purpose, and confirm Skip on the
-inside console actually cancels it. If it does, this project's Button
-C hardware (from the original IC10 design) may not be needed at all for
-the mod-card version — the override comes free from vanilla's own
-Console Slave system instead. Worth doing before or alongside Milestone
-0, same "no installs needed" category.
+for the full reasoning — short version: the traditional layout for
+this build already puts the Console *inside* the chamber (confirmed
+2026-08-05, corrects an earlier assumption in this doc that it sat
+outside), so someone trapped inside already has direct UI access with
+nothing extra to build. Stall a Pressurize/Evacuate phase on purpose
+and confirm Skip cancels it from the Console that's already there. If
+it does, this project's Button C hardware (from the original IC10
+design) is likely unnecessary for the mod-card version entirely — the
+override comes free from vanilla's own layout. Worth doing before or
+alongside Milestone 0, same "no installs needed" category.
 
 ### Milestone 1 — prove the toolchain (no real logic yet)
 

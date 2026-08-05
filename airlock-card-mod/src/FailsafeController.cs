@@ -41,10 +41,14 @@ namespace AirlockCardMod
     {
         // 0-100. Source: dedicated Power Controller's Charge/Maximum,
         // same as watcher.ic10 lines 32-35 (l Battery Charge / Maximum,
-        // div, mul 100). This device must sit outside the switched
-        // downstream circuit below -- it feeds the always-on Console
-        // directly, same placement requirement as the IC10 build's
-        // dedicated battery.
+        // div, mul 100). This is a SECOND Power Controller, distinct
+        // from the traditional build's single Area Power Controller
+        // (see GAP_ANALYSIS.md "Power architecture") -- must sit
+        // outside the switched downstream circuit below, feeding the
+        // always-on Console directly. Same placement requirement as
+        // the IC10 build's dedicated battery, same reason: the Console
+        // has to survive a loss of the main circuit to detect and
+        // respond to it.
         //
         // Safe default if no dedicated Power Controller is wired at
         // all: report 100 (always Normal), not 0. A host that can't

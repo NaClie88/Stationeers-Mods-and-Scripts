@@ -82,73 +82,90 @@ inherit for free by patching instead of replacing.
 
 ## Reusing vanilla's Skip instead of custom Button C hardware
 
-Project owner's observation (2026-08-05): the vanilla Console UI
-already exposes a Skip button (same one as the "Cancel Pressurize"
-button cited above, per project owner's recollection) for cancelling a
-stalled phase. Two things have to both be true for this to fully
-replace the custom Button C hardware from the IC10 design, not just
-partially cover it:
+**Corrected (2026-08-05) — the Console is inside the chamber by
+default, this isn't a workaround.** An earlier version of this section
+assumed vanilla's Console sits *outside* the chamber (matching the
+original IC10 layout, which only put Button C inside specifically to
+give a trapped player any access at all) and proposed slaving a second
+Console inside to compensate. That assumption was wrong. Project owner
+confirms the traditional/conventional physical layout for this whole
+build is:
+
+- **Inside the chamber (the traditional core set):** Console, 2×
+  Active Vent, (chamber) Gas Sensor, 2× Doors, the airlock chip/circuit,
+  and one Area Power Controller.
+- **Optional extras, not part of the traditional set:** the warning
+  LED, a Presence Sensor, and the Logic Buttons (E/I/C) — all
+  additive, enabling functionality the traditional build doesn't have
+  on its own.
+
+Since the Console is already inside by default, anyone in the chamber
+during a Critical event already has direct access to its UI — no
+Console Slave, no extra hardware, nothing to build. This makes the
+Skip-button plan simpler than originally written, not more complex:
 
 1. **`ForceEvacuateAndUnlock()` should call *into* vanilla's own
    evacuate-toward-target logic**, not reimplement vent sequencing from
-   scratch. This was already the plan in `PATCH_PLAN.md` (reuse
-   vanilla's cycling engine rather than rebuild it) — if that vanilla
-   method already carries its own Skip/Cancel affordance, wiring
-   `ForceEvacuateAndUnlock()` through it gets the override "for free,"
-   no separate `ButtonCHeld` check needed for the primary path.
-2. **A Console (or a Console Slave) has to actually be reachable from
-   *inside* the sealed chamber.** This is the part that isn't free —
-   vanilla's Console UI is used by standing at the Console itself,
-   which in the original IC10 layout sits *outside* the chamber. Skip
-   on that Console wouldn't help someone actually trapped inside.
-   Vanilla's own **Console Slaves** feature (confirmed above — master
-   and slaves "sync their action and state with each other") is the
-   candidate fix: build a second, slaved Console physically inside the
-   chamber, and a trapped player gets the same Skip capability using
-   nothing but vanilla's own systems.
+   scratch (already the plan in `PATCH_PLAN.md`) — if that method
+   already carries its own Skip/Cancel affordance, the override comes
+   along for free.
+2. **Reachability is already solved by the traditional layout.** No
+   second condition to satisfy here anymore.
 
-**Fully testable in-game right now, zero code required** — this
-doesn't wait on Milestone 1.5's decompiler pass at all:
+**Fully testable in-game right now, zero code required** — doesn't
+wait on Milestone 1.5's decompiler pass:
 
 1. Build a vanilla `Circuitboard (Advanced Airlock)` setup (no patch,
-   no mod).
-2. Slave a second Console inside the chamber, per vanilla's own Console
-   Slave instructions (`ic10-airlock_setup_guide.md`... no, this is the
-   vanilla UI's own labelling procedure, not this project's — see the
-   Community Wiki's "Circuitboard (Airlock)" page for the exact steps).
-3. Deliberately stall a Pressurize or Evacuate phase (e.g. no gas
+   no mod) with the traditional layout above.
+2. Deliberately stall a Pressurize or Evacuate phase (e.g. no gas
    available to reach target).
-4. From *inside* the chamber, at the slaved console, click Skip and
-   confirm it actually cancels the phase — proving both reachability
-   and that the sync behavior covers button-driven actions, not just
-   passive status display.
+3. From inside the chamber, at the (already-present) Console, click
+   Skip and confirm it actually cancels the phase.
 
-If that holds up: `ButtonCHeld` stays on `IAirlockHost` as a fallback
-(e.g. for anyone who doesn't build a slave console and wants the old
-physical-button behavior instead), but it stops being the primary or
-assumed mechanism — the setup guide for this build would recommend the
-slave-console approach first, custom Button C hardware second.
+If that holds up, custom Button C hardware from the original IC10
+design is likely unnecessary for this build entirely — not just
+downgraded to a fallback. `ButtonCHeld` can stay on `IAirlockHost` for
+anyone who wants a physical button anyway, but the setup guide for this
+build wouldn't need to recommend building one.
 
 ## Power architecture
 
-Confirmed by project owner (in-game device placement question,
-2026-08-05): the power-saving design maps cleanly onto three roles,
-same shape as the IC10 build's Watcher/Gate split, just without a
-second chip:
+**Two Power Controllers, not one — this build adds a second one beyond
+the traditional layout.** The traditional set (see "Reusing vanilla's
+Skip" above) has exactly *one* Area Power Controller, feeding
+everything inside the chamber — Console, both Vents, the chamber Gas
+Sensor, the chip, implicitly the doors too. That's sufficient for
+vanilla, which has no Tier monitoring to keep alive through a power
+loss in the first place. This design's whole fail-safe premise
+requires something vanilla doesn't need: the Console (running the
+patched logic) has to keep running *through* a loss of that main
+circuit, in order to detect the loss and respond to it. That's only
+possible if the Console is fed from somewhere else.
 
-- **Console (running the patched card's logic) + the dedicated Power
-  Controller feeding it** — must stay on a circuit that's *never*
-  switched off, same requirement as Watcher never being power-gated in
-  the IC10 build. If the Console itself lost power, nothing could
-  decide when to turn the downstream circuit back on.
+So, confirmed by project owner (2026-08-05), the design needs two
+separate Power Controllers, mapping onto three roles — same shape as
+the IC10 build's Watcher/Gate split, just without a second chip:
+
+- **A second, dedicated Power Controller — new, not part of the
+  traditional set — feeding only the Console (running the patched
+  logic).** Must stay on a circuit that's *never* switched off, same
+  requirement as Watcher never being power-gated in the IC10 build. If
+  the Console itself lost power, nothing could decide when to turn the
+  downstream circuit back on. This is the same "isolated, physically
+  swappable dedicated battery" concept the original IC10 design already
+  required for the identical reason — not a new pattern, just applied
+  again here.
 - **Buttons** — power-agnostic. Confirmed elsewhere in this project
   (`SOURCES.md`, Logic Switch entry) to function fully unpowered, only
   their indicator light needs power — so it doesn't matter whether
   they're wired to the always-on side or the switched side.
-- **Everything else (doors, Vent)** — behind a downstream APC/Power
-  Controller the card switches on/off, reproducing the IC10 build's
-  zone-gate exactly. `SetDownstreamPower(bool)` on `FailsafeController`
-  is this switch.
+- **Everything else (doors, Vents, chamber Gas Sensor) — stays on the
+  traditional Area Power Controller**, which the card now switches
+  on/off, reproducing the IC10 build's zone-gate exactly.
+  `SetDownstreamPower(bool)` on `FailsafeController` is this switch.
+  Effectively, the traditional single-APC layout becomes the switched
+  "downstream" circuit, and the new second Power Controller becomes the
+  always-on one.
 
 **Naming question, working assumption as of 2026-08-05:** a search
 turned up the Community Wiki's "Area Power Controller" page redirecting

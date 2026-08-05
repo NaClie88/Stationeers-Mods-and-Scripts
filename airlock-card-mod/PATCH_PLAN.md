@@ -31,9 +31,10 @@ Each `IAirlockHost` member below needs one real answer.
   at all, new wiring is needed for those. **`ButtonCHeld` specifically
   is now a fallback, not the primary plan** — see Milestone 0.5 in
   `README.md` and `GAP_ANALYSIS.md`'s "Reusing vanilla's Skip instead
-  of custom Button C hardware": if a Console Slave inside the chamber
-  already gives a trapped player Skip access to vanilla's own
-  stall-cancel mechanism, `ForceEvacuateAndUnlock()` may not need a
+  of custom Button C hardware": the Console already sits inside the
+  chamber in the traditional layout, so a trapped player already has
+  Skip access to vanilla's own stall-cancel mechanism with nothing
+  extra to build, and `ForceEvacuateAndUnlock()` may not need a
   separate override check at all. Don't invest heavily in finding a
   hashed-button hook for Button C until Milestone 0.5 comes back
   negative.
