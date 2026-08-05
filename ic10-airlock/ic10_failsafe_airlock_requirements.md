@@ -148,28 +148,33 @@ power saving, not a marginal one:
   in-game tooltip for the exact figure, but it's a powered device in the
   same category, not free.
 
-**CONDITIONAL BUILD REQUIREMENT — confirm before treating as final:**
-if in-game testing confirms a Portal's power **cannot** be cut via a
-direct IC10 LogicType write alone (no `s Portal <field> 0`-style command
-that actually de-energizes it while leaving data/logic connected), then
-**each Portal requires its own Transformer (or equivalent switching
-device) in its power line, wired separately from the circuit feeding the
-IC10 chips, Buttons, and Light.** This was surfaced while writing the
-actual prototype code (see `ic10_airlock_prototype_code.md`), not
-designed in from the start — without it, cutting a Portal's power for
-Deep Idle would also cut power to whatever's supposed to be watching for
-the wake trigger, since the monitoring loop can't survive on the same
-circuit it's trying to power down. The controller chip would toggle the
-Transformer, not the Portal directly.
+**RESOLVED (2026-08-04) — not a Transformer, a Power Controller.** An
+earlier draft of this requirement called for a Transformer per Portal.
+That's confirmed wrong: Community Wiki, verbatim, *"Data will not flow
+through a transformer"* — it's a passive wattage-cap device with no
+data port at all, incapable of receiving an IC10 write in the first
+place. The fix, confirmed as the community-standard workaround since
+vanilla has no dedicated breaker component: a **Power Controller
+(APC)**, which is data-networked (already established elsewhere in this
+doc via Watcher's own Charge monitoring) and is what people
+actually use to gate a circuit on/off via logic.
 
-**Checkpoint:** in-game, attempt a direct power LogicType write to a
-Portal while its data connection stays live. If the door successfully
-de-energizes (loses lock-persistence risk, becomes Crowbar-eligible)
-while the IC10 itself keeps running and can still read Button/Light
-state, the Transformer is unnecessary — pure logic suffices. If the
-Portal's power can't be cut independently of its controlling circuit,
-add "Transformer per Portal" to the build list as confirmed-required
-hardware, not just a contingency.
+This surfaced alongside a bigger restructuring, not just a device swap
+— see `ic10_airlock_prototype_code.md`'s "Watcher/Cycle split" section
+for the full reasoning. Short version: rather than each Portal getting
+its own independent switching device, both Portals, the Vent, and the
+door/vent-controller chip itself now share **one** switchable zone,
+gated by a single Power Controller that the always-on Watcher chip
+controls. The always-on/gateable split also resolved a second question
+this doc hadn't asked yet: whether the *controller chips themselves*
+(25W each, continuously, regardless of what they're doing) were
+undermining Deep Idle's own power savings by all staying powered all
+the time. Now only the Watcher chip does.
+
+**Still open:** the exact LogicType that gates a Power Controller's own
+output — assumed `On`, matching every other powered device confirmed
+in this project, but not independently verified. A 10-second in-game
+Logic Reader check settles it.
 
 **Requirement:** in State 2 (Low Power), between cycles, cut power to
 the Portal itself rather than just dimming the warning light. Since an
@@ -313,11 +318,11 @@ build-specific or blocked behind a Cloudflare wall no fetch tool got past.
    any battery size without editing the script.
 4. **Cycle latency from Deep Idle Mode — Target set, measurement still
    pending.** Design target: **under 0.25ms** from wake trigger (Button
-   E/I/C press) to the Transformer/Portal being responsive. This is a
-   requirement to build and test against, not yet a measured result —
-   still needs an in-game stopwatch check against your specific
-   Transformer + Portal combination before Deep Idle Mode is locked in
-   as State 2's default.
+   E/I/C press) to the Cycle zone (Power Controller gate + Portal) being
+   responsive. This is a requirement to build and test against, not yet
+   a measured result — still needs an in-game stopwatch check against
+   your specific Power Controller + Portal combination before Deep Idle
+   Mode is locked in as State 2's default.
 5. **Exact LogicType names for Lock/Open and vent/pipe evacuation
    controls — Resolved.** `Lock` confirmed real: a plain bit, 0 =
    unlocked, 1 = locked, set the same way as any other LogicType write.
@@ -383,15 +388,22 @@ build-specific or blocked behind a Cloudflare wall no fetch tool got past.
 Putting the pieces above together, here's how the airlock actually
 behaves end to end, state by state.
 
-**Hardware in place:** one IC10 (in an IC Housing) wired directly to
-both Portals and the Active Vent(s) — no airlock circuitboard in the
-loop. A dedicated, isolated Power Controller (its own battery, off the
-main grid, physically inside the chamber for battery-swap access) feeds
-this IC10 and the doors. One signal Light mounted at the portal. Three
-Buttons: E (exterior), I (interior/base side), C (inside the chamber
-itself). Two Gas Sensors — one exterior-facing, one interior-facing —
-feeding pressure/temperature/composition data continuously, used for
-the Propped-Open exception described below.
+**Hardware in place:** two IC10s (Watcher and Cycle, each in its own IC
+Housing, see prototype doc for the split) — no airlock circuitboard in
+the loop. Watcher stays powered continuously; Cycle is powered only
+when Watcher's Power Controller-based zone gate is on, and owns both
+Portals and the Active Vent directly. A dedicated, isolated Power
+Controller (its own battery, off the main grid, physically inside the
+chamber for battery-swap access) feeds Watcher and, via the zone gate,
+Cycle and the doors. One signal Light mounted at the portal, wired to
+both chips. Three Buttons — E (exterior), I (interior/base side), C
+(inside the chamber itself) — all read by Watcher and relayed to Cycle
+over a Logic Transmitter/Receiver pair, not wired directly to Cycle at
+all. A dedicated Gas Sensor inside the chamber itself, read by Cycle,
+for unambiguous pressure sensing during a cycle. Two more Gas Sensors —
+one exterior-facing, one interior-facing — feeding the optional Gas
+Sensor chip continuously, used for the Propped-Open exception described
+below.
 
 **Every loop iteration, regardless of state:** the script reads the
 dedicated Power Controller's `Charge` first. That single value decides

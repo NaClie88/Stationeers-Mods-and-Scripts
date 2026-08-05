@@ -87,6 +87,13 @@ CREDITS/SOURCES file without hunting back through chat history.
 - Steam Community, "logic transmitters with ic chip tutorials?" — https://steamcommunity.com/app/544550/discussions/0/669472753009635911/
   (multi-chip coordination via shared device state / Logic Transmitter pattern)
 
+## Transformer bug fix and the Watcher/Cycle chip split (2026-08-04)
+- Search-aggregated result, Transformer wiki page — confirms, verbatim, "Data will not flow through a transformer" — it's a passive wattage-cap device with no data port at all, disproving the earlier design's assumption that `s XfmrExt On 1/0` would work
+- Steam Community discussion, power control options — confirms there's no dedicated breaker component in vanilla Stationeers and the Power Controller/APC is what the community actually uses to gate a circuit via logic instead
+- Search-aggregated result, `lbn` instruction signature — confirms `lbn targetRegister prefabHash nameHash LogicType batchMode`, example `lbn r0 HASH("StructureGasSensor") HASH("Sensor 1") Temperature Average` — used for the Watcher chip's button reads (already sourced above under `sbn`, same family)
+- Search-aggregated result, Logic Transmitter/Receiver channel usage — confirms `s <alias> Channel0 r0` write / `l r <alias> Channel0` read pattern and Channel0–Channel7 as eight parallel value slots per matched pair; combined with the earlier-cited "logic transmitters with ic chip tutorials?" discussion (purpose-built for cross-circuit signaling with no direct wire) as the basis for the Watcher→Cycle wake-reason relay
+- Search-aggregated result, Power Controller gating LogicType — **not resolved by research.** Every source pointed back to "check Stationpedia in-game" without giving the specific field name; `On` is used in the prototype code as a strong inference (matches every other powered device confirmed in this project) but is explicitly flagged unconfirmed, pending the project owner's own in-game check
+
 ## In-game confirmations by project owner (not web sources)
 - **Large Powered Vent power draw: 500W** — confirmed directly in-game, 2026-08-04. Resolves requirements-doc checklist item 9, which no web source had published.
 - **IC10 line-length limit — both 52 and 90 are correct, for different things.** 52 characters is the in-game editor's *typing* limit (a UI constraint); 90 characters is the actual execution/storage limit — pasting a line up to 90 chars works even though typing past 52 by hand is blocked. Resolves checklist item 10 and explains why community sources split down the middle on this figure.

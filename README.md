@@ -29,11 +29,14 @@ stands on its own.
   matched-atmosphere connections, and a complete discrete-state
   enumeration so no edge case gets missed.
 - `ic10_airlock_prototype_code.md` — complete IC10-MIPS code for the
-  3-chip design (Power Monitor / Door-Vent-Button Controller / optional
-  Gas Sensor Monitor), validated against a real production Workshop
-  script (Custom Airlock V2 by CowsAreEvil) and dry-run tested in a real
-  IC10 emulator. Marked clearly where remaining edge cases (stall
-  recovery, mid-prop mismatch ordering) still aren't handled.
+  3-chip design: an always-powered **Watcher** (Power Tier + Buttons),
+  a **Cycle** chip powered only while active (Doors/Vent, gated by a
+  Power Controller rather than a Transformer — see doc for why),
+  and an optional **Gas Sensor** chip for the Propped-Open feature.
+  Validated against a real production Workshop script (Custom Airlock
+  V2 by CowsAreEvil) and dry-run tested in a real IC10 emulator. Marked
+  clearly where remaining edge cases (stall recovery, mid-prop mismatch
+  ordering) still aren't handled.
 - `ic10_airlock_setup_guide.md` — first-time build checklist: hardware
   list, wiring per chip/pin, Labeller naming steps for the three
   buttons, constants to verify before power-on, and a troubleshooting
