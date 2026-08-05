@@ -16,6 +16,15 @@
       "L1 (Power Automation)",
       "B4 (Emergency Power)"
     ],
+    "affected_builds": [
+      {
+        "build": "IC10 Fail-Safe Airlock",
+        "path": "ic10-airlock/",
+        "variant_path": "ic10-airlock/mods/revolt/",
+        "status": "unverified",
+        "note": "Standalone build, not part of the lettered guide/recipes.json chain. Vanilla files in ic10-airlock/ are never edited for this mod -- Re-Volt-specific parts/wiring deltas live entirely under variant_path, see PARTS_DELTA.md there for the open questions (dedicated-battery swap mechanic, Charge/Maximum LogicType location)."
+      }
+    ],
     "new_devices": [
       {
         "name": "Circuit Breaker (Small)",
