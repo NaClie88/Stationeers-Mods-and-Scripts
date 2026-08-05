@@ -112,28 +112,33 @@ same already-flagged-unconfirmed `On` LogicType) as the zone gate in
 Every optional input on `IAirlockHost` (`src/FailsafeController.cs`)
 was checked against "what happens if the end user never wires this."
 None of them should be able to crash or strand the airlock — worth
-recording exactly what each one falls back to, since some of these
-took a real fix to get right (see the `VanillaCycleRequested` entry
-below).
+recording exactly what each one falls back to, since one of these went
+through two design passes to get right (see "No hardware Buttons"
+below — the corrected version, not the version this project shipped
+first).
 
-- **No hardware Buttons (E/I/C) wired at all.** `ButtonEHeld`/`IHeld`/
-  `CHeld` all default false. `ButtonCHeld` false means Critical tier
-  never gets overridden — the forced evacuation always runs, which is
-  the correct safe default (nobody's holding the override, so nothing
-  should skip it). The Low-tier wake condition doesn't depend solely on
-  these — see the next point for why that matters.
-- **No way to detect a wake request at all would be a real bug, not a
-  degradation case.** An earlier version of this design tied the
-  Low-tier wake condition to the hardware buttons alone — if none were
-  wired, Deep Idle would cut downstream power and *never* restore it,
-  even if a player used the Console's own UI to request a cycle,
-  because the doors/Vent would stay depowered and unable to act on
-  that request. Fixed by adding `VanillaCycleRequested`, which reflects
-  vanilla's own request signal regardless of source (Console click,
-  hardware button, anything) — this one isn't optional the way the
-  others are, since a Console is required for the card to exist at all,
-  so Milestone 1.5 has to find vanilla's real trigger hook no matter
-  what else does or doesn't get wired.
+- **No hardware Buttons (E/I) wired at all → Deep Idle doesn't run,
+  full stop.** `HasWakeButtons` gates the entire Low-tier power-cutting
+  behavior. This wasn't the first design: the first pass tried to keep
+  Deep Idle running for everyone by adding `VanillaCycleRequested` (a
+  Console-click signal) as a fallback wake source. That has a real
+  hole — whether vanilla's own click handling *survives* the delay
+  between "click arrives while downstream power is off" and "downstream
+  power comes back on a tick later" is unconfirmed and can't be
+  confirmed without decompiling the game. A one-shot click that gets
+  silently dropped during that gap would be worse than no power saving
+  at all. The corrected design doesn't take that risk: without buttons,
+  Low tier just holds downstream power on continuously (identical to
+  Normal), and the unconfirmed click-survives-a-delay question never
+  comes up because nothing ever gets powered off in the first place.
+  `VanillaCycleRequested` is kept, but demoted to a secondary wake
+  source that only matters once `HasWakeButtons` is already true — see
+  its doc comment on `IAirlockHost`.
+- **`ButtonCHeld` specifically, if Button C isn't wired.** Defaults
+  false — Critical tier never gets overridden, the forced evacuation
+  always runs, which is the correct safe default (nobody's holding the
+  override, so nothing should skip it). Independent of `HasWakeButtons`
+  above, which only concerns E/I.
 - **No external Gas Sensor pair (Propped-Open).** `PropAtmosphereMatched`
   defaults false — doors simply never enter Propped-Open, normal
   cycling proceeds exactly as it would otherwise. Already the same

@@ -31,15 +31,20 @@ Each `IAirlockHost` member below needs one real answer.
   downstream-power wake logic (see below) — if vanilla has no concept
   of a chamber-interior button at all, that one specifically is new
   wiring, not a hook into existing behavior.
-- **`VanillaCycleRequested`** — **not optional, has to be found.**
+- **`HasWakeButtons`** — the actual gate for whether Deep Idle runs at
+  all (see `GAP_ANALYSIS.md`'s "Graceful degradation" section). Just a
+  presence check: does this circuit have a physical E or I button
+  wired at all, however Milestone 1.5 finds button-wiring is detected.
+  Straightforward once `ButtonEHeld`/`ButtonIHeld` above are resolved —
+  this is likely "is the reference/hash null" on whatever those turn
+  out to be built from.
+- **`VanillaCycleRequested`** — optional, nice-to-have, not blocking.
   Whatever vanilla's real cycle-trigger path is (Console UI click
-  handler most likely), this needs to surface as a boolean the patch
-  can read every tick. This is what keeps Deep Idle from stranding a
-  Console-only player who never wires the optional hardware buttons —
-  see `GAP_ANALYSIS.md`'s "Graceful degradation" section for the bug
-  this fixes. If vanilla's trigger is a one-shot event/callback rather
-  than a persistent flag, the adapter will need to latch it into a
-  boolean that stays true for at least one tick after the event fires.
+  handler most likely), surfacing it as a boolean the patch can read
+  every tick lets someone who wired buttons also wake the circuit from
+  the Console. Correctness doesn't depend on finding this — Deep Idle
+  already works off buttons alone via `HasWakeButtons` above. Skip this
+  one if it's not a clean/obvious hook.
 - **`PresenceDetected`** — optional. No vanilla equivalent, needs its
   own new field referencing a Presence/Motion Sensor the same way
   `PropAtmosphereMatched` needs Gas Sensor references. **Must be wired

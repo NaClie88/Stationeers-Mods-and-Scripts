@@ -68,19 +68,36 @@ namespace AirlockCardMod
         bool ButtonIHeld { get; }
         bool ButtonCHeld { get; }
 
-        // True whenever vanilla's OWN logic wants to run a cycle right
-        // now, regardless of trigger source -- Console UI click,
-        // hardware button wired directly into vanilla's own input
-        // handling, anything. NOT optional the way the members below
-        // are: since a Console is required for this card to exist at
-        // all, vanilla always has *some* way to receive a cycle
-        // request, and Milestone 1.5 has to find it. This is what keeps
-        // Deep Idle from stranding a player who never wires the
-        // optional hardware Buttons above and only ever uses the
-        // Console's own UI -- without this, Low tier would drain
-        // downstream power and never wake back up for a Console-only
-        // user, since ButtonEHeld/IHeld/CHeld would all stay false
-        // forever.
+        // Capability flag: true if at least one physical entry/exit
+        // button (E or I -- not C, that's the Critical-tier override
+        // and irrelevant to this) is actually wired. This GATES Deep
+        // Idle entirely (see FailsafeController.ApplyTierEffects,
+        // Tier.Low) -- deliberately, rather than trying to wake the
+        // downstream circuit for a Console-only click. Reasoning: a
+        // button press is CONFIRMED safe to detect while downstream
+        // power is off (that's the whole point of using Buttons as the
+        // wake mechanism in the first place). A Console UI click has no
+        // such confirmation -- whether vanilla's own click handling
+        // survives a "power wasn't on yet, then came on a tick later"
+        // delay is genuinely unknown without decompiling it, and a
+        // one-shot click that gets silently dropped would be worse than
+        // no power saving at all. So: buttons wired -> Deep Idle runs,
+        // using the confirmed-safe mechanism. No buttons wired -> Low
+        // tier just holds downstream power on continuously (same as
+        // Normal), trading the power saving for not depending on an
+        // unconfirmed vanilla behavior.
+        bool HasWakeButtons { get; }
+
+        // Optional, secondary wake source -- true whenever vanilla's
+        // OWN logic wants to run a cycle right now (Console UI click,
+        // most likely), regardless of trigger source. NOT required for
+        // correctness the way HasWakeButtons's gating is: this only
+        // ever matters when HasWakeButtons is already true (Deep Idle
+        // is running) and adds "also wake on a Console click," as a
+        // convenience for someone who wired buttons but happens to be
+        // standing at the Console instead. Fine to default false if
+        // Milestone 1.5 can't find a clean hook for it -- Deep Idle
+        // still works correctly off buttons alone either way.
         bool VanillaCycleRequested { get; }
 
         // Optional. True while a Presence/Motion Sensor detects someone
@@ -189,12 +206,11 @@ namespace AirlockCardMod
         {
             host.SetWarningIndicator(CurrentTier);
 
-            // Any of these should wake the downstream circuit in Low
-            // tier: the optional hardware buttons, vanilla's own
-            // request signal (covers Console-only users -- see
-            // VanillaCycleRequested's doc comment on IAirlockHost for
-            // why this one isn't optional), or an optional presence
-            // sensor.
+            // Wake sources for Low tier, only consulted when
+            // HasWakeButtons is true (see below) -- the confirmed-safe
+            // button reads, plus two secondary sources that are fine to
+            // include since they only ever add wake opportunities, never
+            // remove the button-based guarantee.
             bool wakeRequested =
                 host.ButtonEHeld || host.ButtonIHeld || host.ButtonCHeld ||
                 host.VanillaCycleRequested || host.PresenceDetected;
@@ -236,6 +252,19 @@ namespace AirlockCardMod
                     break;
 
                 case Tier.Low:
+                    // Deep Idle only runs at all if a confirmed-safe
+                    // wake mechanism (a physical button) actually
+                    // exists -- see HasWakeButtons's doc comment on
+                    // IAirlockHost. No buttons wired -> hold downstream
+                    // power on continuously, same as Normal, rather
+                    // than gambling on whether a Console click survives
+                    // a power-gate delay.
+                    if (!host.HasWakeButtons)
+                    {
+                        UpdateDownstreamPower(forceOn: true);
+                        break;
+                    }
+
                     // watcher.ic10: the only tier where the gate isn't
                     // unconditionally forced on -- a wake event resets
                     // the WakeHold countdown, otherwise it ticks down
