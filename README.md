@@ -28,12 +28,13 @@ stands on its own.
   someone caught inside during a power event), a Propped-Open state for
   matched-atmosphere connections, and a complete discrete-state
   enumeration so no edge case gets missed.
-- `ic10_airlock_scripts.md` — copy-paste-ready IC10-MIPS code for the
-  3-chip design: an always-powered **Watcher** (Power Tier + Buttons),
-  a **Cycle** chip powered only while active (Doors/Vent, gated by a
-  Power Controller rather than a Transformer), and an optional **Gas
-  Sensor** chip for the Propped-Open feature. Nothing but the code —
-  open this one in-game.
+- `watcher.ic10`, `cycle.ic10`, `gas_sensor.ic10` — copy-paste-ready
+  IC10-MIPS code, one file per chip, nothing else: an always-powered
+  **Watcher** (Power Tier + Buttons), a **Cycle** chip powered only
+  while active (Doors/Vent, gated by a Power Controller rather than a
+  Transformer), and an optional **Gas Sensor** chip for the
+  Propped-Open feature. Open the matching file in-game per chip.
+  `ic10_airlock_scripts.md` is a one-page index to these three.
 - `ic10_airlock_code_notes.md` — the explanations behind that code:
   design rationale, corrections, and dry-run verification, validated
   against a real production Workshop script (Custom Airlock V2 by

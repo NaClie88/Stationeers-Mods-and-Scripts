@@ -1,0 +1,114 @@
+# Cycle chip: owns Doors, Vent, chamber Gas Sensor. Powered only when
+# Watcher's zone gate is on - not running otherwise, no separate Deep
+# Idle logic needed here, Watcher already handles that upstream.
+
+alias Light d0
+alias DoorExt d1
+alias DoorInt d2
+alias Vent d3
+alias Receiver d4
+alias ChamberSensor d5
+
+define PropFlagHash -1234567
+define TargetInt 100
+define TargetExt 2
+
+move r10 0
+move r11 0
+move r13 0
+
+loop:
+l r0 Light Setting
+beq r0 2 tierCrit
+beq r0 0 checkProp
+j cycleCheck
+
+checkProp:
+lb r5 PropFlagHash Setting 0
+beqz r5 cycleCheck
+s DoorExt Open 1
+s DoorInt Open 1
+j endLoop
+
+cycleCheck:
+bgtz r11 doorTimer
+bnez r13 continueCycle
+l r14 DoorExt Open
+l r15 DoorInt Open
+bgtz r14 endLoop
+bgtz r15 endLoop
+l r6 Receiver Channel2
+l r7 Receiver Channel3
+bnez r6 reqExt
+bnez r7 reqInt
+j endLoop
+
+reqExt:
+beq r10 0 openExt
+move r13 1
+j endLoop
+openExt:
+s DoorExt Open 1
+move r11 10
+j endLoop
+
+reqInt:
+beq r10 1 openInt
+move r13 2
+j endLoop
+openInt:
+s DoorInt Open 1
+move r11 10
+j endLoop
+
+continueCycle:
+beq r13 1 evacuate
+j pressurize
+
+evacuate:
+s Vent Mode 0
+s Vent On 1
+l r12 ChamberSensor Pressure
+bgt r12 TargetExt endLoop
+s Vent On 0
+move r10 0
+move r13 0
+s DoorExt Open 1
+move r11 10
+j endLoop
+
+pressurize:
+s Vent Mode 1
+s Vent On 1
+l r12 ChamberSensor Pressure
+blt r12 TargetInt endLoop
+s Vent On 0
+move r10 1
+move r13 0
+s DoorInt Open 1
+move r11 10
+j endLoop
+
+doorTimer:
+sub r11 r11 1
+bgtz r11 endLoop
+s DoorExt Open 0
+s DoorInt Open 0
+j endLoop
+
+tierCrit:
+l r8 Receiver Channel1
+bnez r8 endLoop
+s DoorExt Open 0
+s DoorInt Open 0
+s Vent Mode 0
+s Vent On 1
+l r12 ChamberSensor Pressure
+bgt r12 TargetExt endLoop
+s Vent On 0
+s DoorExt Lock 0
+s DoorInt Lock 0
+
+endLoop:
+yield
+j loop

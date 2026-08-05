@@ -1,10 +1,11 @@
 # IC10 Fail-Safe Airlock — First-Time Setup Guide
 
-A build-order checklist for turning `ic10_airlock_scripts.md` into a
-working airlock. Read `ic10_failsafe_airlock_requirements.md` first if
-you haven't — this doc assumes you already know *why* the design looks
-like this and just need to know what to physically do. For the design
-rationale behind the scripts themselves, see `ic10_airlock_code_notes.md`.
+A build-order checklist for turning `watcher.ic10`, `cycle.ic10`, and
+`gas_sensor.ic10` into a working airlock. Read
+`ic10_failsafe_airlock_requirements.md` first if you haven't — this doc
+assumes you already know *why* the design looks like this and just need
+to know what to physically do. For the design rationale behind the
+scripts themselves, see `ic10_airlock_code_notes.md`.
 
 Everything here reflects the 2026-08-04 Watcher/Cycle architecture —
 all three chips complete, dry-run verified in an emulator — not yet
@@ -122,10 +123,9 @@ just wired to that pin.
   Logic Transmitter.
 
 Nothing else connects to this housing — the three Buttons are read by
-name over the network (see step 6), not pin-wired. Load `Watcher` from
-`ic10_airlock_scripts.md`. **This chip is never power-gated** — it
-feeds from the same always-on circuit as the dedicated Power Controller
-itself.
+name over the network (see step 6), not pin-wired. Load `watcher.ic10`.
+**This chip is never power-gated** — it feeds from the same always-on
+circuit as the dedicated Power Controller itself.
 
 ## 4. Wiring — Cycle (powered only when the zone gate is on)
 
@@ -152,11 +152,11 @@ right.
 - **`d5`** — code alias `ChamberSensor`
   The chamber Gas Sensor.
 
-Load `Cycle` from `ic10_airlock_scripts.md`. **This entire housing,
-along with both Portals and the Vent, sits on the zone-gate Power
-Controller's switched output** — when Watcher cuts the gate, this whole
-circuit (including the Cycle chip itself) loses power together. That's
-deliberate: Cycle doesn't need its own Deep Idle logic anymore, because
+Load `cycle.ic10`. **This entire housing, along with both Portals and
+the Vent, sits on the zone-gate Power Controller's switched output** —
+when Watcher cuts the gate, this whole circuit (including the Cycle
+chip itself) loses power together. That's deliberate: Cycle doesn't
+need its own Deep Idle logic anymore, because
 it simply doesn't run at all while idle.
 
 ## 5. Wiring — Gas Sensor chip (optional)
@@ -170,12 +170,12 @@ Sensors (not the chamber one from step 4, which belongs to Cycle).
 - **`d1`** — code alias `SensInt`
   Interior-facing Gas Sensor.
 
-Load the Gas Sensor chip from `ic10_airlock_scripts.md`. If you skip
-this chip entirely, Cycle still works — it just never enters the
-Propped-Open state. This chip can live on either circuit (always-on or
-gated) since Propped-Open only matters during Normal tier anyway when
-the zone is already powered continuously — the always-on circuit is the
-simpler choice if you're unsure.
+Load `gas_sensor.ic10`. If you skip this chip entirely, Cycle still
+works — it just never enters the Propped-Open state. This chip can live
+on either circuit (always-on or gated) since Propped-Open only matters
+during Normal tier anyway when the zone is already powered
+continuously — the always-on circuit is the simpler choice if you're
+unsure.
 
 ## 6. Naming the three Buttons (required — Watcher won't see them otherwise)
 

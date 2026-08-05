@@ -1,0 +1,85 @@
+# Watcher chip: Power Tier monitor + Button reader + zone-gate control.
+# Always powered - never gated off, unlike the Cycle chip below.
+# Owns: dedicated Power Controller, shared Light, Cycle-zone power gate,
+# Logic Transmitter (broadcasts live E/I/C button state to Cycle chip).
+
+alias Battery d0
+alias Light d1
+alias Gate d2
+alias Transmitter d3
+
+define BtnHash -1591419276
+define BtnEName HASH("AirlockBtnE")
+define BtnIName HASH("AirlockBtnI")
+define BtnCName HASH("AirlockBtnC")
+define WakeHold 20
+
+move r0 0
+move r7 0
+
+loop:
+l r1 Battery Charge
+l r2 Battery Maximum
+div r1 r1 r2
+mul r1 r1 100
+
+beq r0 0 fromNorm
+beq r0 1 fromLow
+j fromCrit
+
+fromNorm:
+bgt r1 90 stay
+move r0 1
+j stay
+
+fromLow:
+bge r1 93 up
+ble r1 10 down
+j stay
+up:
+move r0 0
+j stay
+down:
+move r0 2
+j stay
+
+fromCrit:
+bgt r1 13 riseCrit
+j stay
+riseCrit:
+move r0 1
+
+stay:
+s Light Setting r0
+
+lbn r3 BtnHash BtnEName Activate 0
+lbn r4 BtnHash BtnIName Activate 0
+lbn r5 BtnHash BtnCName Activate 0
+s Transmitter Channel1 r5
+s Transmitter Channel2 r3
+s Transmitter Channel3 r4
+
+move r6 0
+beq r0 0 forceHold
+beq r0 2 forceHold
+bnez r3 forceHold
+bnez r4 forceHold
+bnez r5 forceHold
+j checkHold
+forceHold:
+move r6 1
+checkHold:
+bnez r6 doHold
+bgtz r7 stillHeld
+s Gate On 0
+j endLoop
+stillHeld:
+sub r7 r7 1
+j gateOn
+doHold:
+move r7 WakeHold
+gateOn:
+s Gate On 1
+endLoop:
+yield
+j loop

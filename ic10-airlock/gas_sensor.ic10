@@ -1,0 +1,60 @@
+# Gas Sensor chip: OPTIONAL. Only build this if you installed both
+# Gas Sensors. Broadcasts match/mismatch via a type-hash batch flag
+# the Cycle chip reads with its own "lb" call - both chips address by
+# type-hash only, no device name/Labeller needed, so they always agree
+# on what they're reading/writing.
+# If this chip doesn't exist, Cycle's batch reads of the same flag
+# simply return nothing - no error, Propped-Open just never triggers.
+# No single "Ratio" field exists for composition - check Oxygen
+# (breathable) plus Pollutant/Methane/NOx (hazard) per-gas instead.
+
+alias SensExt d0
+alias SensInt d1
+
+define PropFlagHash -1234567   # must match the Cycle chip's constant
+                                 # exactly - each chip defines its own
+                                 # copy, they don't share a symbol table
+
+loop:
+l r0 SensExt Pressure
+l r1 SensInt Pressure
+l r2 SensExt Temperature
+l r3 SensInt Temperature
+
+move r6 0             # r6 = match flag, default 0 (no match)
+sub r7 r0 r1
+abs r7 r7
+bgt r7 0.1 noMatch     # pressure tol ~0.1 (Custom Airlock V2)
+sub r7 r2 r3
+abs r7 r7
+bgt r7 0.02 noMatch    # temperature tol ~0.02
+
+l r4 SensExt RatioOxygen
+l r5 SensInt RatioOxygen
+sub r7 r4 r5
+abs r7 r7
+bgt r7 0.005 noMatch   # trace-gas tol ~0.005
+
+l r4 SensExt RatioPollutant
+l r5 SensInt RatioPollutant
+sub r7 r4 r5
+abs r7 r7
+bgt r7 0.005 noMatch
+
+l r4 SensExt RatioMethane
+l r5 SensInt RatioMethane
+sub r7 r4 r5
+abs r7 r7
+bgt r7 0.005 noMatch
+
+l r4 SensExt RatioNitrousOxide
+l r5 SensInt RatioNitrousOxide
+sub r7 r4 r5
+abs r7 r7
+bgt r7 0.005 noMatch
+move r6 1
+
+noMatch:
+sb PropFlagHash Setting r6
+yield
+j loop

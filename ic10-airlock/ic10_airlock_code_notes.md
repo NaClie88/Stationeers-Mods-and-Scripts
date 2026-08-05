@@ -1,10 +1,11 @@
 # IC10 Airlock — Code Notes
 
-Design rationale, corrections, and dry-run verification for the scripts
-in `ic10_airlock_scripts.md` — that's the file to open in-game and
-paste from. This one's for *why* it looks the way it does: what got
-fixed, what got restructured, and what's still unverified. For hardware
-and wiring, see `ic10_airlock_setup_guide.md`.
+Design rationale, corrections, and dry-run verification for
+`watcher.ic10`, `cycle.ic10`, and `gas_sensor.ic10` — those are the
+files to open in-game and paste from (`ic10_airlock_scripts.md` is a
+one-page index to them). This one's for *why* it looks the way it
+does: what got fixed, what got restructured, and what's still
+unverified. For hardware and wiring, see `ic10_airlock_setup_guide.md`.
 
 ## Correction: I was wrong — Workshop does have close matches
 
@@ -212,7 +213,7 @@ whichever chip owns them.
 
 ## Watcher — Power Tier, Buttons, and the Cycle-zone gate
 
-Always powered. Full code in `ic10_airlock_scripts.md` — 85 of 128
+Always powered. Full code in `watcher.ic10` — 85 of 128
 lines as formatted there, comfortable margin remaining.
 
 **Pins:** `d0` dedicated Power Controller, `d1` shared Light, `d2`
@@ -258,7 +259,7 @@ as long as Tier stays 2.
 ## Cycle — Doors, Vent, chamber sensor
 
 Powered only when Watcher's zone gate is on. Full code in
-`ic10_airlock_scripts.md` — 114 of 128 lines as formatted there.
+`cycle.ic10` — 114 of 128 lines as formatted there.
 
 **Pins:** `d0` shared Light (read-only here — cross-circuit data wiring
 to a device on Watcher's always-on power circuit, the same pattern the
@@ -310,7 +311,7 @@ specified).
 
 Unchanged by the Watcher/Cycle restructuring — this chip never touched
 Transformers or Buttons, so nothing about the split affected it. Full
-code in `ic10_airlock_scripts.md`; verification below.
+code in `gas_sensor.ic10`; verification below.
 
 Tolerance values are Custom Airlock V2's real, live-used figures:
 pressure ratio ~0.1, temperature ~0.02, trace gases (methane,
