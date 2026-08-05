@@ -5,6 +5,17 @@ review. Traced directly from `src/FailsafeController.cs` as it stands
 today. All open questions from earlier passes of this table are now
 resolved — see the changelog at the bottom for what changed and when.
 
+## Maintenance mode — overrides everything below
+
+`MaintenanceModeEnabled` is checked once, immediately after
+`SetWarningIndicator`, before any of the per-tier logic in the tables
+below runs. When true: Tier is still tracked (`UpdateTier` keeps
+running) and shown (the indicator call still happens), but nothing
+else does — no forced power, no forced evacuation, no Propped-Open. All
+three tier tables below assume this is `false`; when it's `true`, none
+of them apply, full stop, regardless of which tier `CurrentTier`
+happens to be.
+
 ## Tier: Normal
 
 Downstream power is always on — Normal tier is never Deep Idle, ported
@@ -71,10 +82,11 @@ evacuation regardless of whether anyone's present to press anything.
 **confirmed (2026-08-05): Propped-Open never persists into Critical,
 full stop.** That part of the question is fully closed.
 
-| `ButtonCHeld` | Result |
-|---|---|
-| `false` | `ForceEvacuateAndUnlock()` runs: close both doors → evacuate to `TargetExt` → unlock both doors once chamber sensor confirms. If the doors were propped open coming into this tier, this explicitly closes them as its first action. |
-| `true` | `ForceEvacuateAndUnlock()` is **skipped** — nothing acts on the doors this tick, they're left exactly as they physically were. |
+| `ButtonCHeld` | `SafeToUnlockTemperature` | Result |
+|---|---|---|
+| `false` | `true` | `ForceEvacuate()` runs (close both doors → evacuate to `TargetExt`), then `UnlockDoors()` runs too. If the doors were propped open coming into this tier, evacuation explicitly closes them as its first action. |
+| `false` | `false` | **New (2026-08-05).** `ForceEvacuate()` still runs — closing/evacuating is unconditional, safe regardless of temperature — but `UnlockDoors()` doesn't. Chamber sits evacuated and locked until temperature reads safe again, rechecked every tick. |
+| `true` | — | Both `ForceEvacuate()` and `UnlockDoors()` are **skipped entirely** — nothing acts on the doors this tick, they're left exactly as they physically were. Temperature doesn't matter here since neither call happens. |
 
 **Resolved (2026-08-05).** `ButtonCHeld`'s row above stays exactly as
 coded — unconditional skip when held, unchanged from the original IC10
@@ -88,13 +100,13 @@ inside the chamber by default (`GAP_ANALYSIS.md`, "Reusing vanilla's
 Skip instead of custom Button C hardware"), a trapped player likely
 never needs `ButtonCHeld` at all — they use vanilla's own Skip button
 at the Console that's already there, and (pending Milestone 1.5)
-`ForceEvacuateAndUnlock()` calling into vanilla's own evacuate method
-means that Skip affordance comes along for free, no `ButtonCHeld` check
-in the loop at that point. `ButtonCHeld` remains on `IAirlockHost`
-purely for anyone who builds the optional physical button anyway, in
-which case it should behave exactly like the original design — which
-is what's already implemented. No code change was needed here; the
-open question was really "which path is primary," not "what should the
+`ForceEvacuate()` calling into vanilla's own evacuate method means that
+Skip affordance comes along for free, no `ButtonCHeld` check in the
+loop at that point. `ButtonCHeld` remains on `IAirlockHost` purely for
+anyone who builds the optional physical button anyway, in which case it
+should behave exactly like the original design — which is what's
+already implemented. No code change was needed here; the open question
+was really "which path is primary," not "what should the
 skip behavior be," and that's now answered.
 
 ## Transition notes
@@ -109,10 +121,11 @@ skip behavior be," and that's now answered.
 - **What happens to a physically-propped-open door the instant Tier
   reaches Critical?** `HoldBothDoorsOpen()` stops being called (never
   called in Critical, any row) — and if `ButtonCHeld` is false,
-  `ForceEvacuateAndUnlock()` explicitly closes both doors as its first
-  action, so this case is fully handled. Normal↔Low transitions no
-  longer lose Propped-Open at all now that Low also checks it — the
-  only real "stops being held" moment is the Critical transition.
+  `ForceEvacuate()` explicitly closes both doors as its first action
+  regardless of temperature (see the updated table above), so this
+  case is fully handled. Normal↔Low transitions no longer lose
+  Propped-Open at all now that Low also checks it — the only real
+  "stops being held" moment is the Critical transition.
 - **Does a door need continuous power just to stay physically open, or
   only to move?** Still relevant for the no-buttons Low-tier row and
   the Deep Idle row — if a door can hold its position without power,
@@ -163,3 +176,17 @@ skip behavior be," and that's now answered.
   still forces an immediate wake regardless of the setting, tracked via
   `wasIdlingWhileProppedOpen` — monitoring never actually turns off,
   only the "stay awake just because it's still matched" behavior does.
+- **2026-08-05:** Made Tier thresholds (90/93/10/13%) and
+  `WakeHoldTicks` (20) configurable — public settable properties on
+  `FailsafeController` with defaults matching the previously-hardcoded
+  values, so nothing changes for a host that never touches them.
+- **2026-08-05:** Added a temperature safety check. Split the previous
+  single `ForceEvacuateAndUnlock()` into `ForceEvacuate()` (always
+  runs, unconditional — relieving pressure is safe regardless of
+  temperature) and `UnlockDoors()` (gated on `SafeToUnlockTemperature`,
+  new). See the updated Critical tier table above — a new row exists
+  for "evacuated but not unlocked" that didn't exist before.
+- **2026-08-05:** Added `MaintenanceModeEnabled` — a global override
+  checked before any tier-specific logic, documented in its own section
+  near the top of this doc since it supersedes every table below rather
+  than fitting into any one of them.

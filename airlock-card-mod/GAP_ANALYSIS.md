@@ -85,6 +85,28 @@ inherit for free by patching instead of replacing.
    three Gas Sensors keep monitoring from the always-on circuit and a
    mismatch forces an immediate wake. Off by default. Genuinely new,
    see "Graceful degradation" below.
+8. **Configurable Tier thresholds and `WakeHoldTicks`** (project owner,
+   2026-08-05) — the hysteresis boundaries (90/93/10/13%) and the
+   Deep-Idle hold duration were fixed constants in the IC10 build (and
+   still are, as defaults, here) but are now settable per-build via
+   `FailsafeController`'s public properties rather than requiring a
+   recompile to retune. No new device or wiring — a Console-settings
+   question for Milestone 2, see `PATCH_PLAN.md`.
+9. **Temperature safety check gating the Critical-tier unlock**
+   (project owner, 2026-08-05) — a real gap this project hadn't
+   caught: matching pressure alone (the existing chamber Gas Sensor
+   check) doesn't protect against unlocking into an extreme-temperature
+   environment. `SafeToUnlockTemperature` gates `UnlockDoors()`
+   specifically — evacuating (relieving chamber pressure) stays
+   unconditional, since that's safe regardless of temperature. See
+   "Once these are known" in `PATCH_PLAN.md` for the `ForceEvacuate()`/
+   `UnlockDoors()` split this required.
+10. **Maintenance mode** (project owner, 2026-08-05) — a Console
+    toggle to fully suspend this fail-safe layer without removing any
+    hardware, for construction/expansion work where you want to hold a
+    door open indefinitely without the fail-safe layer fighting that.
+    Vanilla's own cycling keeps running underneath, completely
+    unaffected either way.
 
 ## Reusing vanilla's Skip instead of custom Button C hardware
 
@@ -110,7 +132,7 @@ during a Critical event already has direct access to its UI — no
 Console Slave, no extra hardware, nothing to build. This makes the
 Skip-button plan simpler than originally written, not more complex:
 
-1. **`ForceEvacuateAndUnlock()` should call *into* vanilla's own
+1. **`ForceEvacuate()` should call *into* vanilla's own
    evacuate-toward-target logic**, not reimplement vent sequencing from
    scratch (already the plan in `PATCH_PLAN.md`) — if that method
    already carries its own Skip/Cancel affordance, the override comes
@@ -327,6 +349,16 @@ first).
   against a device that isn't there — see "Power architecture" above
   for why an APC can only be found/controlled from its source side, not
   by scanning downstream from the doors.
+- **No temperature check wired.** `SafeToUnlockTemperature` defaults
+  `true` — a host that doesn't implement a temperature check just gets
+  the original unconditional-unlock behavior back, same as before this
+  capability existed. This is the one degradation case worth pausing
+  on: it means a build with no temperature sensor genuinely has no
+  protection here, not a false sense of one. Worth actually wiring for
+  any world with a real temperature hazard, not just leaving as a
+  hypothetical.
+- **Maintenance mode left off (the default).** No behavior change —
+  identical to every state already described above.
 
 ## Presence sensor placement (auto-cycling)
 

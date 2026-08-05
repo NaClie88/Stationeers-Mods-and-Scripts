@@ -169,12 +169,48 @@ namespace AirlockCardMod
         // not surveillance of the chamber generally.
         bool AllowPowerDownWhilePropped { get; }
 
+        // Setup/runtime toggle (Console setting), NOT a live sensor
+        // read (project owner, 2026-08-05): when true, suspends this
+        // entire fail-safe layer. Tier monitoring still runs
+        // (UpdateTier keeps updating CurrentTier, SetWarningIndicator
+        // still gets called so the indicator stays informative), but
+        // ApplyTierEffects takes no other action at all -- no forced
+        // downstream power changes, no forced evacuation, no
+        // Propped-Open management. Vanilla's own cycling keeps running
+        // underneath, completely untouched, exactly as if this mod's
+        // logic wasn't installed. For construction/maintenance -- e.g.
+        // expanding a room and wanting to hold a door open indefinitely
+        // without the fail-safe layer fighting that decision.
+        bool MaintenanceModeEnabled { get; }
+
+        // Optional temperature safety check for the Critical-tier
+        // unlock specifically (project owner, 2026-08-05 -- flagged as
+        // a real gap: matching pressure alone doesn't protect against
+        // unlocking into an extreme-temperature environment, e.g. near
+        // a lava or ice world). True if the far side's temperature is
+        // within a safe range to unlock into right now. Only gates the
+        // UNLOCK step -- see UnlockDoors() below -- never the
+        // evacuate/depressurize step, which is safe regardless of
+        // temperature. Defaults true if no temperature check is wired,
+        // same graceful-degradation pattern as everything else on this
+        // interface: a host that doesn't implement this just gets the
+        // original unconditional-unlock behavior back.
+        bool SafeToUnlockTemperature { get; }
+
         // Commands into whatever vanilla's own cycling logic exposes.
         // These are NOT reimplementations of vent/door control --
         // they're expected to call into the same code path vanilla's
         // own button-driven cycle already uses, once Milestone 1.5
         // confirms what that path actually is.
-        void ForceEvacuateAndUnlock();
+        //
+        // ForceEvacuate() and UnlockDoors() were previously one method
+        // (ForceEvacuateAndUnlock()) -- split (2026-08-05) so the
+        // temperature check above can gate just the unlock step. See
+        // PATCH_PLAN.md for how this affects reusing vanilla's own
+        // evacuate method, if that method turns out to unlock as part
+        // of the same call.
+        void ForceEvacuate();
+        void UnlockDoors();
         void HoldBothDoorsOpen();
         void SetWarningIndicator(Tier tier);
 
@@ -192,18 +228,36 @@ namespace AirlockCardMod
         // Same thresholds as watcher.ic10's fromNorm/fromLow/fromCrit
         // branches (lines 41-62) -- hysteresis bands, not simple
         // crossings, so a charge value bouncing right at a boundary
-        // doesn't chatter between tiers.
-        private const float NormalToLow = 90f;
-        private const float LowToNormal = 93f;
-        private const float LowToCritical = 10f;
-        private const float CriticalToLow = 13f;
+        // doesn't chatter between tiers. Configurable (2026-08-05,
+        // project owner) rather than fixed -- these were always
+        // somewhat-arbitrary defaults (the IC10 build itself never
+        // confirmed 90/93/10/13 as anything more than a reasonable
+        // starting guess), and different builds may want different
+        // sensitivity without recompiling. Settable properties, not
+        // constructor parameters, so a host can wire these to Console
+        // settings later without this class needing to know anything
+        // about "settings" as a concept -- defaults match the values
+        // this project already validated, so a host that never touches
+        // them gets identical behavior to before this change.
+        //
+        // Invariant this class assumes but doesn't enforce (keep the
+        // host/settings UI honest instead, not worth the bloat of
+        // runtime validation here): LowToNormal > NormalToLow, and
+        // CriticalToLow > LowToCritical -- the hysteresis bands need
+        // to not invert, or Tier will oscillate every tick at the
+        // boundary.
+        public float NormalToLowThreshold { get; set; } = 90f;
+        public float LowToNormalThreshold { get; set; } = 93f;
+        public float LowToCriticalThreshold { get; set; } = 10f;
+        public float CriticalToLowThreshold { get; set; } = 13f;
 
         // Ticks to hold downstream power on after the last qualifying
         // event, before Deep Idle can cut it again. Unconfirmed cadence
         // -- same flag the IC10 build carries for this exact constant
         // (ic10_airlock_setup_guide.md section 7: "20 is an unvalidated
-        // starting guess").
-        private const int WakeHoldTicks = 20;
+        // starting guess"). Configurable for the same reason as the
+        // Tier thresholds above.
+        public int WakeHoldTicks { get; set; } = 20;
 
         public Tier CurrentTier { get; private set; } = Tier.Normal;
 
@@ -237,16 +291,16 @@ namespace AirlockCardMod
             switch (CurrentTier)
             {
                 case Tier.Normal:
-                    if (charge <= NormalToLow) CurrentTier = Tier.Low;
+                    if (charge <= NormalToLowThreshold) CurrentTier = Tier.Low;
                     break;
 
                 case Tier.Low:
-                    if (charge >= LowToNormal) CurrentTier = Tier.Normal;
-                    else if (charge <= LowToCritical) CurrentTier = Tier.Critical;
+                    if (charge >= LowToNormalThreshold) CurrentTier = Tier.Normal;
+                    else if (charge <= LowToCriticalThreshold) CurrentTier = Tier.Critical;
                     break;
 
                 case Tier.Critical:
-                    if (charge > CriticalToLow) CurrentTier = Tier.Low;
+                    if (charge > CriticalToLowThreshold) CurrentTier = Tier.Low;
                     break;
             }
         }
@@ -257,6 +311,14 @@ namespace AirlockCardMod
         public void ApplyTierEffects()
         {
             host.SetWarningIndicator(CurrentTier);
+
+            // Maintenance mode: Tier is still tracked and shown (the
+            // call above), but nothing else in this method runs --
+            // no forced power, no forced evacuation, no Propped-Open
+            // management. Vanilla's own cycling underneath is
+            // completely unaffected either way, so this is safe to
+            // flip on/off at any time.
+            if (host.MaintenanceModeEnabled) return;
 
             // Wake sources for Low tier, only consulted when
             // HasWakeButtons is true (see below) -- the confirmed-safe
@@ -314,7 +376,20 @@ namespace AirlockCardMod
                     // stays on either way -- only the evacuate/unlock
                     // action itself is skipped.
                     if (host.ButtonCHeld) return;
-                    host.ForceEvacuateAndUnlock();
+
+                    // Evacuating (relieving chamber pressure) is always
+                    // safe regardless of temperature, so it's
+                    // unconditional. UNLOCKING is the step that matters
+                    // -- a player or the next cycle could walk straight
+                    // into whatever's on the other side, so that's the
+                    // one gated on SafeToUnlockTemperature (2026-08-05,
+                    // project owner: pressure matching alone doesn't
+                    // protect against an extreme-temperature
+                    // environment). Doors stay evacuated-but-locked
+                    // until temperature is confirmed safe, rechecked
+                    // every tick this branch runs.
+                    host.ForceEvacuate();
+                    if (host.SafeToUnlockTemperature) host.UnlockDoors();
                     break;
 
                 case Tier.Normal:

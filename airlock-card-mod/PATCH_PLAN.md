@@ -34,7 +34,7 @@ Each `IAirlockHost` member below needs one real answer.
   of custom Button C hardware": the Console already sits inside the
   chamber in the traditional layout, so a trapped player already has
   Skip access to vanilla's own stall-cancel mechanism with nothing
-  extra to build, and `ForceEvacuateAndUnlock()` may not need a
+  extra to build, and `ForceEvacuate()`/`UnlockDoors()` may not need a
   separate override check at all. Don't invest heavily in finding a
   hashed-button hook for Button C until Milestone 0.5 comes back
   negative.
@@ -72,21 +72,31 @@ Each `IAirlockHost` member below needs one real answer.
   default; correctness of `FailsafeController` doesn't depend on this
   existing at all for Milestone 2 — safe to stub as always-`false`
   until a settings UI is worth building.
-- **`ForceEvacuateAndUnlock()`** — the important one. Find whatever
-  method vanilla's own Critical-adjacent logic (if any exists) or its
-  normal evacuate-cycle method looks like, so this can call *into* it
-  rather than reimplementing vent control. If vanilla's evacuate logic
-  is one method that also happens to unlock doors at the end, this
-  might be a single call; if door-lock and vent-evacuate are separate
-  vanilla methods, this needs to sequence both, matching
+- **`ForceEvacuate()` / `UnlockDoors()`** — split from a single
+  `ForceEvacuateAndUnlock()` (2026-08-05) so `SafeToUnlockTemperature`
+  (below) can gate just the unlock step. Find whatever method vanilla's
+  own Critical-adjacent logic (if any exists) or its normal
+  evacuate-cycle method looks like, so `ForceEvacuate()` can call
+  *into* it rather than reimplementing vent control, matching
   `cycle.ic10`'s `tierCrit` block (lines 108-119): close both doors →
-  run Vent evacuate to `TargetExt` → unlock both doors once the
-  chamber's Gas Sensor confirms it. **Prefer calling vanilla's own
+  run Vent evacuate to `TargetExt`. **Prefer calling vanilla's own
   evacuate-toward-target method over a custom implementation** if one
   exists — per the Skip-button reasoning above, that's very likely the
   same method whose stall already carries vanilla's own Skip/Cancel
   affordance, meaning the trapped-player override comes along for free
-  rather than needing a hand-rolled check.
+  rather than needing a hand-rolled check. **The split creates a real
+  question to resolve here:** if vanilla's own evacuate method unlocks
+  as part of the same call (rather than as a separate step), calling it
+  from `ForceEvacuate()` doesn't naturally let `UnlockDoors()` withhold
+  anything — the adapter would need to immediately re-lock right after
+  vanilla's call if `SafeToUnlockTemperature` is false, rather than
+  vanilla's unlock genuinely being skippable. Confirm which shape
+  vanilla's method actually has before assuming either.
+- **`SafeToUnlockTemperature`** — needs a temperature reference for
+  whatever's on the far side of the evacuation target (the "Exterior"
+  side settings already define, most likely) and a safe-range
+  definition. No existing vanilla concept to hook into — this is new,
+  same as `PropAtmosphereMatched`'s Gas Sensor references.
 - **`HoldBothDoorsOpen()`** — likely a direct call into whatever method
   vanilla uses to open a door (called twice, once per door), skipping
   the normal auto-close timer. Confirm whether vanilla's door-open call
@@ -120,6 +130,18 @@ Each `IAirlockHost` member below needs one real answer.
   that isn't there; `FailsafeController` already handles that
   gracefully (Deep Idle just doesn't run), but the adapter still needs
   to detect absence rather than assume presence.
+- **`MaintenanceModeEnabled`** — a Console setting toggle, no device to
+  find. Same "no decompiler work needed, just a settings surface"
+  category as `AllowPowerDownWhilePropped` — safe to stub as
+  always-`false` until a settings UI is worth building.
+- **Tier thresholds and `WakeHoldTicks`** — not `IAirlockHost` members
+  at all, these live as public settable properties directly on
+  `FailsafeController` (`NormalToLowThreshold`, `LowToNormalThreshold`,
+  `LowToCriticalThreshold`, `CriticalToLowThreshold`, `WakeHoldTicks`).
+  If a Console settings surface gets built for these, the adapter just
+  writes to the `FailsafeController` instance directly when a setting
+  changes — no new interface member needed, and defaults already match
+  validated behavior if no settings UI exists yet.
 
 ## Cross-network visibility — the question that decides if a bridge is needed at all
 
@@ -134,10 +156,11 @@ visibility for the downstream side" for the full reasoning: unlike the
 original two-IC10-chip design (which needed a bridge no matter what,
 since separate chips can't share registers under any circumstances),
 this is a genuinely open question here, not an assumed requirement.
-If C#-level access already works, `ForceEvacuateAndUnlock()` and
-`HoldBothDoorsOpen()` need no bridge at all. If it doesn't, fall back to
-a Logic Transmitter pair (vanilla) or, for a Re-Volt-enhanced variant,
-the Data Diode already investigated on the `revolt-mod` branch.
+If C#-level access already works, `ForceEvacuate()`, `UnlockDoors()`,
+and `HoldBothDoorsOpen()` need no bridge at all. If it doesn't, fall
+back to a Logic Transmitter pair (vanilla) or, for a Re-Volt-enhanced
+variant, the Data Diode already investigated on the `revolt-mod`
+branch.
 
 ## Where the Harmony patch itself attaches
 
