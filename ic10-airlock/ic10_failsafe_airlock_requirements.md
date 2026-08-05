@@ -358,16 +358,27 @@ build-specific or blocked behind a Cloudflare wall no fetch tool got past.
    composition matching needs separate reads per relevant gas (Oxygen,
    Pollutant, Methane, and NOx per the tolerance list in the prototype
    doc), each compared against its own tolerance — since fixed there.
-9. **Actual Powered/Large Powered Vent wattage — Resolved (in-game
-   confirmed).** Standard Active Vent: **100W** (matches the earlier
-   wiki figure). **Large Powered Vent: 500W**, confirmed directly
-   in-game — resolves the "genuinely not published anywhere" gap
-   research couldn't close. The plain (non-Large) Powered Vent's exact
-   figure still wasn't separately checked; if your build uses that
-   variant specifically rather than Large, spot-check its Stationpedia
-   entry too — don't assume it's a linear half of 500W without
-   confirming, since the throughput scaling (2×/4×) isn't necessarily
-   the same ratio as the power scaling.
+9. **Actual Powered Vent / Powered Vent Large wattage — Fully resolved,
+   direct from the Community Wiki's own infobox** (the project owner
+   saved a local copy of the page, bypassing the Cloudflare block that
+   stopped every earlier attempt at this specific page). **Naming
+   correction: it's "Powered Vent" and "Powered Vent Large" — not
+   "Large Powered Vent."** Every earlier mention in this project had the
+   word order backwards. Confirmed figures: **Active Vent 100W**,
+   **Powered Vent 250W** (2× the pressure/tick of an Active Vent),
+   **Powered Vent Large 500W** (4×) — the 250W figure was never
+   previously confirmed anywhere and settles the "don't assume it's a
+   linear half of 500W" caution below in this project's earlier draft;
+   it isn't linear (250 vs 500, not 250 vs 500/2). Also newly confirmed
+   from the same page: Powered Vents "scavenge" air from nearby grids
+   once pressure drops below ~20kPa (Manhattan distance 4 grids for the
+   small one, 6 for Large), and the in-game description explicitly
+   frames Powered Vent as being for "multi-grid airlocks" and Powered
+   Vent Large for "large scale airlock systems and pressurized
+   hangars" — confirming, per the project owner's own game knowledge,
+   that **neither is the right tool for a single self-contained chamber
+   airlock like this one**; a standard Active Vent remains the
+   recommended default.
 10. **IC10 line-length limit — Fully resolved, both figures were
     correct at once.** The two numbers weren't actually in conflict —
     they measure different things. **52 characters is the in-game
@@ -601,21 +612,37 @@ dropping enough to cross a whole Power Tier boundary *during* a single
 cycle essentially doesn't happen with standard components.
 
 **⚠️ Warning — avoid this specific combination:** a **Powered Vent or
-Large Powered Vent paired with a Small Battery** in the dedicated Power
-Controller. Powered Vents pump 2× the pressure per tick of a standard
-Active Vent (Large Powered Vent: 4×) — and the draw isn't just
-"slightly higher" as earlier phrased, it's confirmed **5× the standard
-Active Vent's draw**: **Large Powered Vent = 500W vs. Active Vent's
-100W** (checklist item 9, confirmed in-game). Critically, **Powered
-Vents have no internal pressure limiter**, so they'll keep drawing hard
-for as long as they're told to run, unlike a standard Active Vent's more
-self-limiting behavior. Pairing a confirmed 500W continuous draw with a
-Small Battery's limited capacity is exactly the combination that could
+Powered Vent Large paired with a Small Battery** in the dedicated Power
+Controller. (Naming note: the in-game names are "Powered Vent" and
+"Powered Vent Large" — an earlier draft of this doc had the word order
+backwards as "Large Powered Vent" throughout.) Powered Vent pumps 2× the
+pressure per tick of a standard Active Vent (Powered Vent Large: 4×) —
+and the draw isn't just "slightly higher" as earlier phrased, it's
+confirmed directly from the Community Wiki's own infobox: **Powered
+Vent = 250W, Powered Vent Large = 500W, vs. Active Vent's 100W** —
+2.5× and 5× respectively, not the vague "slightly higher" this doc
+used to say. Critically, **Powered Vents have no internal pressure
+limiter**, so they'll keep drawing hard for as long as they're told to
+run, unlike a standard Active Vent's more self-limiting behavior — the
+same wiki page adds that a Powered Vent left running too long can
+overpressure and burst its own input piping without careful monitoring.
+Pairing either Powered Vent tier's continuous draw with a Small
+Battery's limited capacity is exactly the combination that could
 deplete Charge enough mid-cycle to cross a Power Tier boundary while a
 door's open — this is now a concrete, sized risk, not a vague one.
 Standard Active Vent + any reasonably-sized battery: not a real risk.
-Powered/Large Powered Vent + Small Battery: avoid, or size the battery
-up to comfortably cover 500W for a full cycle's duration.
+Powered Vent/Powered Vent Large + Small Battery: avoid, or size the
+battery up to comfortably cover 250W/500W for a full cycle's duration.
+
+**Also newly confirmed: neither Powered Vent tier is actually the right
+tool for this build in the first place.** The Community Wiki quotes the
+in-game Stationpedia description directly — Powered Vent is "for the
+creation of multi-grid airlocks," Powered Vent Large is for "large
+scale airlock systems and pressurized hangars." This project's airlock
+is a single self-contained chamber, not a multi-grid system or a
+hangar — a standard Active Vent remains the right default regardless of
+the battery-sizing question above, which mostly matters if you're
+reusing this design's Power-Tier logic for a bigger multi-grid build.
 
 **Net effect:** this removes the need for the complex mid-cycle-interrupt
 logic that would otherwise be required — constrain the component
@@ -642,9 +669,10 @@ discussion "logic transmitters with ic chip tutorials?" and the IC10
 LogicType model described in the Community Wiki "IC10" page and
 XGamingServer's guide. Stalled pressurization/depressurization phases
 and the "Cancel Pressurize" button confirmed via Community Wiki "Guide
-(Airlock) Atmosphere to Atmosphere" page. Active Vent (100W, wiki-
-confirmed) and Large Powered Vent (2×/4× pressure throughput vs.
-standard/Active, no internal pressure limiter per Community Wiki "Active
-Vent"/"Powered Vent" pages; **500W draw confirmed directly in-game by
-the project owner**, 2026-08-04 — resolves what web research alone
-could not find published anywhere).
+(Airlock) Atmosphere to Atmosphere" page. Active Vent (100W), Powered
+Vent (250W, 2× pressure throughput), and Powered Vent Large (500W, 4×)
+all confirmed directly from the Community Wiki's "Active Vent" and
+"Powered Vent" pages' own infoboxes — the project owner saved a local
+copy of the "Powered Vent" page (2026-08-04) that resolved both the
+250W figure and the "Large Powered Vent" → "Powered Vent Large" naming
+correction, after the live page repeatedly blocked automated fetches.

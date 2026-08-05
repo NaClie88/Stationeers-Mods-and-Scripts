@@ -42,7 +42,7 @@ CREDITS/SOURCES file without hunting back through chat history.
 - Community Wiki, "Active Vent" — https://stationeers-wiki.com/Active_Vent
   (100W confirmed draw, PressureExternal/Internal behavior)
 - Community Wiki, "Powered Vent" — https://stationeers-wiki.com/Powered_Vent
-  (2x/4x pressure throughput vs standard, "slightly higher" consumption, no internal pressure limiter)
+  (2x/4x pressure throughput vs standard, no internal pressure limiter, scavenging behavior below ~20kPa; live page blocked automated fetch all session, resolved 2026-08-04 when the project owner supplied a local saved copy of the page — infobox confirms **Powered Vent 250W, Powered Vent Large 500W** (not "Large Powered Vent" — word order was backwards throughout this project until this fix), and the in-game Stationpedia description explicitly frames both as multi-grid/hangar-scale tools, not for a single self-contained chamber airlock like this project's)
 - Steam Community, official patch notes discussion, "Update v0.2.4294.19984" — https://stationeers-wiki.com/Update_v0.2.4294.19984
   (active vent nonlinear pull-rate taper-off, confirmed)
 - Gist, Twipped/77bf1bcdaa74a9bad404f937e0f40cf0d, "Stationeers Power Controller IC10 Script" — https://gist.github.com/Twipped/77bf1bcdaa74a9bad404f937e0f40cf0
@@ -95,7 +95,7 @@ CREDITS/SOURCES file without hunting back through chat history.
 - Search-aggregated result, Power Controller gating LogicType — **not resolved by research.** Every source pointed back to "check Stationpedia in-game" without giving the specific field name; `On` is used in the prototype code as a strong inference (matches every other powered device confirmed in this project) but is explicitly flagged unconfirmed, pending the project owner's own in-game check
 
 ## In-game confirmations by project owner (not web sources)
-- **Large Powered Vent power draw: 500W** — confirmed directly in-game, 2026-08-04. Resolves requirements-doc checklist item 9, which no web source had published.
+- **Powered Vent Large power draw: 500W** — confirmed directly in-game, 2026-08-04 (note: naming corrected from "Large Powered Vent" — see Community Wiki "Powered Vent" entry above, which independently matches this figure via a locally-saved copy of the page and additionally supplies the previously-unconfirmed 250W figure for the smaller Powered Vent tier). Resolves requirements-doc checklist item 9, which no web source had published.
 - **IC10 line-length limit — both 52 and 90 are correct, for different things.** 52 characters is the in-game editor's *typing* limit (a UI constraint); 90 characters is the actual execution/storage limit — pasting a line up to 90 chars works even though typing past 52 by hand is blocked. Resolves checklist item 10 and explains why community sources split down the middle on this figure.
 - **Hysteresis gap: 3% confirmed as a reasonable starting value** — matches the 90%/93% and 10%/13% bands already used in Chip A.
 - **Chamber footprint: 1–2 grid volumes for the chamber, +1 grid spillover for pressure tanks/cycle-air hardware** — planning figure for checklist item 7.

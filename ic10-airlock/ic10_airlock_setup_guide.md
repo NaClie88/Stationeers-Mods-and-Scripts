@@ -36,9 +36,13 @@ notes only, not part of the item name.
 
 - **Active Vent** — qty **1**
   Chamber evacuate/pressurize. **Do not substitute** a Powered Vent or
-  Large Powered Vent unless your dedicated battery is sized well above
-  Small — see the requirements doc's power-draw warning (Large Powered
-  Vent confirmed 500W vs. Active Vent's 100W).
+  Powered Vent Large for the standard Active Vent — both are meant for
+  multi-grid airlocks and hangars respectively, not a single
+  self-contained chamber like this one, and draw significantly more
+  (Powered Vent 250W, Powered Vent Large 500W, vs. Active Vent's 100W —
+  confirmed from the Community Wiki's own infobox). If you do use one
+  anyway, size your dedicated battery well above Small — see the
+  requirements doc's power-draw warning for why.
 
 - **Power Controller — dedicated battery** — qty **1**
   **Must be physically inside the chamber**, not the base interior or
