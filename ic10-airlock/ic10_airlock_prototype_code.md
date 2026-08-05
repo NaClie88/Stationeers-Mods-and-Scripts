@@ -228,10 +228,10 @@ Logic Reader check).
 # Owns: dedicated Power Controller, shared Light, Cycle-zone power gate,
 # Logic Transmitter (broadcasts live E/I/C button state to Cycle chip).
 
-alias PC d0
-alias SigLight d1
-alias ZoneGate d2
-alias Xmit d3
+alias Battery d0
+alias Light d1
+alias Gate d2
+alias Transmitter d3
 
 define BtnHash -1591419276
 define BtnEName HASH("AirlockBtnE")
@@ -243,8 +243,8 @@ move r0 0
 move r7 0
 
 loop:
-l r1 PC Charge
-l r2 PC Maximum
+l r1 Battery Charge
+l r2 Battery Maximum
 div r1 r1 r2
 mul r1 r1 100
 
@@ -275,14 +275,14 @@ riseCrit:
 move r0 1
 
 stay:
-s SigLight Setting r0
+s Light Setting r0
 
 lbn r3 BtnHash BtnEName Activate 0
 lbn r4 BtnHash BtnIName Activate 0
 lbn r5 BtnHash BtnCName Activate 0
-s Xmit Channel1 r5
-s Xmit Channel2 r3
-s Xmit Channel3 r4
+s Transmitter Channel1 r5
+s Transmitter Channel2 r3
+s Transmitter Channel3 r4
 
 move r6 0
 beq r0 0 forceHold
@@ -296,7 +296,7 @@ move r6 1
 checkHold:
 bnez r6 doHold
 bgtz r7 stillHeld
-s ZoneGate On 0
+s Gate On 0
 j endLoop
 stillHeld:
 sub r7 r7 1
@@ -304,7 +304,7 @@ j gateOn
 doHold:
 move r7 WakeHold
 gateOn:
-s ZoneGate On 1
+s Gate On 1
 endLoop:
 yield
 j loop
@@ -354,7 +354,7 @@ Receiver, `d5` a **dedicated Gas Sensor physically inside the chamber**
 # Watcher's zone gate is on - not running otherwise, no separate Deep
 # Idle logic needed here, Watcher already handles that upstream.
 
-alias SigLight d0
+alias Light d0
 alias DoorExt d1
 alias DoorInt d2
 alias Vent d3
@@ -370,7 +370,7 @@ move r11 0
 move r13 0
 
 loop:
-l r0 SigLight Setting
+l r0 Light Setting
 beq r0 2 tierCrit
 beq r0 0 checkProp
 j cycleCheck

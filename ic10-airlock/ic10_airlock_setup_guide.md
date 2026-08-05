@@ -100,18 +100,20 @@ notes only, not part of the item name.
 
 ## 3. Wiring — Watcher (always powered)
 
-IC Housing pins, 4 of 6 used:
+IC Housing pins, 4 of 6 used. The code alias is what's typed in the
+`alias` line at the top of the script — match it to the device you
+just wired to that pin.
 
-- **`d0`**
+- **`d0`** — code alias `Battery`
   Dedicated Power Controller (the one inside the chamber).
 
-- **`d1`**
+- **`d1`** — code alias `Light`
   The shared Light.
 
-- **`d2`**
+- **`d2`** — code alias `Gate`
   The zone-gate Power Controller.
 
-- **`d3`**
+- **`d3`** — code alias `Transmitter`
   Logic Transmitter.
 
 Nothing else connects to this housing — the three Buttons are read by
@@ -121,25 +123,27 @@ the same always-on circuit as the dedicated Power Controller itself.
 
 ## 4. Wiring — Cycle (powered only when the zone gate is on)
 
-IC Housing pins, **all 6 used**:
+IC Housing pins, **all 6 used**. Same idea as the Watcher table above —
+code alias on the left, what to physically wire to that pin on the
+right.
 
-- **`d0`**
+- **`d0`** — code alias `Light`
   The shared Light — same physical Light as Watcher, wire it to both
   housings.
 
-- **`d1`**
+- **`d1`** — code alias `DoorExt`
   Exterior Portal.
 
-- **`d2`**
+- **`d2`** — code alias `DoorInt`
   Interior Portal.
 
-- **`d3`**
+- **`d3`** — code alias `Vent`
   Active Vent.
 
-- **`d4`**
+- **`d4`** — code alias `Receiver`
   Logic Receiver.
 
-- **`d5`**
+- **`d5`** — code alias `ChamberSensor`
   The chamber Gas Sensor.
 
 Load `Cycle` from the prototype doc. **This entire housing, along with
@@ -154,10 +158,10 @@ it simply doesn't run at all while idle.
 Only build this if you installed the two exterior/interior-facing Gas
 Sensors (not the chamber one from step 4, which belongs to Cycle).
 
-- **`d0`**
+- **`d0`** — code alias `SensExt`
   Exterior-facing Gas Sensor.
 
-- **`d1`**
+- **`d1`** — code alias `SensInt`
   Interior-facing Gas Sensor.
 
 Load the Gas Sensor chip from the prototype doc. If you skip this chip
