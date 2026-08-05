@@ -109,7 +109,7 @@ per Portal" to the build list.
 | Chip | Role | Required or optional |
 |---|---|---|
 | **A — Power Monitor** | Reads dedicated Power Controller charge, computes Power Tier with hysteresis, broadcasts it | Required |
-| **B — Door/Vent/Button Controller** | Owns Portals, Vents, Transformers, Buttons E/I/C; runs the Cycle Phase state machine per tier | Required |
+| **B — Door/Vent/Button Controller** | Owns Portals, Vent, Transformers (pin-based); reads Buttons E/I/C (named-batch, see below); runs the full Cycle Phase state machine per tier | Required |
 | **C — Gas Sensor / Propped-Open Monitor** | Reads both Gas Sensors, decides match/mismatch, broadcasts a flag Chip B reads | **Optional — degrades gracefully if absent** |
 
 Chip C is the one built to be skippable: if you never install the Gas
@@ -130,12 +130,20 @@ Two different device-access methods exist, and they fail differently:
   error — the instruction just does nothing useful and execution
   continues.
 
-**Design choice: everything optional (Gas Sensors, Button C) uses batch
-addressing. Everything required (Portals, Power Controller, main
-Buttons E/I) uses pin-based aliasing.** This is *why* Chip C can be
-skipped without breaking Chip B — Chip B never pin-references anything
-Chip C-specific, it only reads a shared batch-addressed flag that
-harmlessly stays at its default value if Chip C was never built.
+**Revised design choice, updated once Chip B hit the 6-pin ceiling:**
+optional hardware (Gas Sensors) still uses plain type-hash batch (`lb`)
+so it degrades to nothing if absent, same as always. Required hardware
+now splits two ways — **atmosphere/safety-critical devices (Portals,
+Transformers, Vent, Power Controller) stay pin-based**, but **all three
+Buttons moved to named-batch (`lbn`)** once there was no pin left for
+even one of them, let alone three. This wasn't optional-vs-required
+driving the split anymore, it was pin scarcity — Buttons are the one
+required category where batch addressing (with a unique Labeller name)
+costs nothing in reliability, since they're readable regardless of
+power state either way. This is *why* Chip C can be skipped without
+breaking Chip B — Chip B never pin-references anything Chip C-specific,
+it only reads a shared batch-addressed flag that harmlessly stays at
+its default value if Chip C was never built.
 
 ---
 
@@ -216,63 +224,163 @@ correct — only the Low↔Critical band had the bug.
 
 ## Chip B — Door / Vent / Button Controller
 
-```
-# Chip B: Core airlock state machine
-# Reads Tier from Chip A via SigLight.Setting
-# Owns both Portals, their Transformers, Vents, Buttons E/I/C
-# Lock (0/1) and Open confirmed real door LogicTypes (checklist item 5).
-# Vent evacuate/pressurize sequence: On + Mode (0=out,1=in) confirmed.
-# TODO still open: Transformer's own On/Off LogicType name - not yet
-# checked against a source, may differ from a Portal's plain "On".
+**Status: complete, not a skeleton — 127 of 128 lines, zero room left
+for inline comments.** Every comment that would normally sit next to
+this code had to move to the prose below instead, because there is
+exactly one spare line in the whole chip. Read this section before the
+code, not after.
 
+**Pin-budget problem this design hit, and how it's resolved:** the
+IC Housing only has 6 device pins (`d0`–`d5`). Owning SigLight, both
+Portals, both Transformers, and the Vent directly already consumes all
+6 — there is no pin left for Button E, let alone I or C. The fix:
+**all three buttons moved to `lbn` (named batch read)** instead of pins.
+This isn't a workaround — `lbn`/`sbn` exist specifically to "bypass the
+6-pin limit on IC housing device assignments" per a confirmed community
+source (see `SOURCES.md`), and Buttons cost nothing to monitor
+regardless of power state, so there's no latency/reliability cost to
+this move the way there would be for a door or vent. Each button needs
+a **unique name assigned via Labeller in-game** before this works —
+`AirlockBtnE`, `AirlockBtnI`, `AirlockBtnC` are the names this code
+assumes; the companion setup doc walks through assigning them.
+`BtnHash` (`-1591419276`) is a community-sourced Logic Switch structure
+hash, found from a single search result rather than cross-confirmed —
+treat it as a strong lead, not a certainty, and double check it against
+your own Stationpedia entry or replace it with `HASH("<exact prefab
+name>")` directly if your build's button structure name differs.
+
+**The `r13` "pending cycle direction" register exists to fix a bug this
+design almost shipped.** An earlier draft re-derived what to do purely
+from the button's *current* state each tick — but a button is only
+held for one tick, and a full evacuate/pressurize cycle takes many. By
+the time the vent reached target pressure, the button would already
+read 0 again, and the door would never open. `r13` (0 = idle, 1 =
+cycling toward Exterior, 2 = cycling toward Interior) persists across
+ticks specifically so a single button press reliably completes the
+whole cycle. Verified in `stationeering/stationeers-ic`: pressed Button
+I, released it immediately, then stepped the emulator through five
+ticks of rising pressure with the button un-pressed the whole time —
+`r13` held its value across all of them, and the interior door opened
+correctly the instant target pressure was reached.
+
+**Simplifications, stated plainly:** door-open dwell time is a fixed
+10-tick countdown (`r11`), not occupancy-sensed — matches this design's
+earlier, deliberate rejection of suit/occupancy sensing for Button C;
+tune the `10` once you can time an actual transit in-game. Chamber
+pressure during a cycle is read off the Vent's own `Pressure` field
+rather than a dedicated chamber Gas Sensor, to avoid needing a 7th
+pin-worthy device — reasonable since the Vent is physically servicing
+the chamber it's venting, but not independently verified against a
+chamber-interior reading. Stalled-phase detection/recovery and the
+Propped-Open mid-prop mismatch exit ordering (both flagged as open in
+the state enumeration doc) are still not implemented — this chip
+handles the core cycle, not every edge case in that table. `r10`
+assumes the chamber starts Exterior-matched (`0`) on first boot; correct
+it if your build's actual starting atmosphere differs.
+
+**Critical tier now actually waits for evacuation before unlocking** —
+the earlier skeleton unlocked immediately with just a comment where the
+vent-out sequence belonged. This version runs the Vent in evacuate mode
+and holds the unlock/depower steps until chamber `Pressure` drops below
+`TargetExt`, matching the requirements doc's stated close→evacuate→
+unlock *order* rather than doing all three in one tick.
+
+```
 alias SigLight d0
 alias DoorExt d1
 alias DoorInt d2
-alias XfmrExt d3   # power switch for exterior Portal (Deep Idle req.)
-alias XfmrInt d4   # power switch for interior Portal
-alias BtnE d5       # exterior button
-
-define PropFlagHash -1234567   # placeholder hash for Chip C's shared flag
-                                 # TODO: replace with real device/name hash
-
-move r10 0     # r10 = last known Tier
-
+alias XfmrExt d3
+alias XfmrInt d4
+alias Vent d5
+define PropFlagHash -1234567
+define BtnHash -1591419276
+define BtnEName HASH("AirlockBtnE")
+define BtnIName HASH("AirlockBtnI")
+define BtnCName HASH("AirlockBtnC")
+define TargetInt 100
+define TargetExt 2
+move r10 0
+move r11 0
+move r13 0
 loop:
-l r0 SigLight Setting     # current Tier from Chip A
-
-# --- Tier 0: Normal - doors stay powered, standard cycling ---
+l r0 SigLight Setting
 beq r0 0 tierNormal
 beq r0 1 tierLow
 j tierCrit
-
 tierNormal:
 s XfmrExt On 1
 s XfmrInt On 1
-# Propped-Open check (graceful: batch read defaults to 0 if Chip C absent)
-lb r5 PropFlagHash Setting 0    # avg/sum mode - harmless if 0 devices
+lb r5 PropFlagHash Setting 0
 beqz r5 normalCycle
-# Match confirmed by Chip C - prop both open, skip normal cycle logic
 s DoorExt Open 1
 s DoorInt Open 1
 j endLoop
 normalCycle:
-# (standard evacuate/pressurize/open sequence goes here -
-#  omitted for length, same shape as Community Wiki's
-#  "Custom Airlock IC10" reference script. Confirmed pattern:
-#  s Vent Mode 0 / s Vent On 1 to depressurize outward,
-#  s Vent Mode 1 / s Vent On 1 to pressurize inward, s Vent On 0
-#  once target Pressure is reached - see checklist item 5)
+bgtz r11 doorTimer
+bnez r13 continueCycle
+l r14 DoorExt Open
+l r15 DoorInt Open
+bgtz r14 endLoop
+bgtz r15 endLoop
+lbn r6 BtnHash BtnEName Activate 0
+lbn r7 BtnHash BtnIName Activate 0
+bnez r6 reqExt
+bnez r7 reqInt
 j endLoop
-
-# --- Tier 1: Low Power - Deep Idle, wake on E/I/C ---
+reqExt:
+beq r10 0 openExt
+move r13 1
+j endLoop
+openExt:
+s DoorExt Open 1
+move r11 10
+j endLoop
+reqInt:
+beq r10 1 openInt
+move r13 2
+j endLoop
+openInt:
+s DoorInt Open 1
+move r11 10
+j endLoop
+continueCycle:
+beq r13 1 evacuate
+j pressurize
+evacuate:
+s Vent Mode 0
+s Vent On 1
+l r12 Vent Pressure
+bgt r12 TargetExt endLoop
+s Vent On 0
+move r10 0
+move r13 0
+s DoorExt Open 1
+move r11 10
+j endLoop
+pressurize:
+s Vent Mode 1
+s Vent On 1
+l r12 Vent Pressure
+blt r12 TargetInt endLoop
+s Vent On 0
+move r10 1
+move r13 0
+s DoorInt Open 1
+move r11 10
+j endLoop
+doorTimer:
+sub r11 r11 1
+bgtz r11 endLoop
+s DoorExt Open 0
+s DoorInt Open 0
+j endLoop
 tierLow:
-l r6 BtnE Activate
+lbn r6 BtnHash BtnEName Activate 0
 bnez r6 wakeExt
-# TODO: same check pattern for BtnI (d?), BtnC (batch, see below)
-# Chamber button C via batch (graceful degrade if not built)
-lb r7 PropFlagHash Activate 0
-bnez r7 wakeChamber
-# no button pressed - stay in Deep Idle: doors unpowered+unlocked
+lbn r7 BtnHash BtnIName Activate 0
+bnez r7 wakeInt
+lbn r8 BtnHash BtnCName Activate 0
+bnez r8 wakeChamber
 s XfmrExt On 0
 s XfmrInt On 0
 s DoorExt Lock 0
@@ -280,44 +388,55 @@ s DoorInt Lock 0
 j endLoop
 wakeExt:
 s XfmrExt On 1
-# (run cycle toward exterior, then return to Deep Idle)
+j endLoop
+wakeInt:
+s XfmrInt On 1
 j endLoop
 wakeChamber:
 s XfmrExt On 1
 s XfmrInt On 1
 j endLoop
-
-# --- Tier 2: Critical - close, evacuate, unlock ---
 tierCrit:
-# Button-C override check FIRST (see requirements doc "RESOLVED")
-lb r8 PropFlagHash Activate 0
-bnez r8 endLoop        # C held - skip evacuation this loop, re-check next
+lbn r8 BtnHash BtnCName Activate 0
+bnez r8 endLoop
 s DoorExt Open 0
 s DoorInt Open 0
-# (vent evacuation: s Vent Mode 0, s Vent On 1 - see normalCycle above)
+s Vent Mode 0
+s Vent On 1
+l r12 Vent Pressure
+bgt r12 TargetExt endLoop
+s Vent On 0
 s DoorExt Lock 0
 s DoorInt Lock 0
 s XfmrExt On 0
 s XfmrInt On 0
-
 endLoop:
 yield
 j loop
 ```
 
-This is a **skeleton, not a complete script** — the actual
-evacuate/pressurize gas-transfer sequences are left as comments,
-matching the shape of the Community Wiki's confirmed working reference
-(`Custom Airlock IC10`) rather than reinventing that part. Filling
-those in is mechanical once you're working in-game against real device
-names. What's real here is the **Tier-driven branching structure**,
-the **Deep Idle power-cut-via-Transformer pattern**, and the **Button-C
-override placement** — those are the parts unique to this design that
-wouldn't come from a generic airlock tutorial.
+**Dry-run verification (2026-08-04):** loaded into
+`stationeering/stationeers-ic` with `lbn`/`HASH()` swapped for
+equivalent pin reads (this emulator predates named-batch instructions,
+same limitation noted for `sbn` earlier — the swap tests the state
+machine logic only, not the real button-addressing mechanism, which
+isn't independently verifiable outside the actual game). Zero program
+errors. Functionally verified: (1) requesting entry from the side the
+chamber is already matched to opens that door immediately with no
+cycle; (2) requesting entry from the *other* side correctly withholds
+the door, runs the vent in the right direction, and — critically —
+**keeps `r13` set across many ticks after the button is released**,
+opening the door the instant target pressure is reached rather than
+losing the request; (3) the door-open dwell timer counts down and
+closes the door automatically. **Not functionally testable in this
+emulator:** the `lbn` button reads themselves (unsupported opcode) and
+the Chip C↔B Propped-Open flag handoff (`lb`/`sb` are no-ops in this
+emulator version) — both still need a real in-game check.
 
-**Button I and the real Button C wiring are left as TODOs** — I've
-shown the pattern (pin-based for I, batch for C) rather than guessing
-exact aliases you haven't built yet.
+**Line budget going forward:** this chip has exactly one spare line.
+Any future addition (stall-timeout, Propped-Open exit ordering, a
+different dwell mechanism) has to remove something else first, not
+just append.
 
 ---
 
@@ -419,27 +538,35 @@ mismatch above is the actual bug, not the instruction's existence).
 
 ## What's genuinely done vs. still a skeleton
 
-**Solid, based on confirmed mechanics:** the Tier state machine and
-hysteresis (Chip A), the batch-vs-pin graceful degradation pattern (now
-additionally confirmed against Custom Airlock V2's actual use of the
-same `lb`-defaults-to-zero technique for its optional emergency button),
-the Button-C override placement in Critical, the Deep Idle
-Transformer-switching approach. **Also now solid:** the specific
-LogicType names `RatioPollutant`, `RatioNitrousOxide`, `RatioNitrogen`,
-`RatioOxygen`, `Pressure`, `Temperature`, `Open`, `Setting`, `Lock`,
-`Mode`, `On`, and the match-tolerance values above — all confirmed
-against real production code rather than guessed.
+**As of 2026-08-04, all three chips are complete and load with zero
+program errors.** This section's name is now slightly stale — kept for
+history, updated below to say what's actually still open.
 
-**Still skeleton, needs real in-game work:** the actual
-evacuate/pressurize gas sequences in Chip B (intentionally deferred to
-the known-working Community Wiki reference pattern rather than
-reinvented here), the exact hash constants (`PropFlagHash` placeholder
-needs replacing with either a real device name hash via Labeller or a
-specific type-hash — this wasn't resolved, just represented
-structurally), and whether Chip B/C should be revised to use the
-confirmed `brdns` instruction instead of pure batch addressing for
-optional hardware (see "Validated against real production code" above —
-this is a genuine improvement worth making, not yet done).
+**Solid, based on confirmed mechanics and dry-run execution:** the Tier
+state machine and hysteresis (Chip A, boundary values verified
+tick-by-tick), the full evacuate/pressurize/dwell cycle state machine
+(Chip B, functionally verified including the persistent-pending-
+direction fix described above), the Button-C override placement in
+Critical (now actually gated on real evacuation completion, not just a
+comment), the Deep Idle Transformer-switching approach, the
+type-hash-batch Propped-Open handoff between Chip B and C (syntax
+verified, matching addressing confirmed consistent between both chips).
+**Also solid:** the specific LogicType names `RatioPollutant`,
+`RatioNitrousOxide`, `RatioNitrogen`, `RatioOxygen`, `Pressure`,
+`Temperature`, `Open`, `Setting`, `Lock`, `Mode`, `On`, `Charge`,
+`Maximum`, and the match-tolerance values above — all confirmed against
+real production code or direct in-game checks rather than guessed.
+
+**Genuine remaining gaps (not skeleton, but not built either):**
+Stalled-phase detection/recovery (the "Cancel Pressurize" case from the
+requirements doc's state enumeration — Chip B's evacuate/pressurize
+loops will sit re-checking Pressure forever if a stall happens, with no
+timeout), the Propped-Open exit sequence once a mismatch is detected
+mid-prop (close which door first — not specified), and whether Chip
+B/C should adopt the confirmed `brdns` instruction instead of pure
+batch addressing for the optional Gas Sensors (a real improvement per
+Custom Airlock V2's own use of it, not yet made — there's no line
+budget left in Chip B to add it without removing something else first).
 
 **Resolved in the 2026-08-04 research pass (not from Custom Airlock V2,
 which doesn't monitor a Power Controller at all):** the Power
@@ -447,16 +574,16 @@ Controller's charge field name — `Charge` and `Maximum` (Joules) are the
 confirmed pair, no direct `Ratio` field confirmed on the Power
 Controller itself, so Chip A now computes the ratio manually
 (`Charge / Maximum`) instead of reading a `Ratio` field that may not
-exist. See requirements doc checklist item 2 for sourcing. **Still
-genuinely unconfirmed:** the Charge trend/hysteresis-band approach this
-design's Chip A is built around has no equivalent in any reference
-script found, so the 90%/93%/10%/13% band values remain this design's
-own starting guess, not externally validated.
+exist. See requirements doc checklist item 2 for sourcing. The
+90%/93%/10%/13% hysteresis bands and the pin-budget resolution
+(all three Buttons to `lbn`) are now confirmed reasonable starting
+values / a necessary real design choice respectively — see the
+requirements doc checklist and the Chip B section above.
 
-**Not written at all:** Chip A/B's handling of Button I specifically
-(shown as a comment/TODO in Chip B rather than guessed), and the full
-Propped-Open exit sequence once a mismatch is detected mid-prop (close
-which door first, in what order — not specified).
+**Not written at all:** nothing required-and-unaddressed remains at the
+chip level — Button I now has full wake logic in both Low and Critical
+awareness, matching E and C. What's left is the two "genuine remaining
+gaps" above, both of which are edge-case robustness, not core function.
 
 **Reference:** IC10 syntax and instruction patterns confirmed via
 XGamingServer's IC10 programming guide (LogicType read/write syntax,

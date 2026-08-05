@@ -28,11 +28,16 @@ stands on its own.
   someone caught inside during a power event), a Propped-Open state for
   matched-atmosphere connections, and a complete discrete-state
   enumeration so no edge case gets missed.
-- `ic10_airlock_prototype_code.md` — skeleton IC10-MIPS code for the
+- `ic10_airlock_prototype_code.md` — complete IC10-MIPS code for the
   3-chip design (Power Monitor / Door-Vent-Button Controller / optional
   Gas Sensor Monitor), validated against a real production Workshop
-  script (Custom Airlock V2 by CowsAreEvil) where possible. Marked
-  clearly where it's confirmed-solid versus still-skeleton.
+  script (Custom Airlock V2 by CowsAreEvil) and dry-run tested in a real
+  IC10 emulator. Marked clearly where remaining edge cases (stall
+  recovery, mid-prop mismatch ordering) still aren't handled.
+- `ic10_airlock_setup_guide.md` — first-time build checklist: hardware
+  list, wiring per chip/pin, Labeller naming steps for the three
+  buttons, constants to verify before power-on, and a troubleshooting
+  section.
 
 ### `database/`
 Structured data backing a future per-world/per-difficulty guide
