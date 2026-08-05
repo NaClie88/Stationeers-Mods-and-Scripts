@@ -61,6 +61,45 @@ inherit for free by patching instead of replacing.
 4. **The warning LED as a Tier indicator** — vanilla's console
    presumably has its own status UI, but not a player-facing physical
    light cycling green/yellow/red with Tier. Minor, but new.
+5. **Downstream power gating ("Deep Idle")** — cutting power to the
+   doors and Vent between uses to save the dedicated battery's charge,
+   waking on a button press or forcing back on at Critical tier with
+   zero button press. Nothing in vanilla's documented behavior
+   resembles this either — vanilla presumably just keeps its own
+   circuit powered continuously. Wholly new, and it's the one item on
+   this list where the *architecture* matters as much as the logic —
+   see "Power architecture" below.
+
+## Power architecture
+
+Confirmed by project owner (in-game device placement question,
+2026-08-05): the power-saving design maps cleanly onto three roles,
+same shape as the IC10 build's Watcher/Gate split, just without a
+second chip:
+
+- **Console (running the patched card's logic) + the dedicated Power
+  Controller feeding it** — must stay on a circuit that's *never*
+  switched off, same requirement as Watcher never being power-gated in
+  the IC10 build. If the Console itself lost power, nothing could
+  decide when to turn the downstream circuit back on.
+- **Buttons** — power-agnostic. Confirmed elsewhere in this project
+  (`SOURCES.md`, Logic Switch entry) to function fully unpowered, only
+  their indicator light needs power — so it doesn't matter whether
+  they're wired to the always-on side or the switched side.
+- **Everything else (doors, Vent)** — behind a downstream APC/Power
+  Controller the card switches on/off, reproducing the IC10 build's
+  zone-gate exactly. `SetDownstreamPower(bool)` on `FailsafeController`
+  is this switch.
+
+**One naming question worth checking once you're at your PC:** a
+search turned up the Community Wiki's "Area Power Controller" page
+redirecting to its "Power Controller" page — suggestive that "APC" and
+"Power Controller" may be the same in-game device under two names,
+rather than two distinct devices. If so, this is literally the same
+device already used (and already flagged unconfirmed for its exact
+`On` LogicType) as the zone gate in `ic10-airlock/watcher.ic10` — worth
+confirming in Stationpedia, since it would mean this architecture isn't
+new territory at all, just the same proven device wired the same way.
 
 ## What this means for the patch
 
@@ -72,8 +111,8 @@ lock/evacuate sequence in Critical, an override read for Button C, an
 optional Propped-Open bypass), not a rewritten cycle state machine.
 The exact attachment points (which method to `Prefix`/`Postfix`) are
 still Milestone 1.5's job — this doc fixes *what* needs to attach,
-`fail_safe_logic.cs` in this same folder is the *how* (game-independent
-so it's ready the moment real hooks are known).
+`src/FailsafeController.cs` in this same folder is the *how*
+(game-independent so it's ready the moment real hooks are known).
 
 ## Sources
 

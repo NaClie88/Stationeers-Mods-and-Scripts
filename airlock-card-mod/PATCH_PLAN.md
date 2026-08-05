@@ -20,13 +20,16 @@ Each `IAirlockHost` member below needs one real answer.
   reference to a specific Power Controller, set some other way (a new
   Console setting? Hardcoded to "whatever's on the same network"?).
   Flag whichever is true when you find it.
-- **`ButtonCHeld`** — find how the vanilla circuit reads button/switch
-  input at all (its Console UI buttons vs. physical Logic Switches
-  wired to the airlock). This project's IC10 side uses `lbn` with a
-  hashed name (`AirlockBtnC`, see `watcher.ic10`) — the vanilla class
-  may use something else entirely, e.g. UI button click callbacks
-  rather than any hashed device read. If vanilla doesn't support a
-  *physical* chamber-interior button as an input at all, this is new
+- **`ButtonEHeld`/`ButtonIHeld`/`ButtonCHeld`** — find how the vanilla
+  circuit reads button/switch input at all (its Console UI buttons vs.
+  physical Logic Switches wired to the airlock). This project's IC10
+  side uses `lbn` with a hashed name per button (`AirlockBtnE`/`I`/`C`,
+  see `watcher.ic10`) — the vanilla class may use something else
+  entirely, e.g. UI button click callbacks rather than any hashed
+  device read. `ButtonCHeld` is the one that matters most (the trapped
+  -player override); `ButtonEHeld`/`ButtonIHeld` only feed the
+  downstream-power wake logic (see below) — if vanilla has no concept
+  of a chamber-interior button at all, that one specifically is new
   wiring, not a hook into existing behavior.
 - **`PropAtmosphereMatched`** — almost certainly has no vanilla
   equivalent (see `GAP_ANALYSIS.md`) — this will likely need its own
@@ -54,6 +57,15 @@ Each `IAirlockHost` member below needs one real answer.
   `ColorGreen`/`ColorYellow`/`ColorRed`, itself still flagged
   unconfirmed in that build too). Lowest-stakes item on this list —
   fine to stub this out last.
+- **`SetDownstreamPower(bool)`** — almost certainly no vanilla
+  equivalent (see `GAP_ANALYSIS.md`'s "Power architecture" section) —
+  needs a reference to a downstream APC/Power Controller feeding the
+  doors and Vent, set up as a new field, the same way the dedicated
+  battery reference above likely needs to be. **Check first whether
+  "Area Power Controller" and "Power Controller" are the same device**
+  (a wiki redirect suggests they might be) — if so, this is the exact
+  same device and `On`-field question already flagged unconfirmed for
+  `ic10-airlock/watcher.ic10`'s own zone gate, not new unknowns.
 
 ## Where the Harmony patch itself attaches
 
