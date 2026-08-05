@@ -13,20 +13,63 @@ built the earlier Transformer version" near the end before rewiring.
 
 ## 1. Hardware shopping list
 
-| Device | Qty | Notes |
-|---|---|---|
-| IC Housing | 2 (+1 optional) | **Watcher** and **Cycle** required; Gas Sensor chip optional |
-| IC10 chip | 2 (+1 optional) | One per housing above |
-| Portal (Airlock door) | 2 | Exterior + Interior — **not** a Circuitboard (Airlock) or Circuitboard (Advanced Airlock); this design replaces that hardcoded circuit entirely |
-| Power Controller (zone gate) | 1 | Gates power to the entire Cycle zone (both Portals + Vent + the Cycle chip's own housing) as a single switchable unit. **Replaces the Transformer called for in earlier drafts** — a Transformer has no data port and can't be logic-controlled at all, confirmed via the Community Wiki |
-| Active Vent | 1 | Chamber evacuate/pressurize. **Do not substitute a Powered Vent or Large Powered Vent unless your dedicated battery is sized well above Small** — see the requirements doc's power-draw warning (Large Powered Vent confirmed 500W vs. Active Vent's 100W) |
-| Power Controller (dedicated battery) | 1 | **Must be physically inside the chamber**, not the base interior or outside — this is the actual backstop that lets a trapped player self-rescue by swapping the battery. Feeds Watcher continuously and, via the zone gate above, the Cycle chip and doors |
-| Light | 1 | Dual-purpose warning signal + inter-chip flag. Mount visibly at the portal, not tucked in a rack. Wired to **both** IC Housings |
-| Logic Switch ("Button") | 3 | E (exterior), I (interior/base side), C (inside the chamber itself) — all read by Watcher only, none wired to Cycle |
-| Logic Transmitter | 1 | On Watcher. Relays live button state to Cycle across the two independently-powered circuits |
-| Logic Receiver | 1 | On Cycle. Tuned to the same channel as the Transmitter above |
-| Gas Sensor (chamber) | 1 | **New in this revision** — mounted inside the chamber itself, read by Cycle for unambiguous pressure during a cycle. Replaces an earlier design shortcut that read pressure off the Vent's own field instead |
-| Gas Sensor (exterior/interior-facing) | 2 (optional, for the Gas Sensor chip) | One exterior-facing, one interior-facing — only needed if you want the Propped-Open feature |
+Item and quantity are on the bold line; the line under each one is
+notes only, not part of the item name.
+
+- **IC Housing** — qty **2** (+1 optional)
+  Watcher and Cycle required; Gas Sensor chip optional.
+
+- **IC10 chip** — qty **2** (+1 optional)
+  One per housing above.
+
+- **Portal (Airlock door)** — qty **2**
+  Exterior + Interior. **Not** a Circuitboard (Airlock) or Circuitboard
+  (Advanced Airlock) — this design replaces that hardcoded circuit
+  entirely.
+
+- **Power Controller — zone gate** — qty **1**
+  Gates power to the entire Cycle zone (both Portals + Vent + the Cycle
+  chip's own housing) as a single switchable unit. **Replaces the
+  Transformer** called for in earlier drafts — a Transformer has no
+  data port and can't be logic-controlled at all, confirmed via the
+  Community Wiki.
+
+- **Active Vent** — qty **1**
+  Chamber evacuate/pressurize. **Do not substitute** a Powered Vent or
+  Large Powered Vent unless your dedicated battery is sized well above
+  Small — see the requirements doc's power-draw warning (Large Powered
+  Vent confirmed 500W vs. Active Vent's 100W).
+
+- **Power Controller — dedicated battery** — qty **1**
+  **Must be physically inside the chamber**, not the base interior or
+  outside — this is the actual backstop that lets a trapped player
+  self-rescue by swapping the battery. Feeds Watcher continuously and,
+  via the zone gate above, the Cycle chip and doors.
+
+- **Light** — qty **1**
+  Dual-purpose warning signal + inter-chip flag. Mount visibly at the
+  portal, not tucked in a rack. Wired to **both** IC Housings.
+
+- **Logic Switch ("Button")** — qty **3**
+  E (exterior), I (interior/base side), C (inside the chamber itself) —
+  all read by Watcher only, none wired to Cycle.
+
+- **Logic Transmitter** — qty **1**
+  On Watcher. Relays live button state to Cycle across the two
+  independently-powered circuits.
+
+- **Logic Receiver** — qty **1**
+  On Cycle. Tuned to the same channel as the Transmitter above.
+
+- **Gas Sensor — chamber** — qty **1**
+  **New in this revision.** Mounted inside the chamber itself, read by
+  Cycle for unambiguous pressure during a cycle. Replaces an earlier
+  design shortcut that read pressure off the Vent's own field instead.
+
+- **Gas Sensor — exterior/interior-facing** — qty **2** (optional, for
+  the Gas Sensor chip)
+  One exterior-facing, one interior-facing — only needed if you want
+  the Propped-Open feature.
 
 ## 2. Placement and footprint
 
@@ -137,16 +180,49 @@ check — see Troubleshooting below.
 
 ## 7. Constants to check before first power-on
 
-| Constant | Chip | Current value | What it means |
-|---|---|---|---|
-| `On` (zone-gate write) | Watcher | assumed field name | The LogicType Watcher writes to enable/disable the zone-gate Power Controller's output. **Not independently confirmed** — every LogicType on other powered devices in this project turned out to be `On`, so it's a strong default, but check your own Power Controller's Stationpedia entry or Logic Reader "VAR" list before trusting it. |
-| `WakeHold` | Watcher | `20` ticks | How long the zone gate stays open after the last button press before idling again in Low tier. Time an actual transit in-game and adjust — 20 is an unvalidated starting guess. |
-| `TargetInt` | Cycle | `100` | kPa the chamber pressurizes to before opening the interior door — matches your base's standard atmosphere. Adjust if your base doesn't run ~100kPa. |
-| `TargetExt` | Cycle | `2` | kPa the chamber evacuates to before opening the exterior door or unlocking in Critical — near-vacuum. |
-| door dwell (`move r11 10`, three places in Cycle) | Cycle | 10 ticks | How long a door stays open before auto-closing. Not occupancy-sensed — a fixed timer, same caveat as `WakeHold`. |
-| `PropFlagHash` | Cycle and Gas Sensor chip | `-1234567` | Placeholder shared-flag hash. **Must be identical in both chips** (each chip defines its own copy independently — they don't share a symbol table) and should correspond to a real device type on your network. Replace with a confirmed type-hash before Propped-Open can be trusted. |
-| `BtnHash` | Watcher | `-1591419276` | See step 6 — single-sourced, verify against Stationpedia. |
-| Transmitter/Receiver channel | Watcher + Cycle | (device-level setting, not in code) | Set on both devices via their own console/build menu, must match. Not an IC10 `define` — a one-time hardware configuration step. |
+Constant name and location are on the bold line; what it means and any
+caveats follow underneath.
+
+- **`On`** (zone-gate write) — Watcher, assumed field name
+  The LogicType Watcher writes to enable/disable the zone-gate Power
+  Controller's output. **Not independently confirmed** — every
+  LogicType on other powered devices in this project turned out to be
+  `On`, so it's a strong default, but check your own Power Controller's
+  Stationpedia entry or Logic Reader "VAR" list before trusting it.
+
+- **`WakeHold`** — Watcher, currently `20` ticks
+  How long the zone gate stays open after the last button press before
+  idling again in Low tier. Time an actual transit in-game and adjust —
+  20 is an unvalidated starting guess.
+
+- **`TargetInt`** — Cycle, currently `100`
+  kPa the chamber pressurizes to before opening the interior door —
+  matches your base's standard atmosphere. Adjust if your base doesn't
+  run ~100kPa.
+
+- **`TargetExt`** — Cycle, currently `2`
+  kPa the chamber evacuates to before opening the exterior door or
+  unlocking in Critical — near-vacuum.
+
+- **Door dwell** (`move r11 10`, three places in Cycle) — currently
+  `10` ticks
+  How long a door stays open before auto-closing. Not occupancy-sensed
+  — a fixed timer, same caveat as `WakeHold`.
+
+- **`PropFlagHash`** — Cycle and Gas Sensor chip, currently `-1234567`
+  Placeholder shared-flag hash. **Must be identical in both chips**
+  (each chip defines its own copy independently — they don't share a
+  symbol table) and should correspond to a real device type on your
+  network. Replace with a confirmed type-hash before Propped-Open can
+  be trusted.
+
+- **`BtnHash`** — Watcher, currently `-1591419276`
+  See step 6 — single-sourced, verify against Stationpedia.
+
+- **Transmitter/Receiver channel** — Watcher + Cycle, device-level
+  setting, not in code
+  Set on both devices via their own console/build menu, must match.
+  Not an IC10 `define` — a one-time hardware configuration step.
 
 ## 8. First-time power-on order
 
