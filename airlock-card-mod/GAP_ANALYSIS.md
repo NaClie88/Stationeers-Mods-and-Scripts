@@ -198,6 +198,68 @@ architecture isn't new territory at all: it's the same device (and the
 same already-flagged-unconfirmed `On` LogicType) as the zone gate in
 `ic10-airlock/watcher.ic10`, just wired the same way again.
 
+## Cross-network visibility for the downstream side
+
+Project owner's concern (2026-08-05): Deep Idle logic still needs some
+way to "see" the downstream network — either a Logic Transmitter pair
+(vanilla) or, if Re-Volt is installed, its Data Diode (see
+`revolt-mod` branch's `ic10-airlock/mods/revolt/PARTS_DELTA.md` for
+that investigation). Worth being precise about *why* this was true for
+the original IC10 design before assuming it's true here in the same
+way, because the two situations aren't identical.
+
+**Why `watcher.ic10`/`cycle.ic10` needed a bridge:** not really about
+crossing a power boundary — two separate IC10 chips can't share
+register values under any circumstances, full stop. They needed *some*
+shared device with a readable/writable field to relay through no
+matter how the networks were wired, which is why a Transmitter pair
+(or, hypothetically, the Re-Volt Data Diode) was necessary there.
+
+**Why this mod-card situation is genuinely different, and not yet
+resolved either way:** the patched logic isn't a second IC10 chip —
+it's a Harmony patch attached to the *same* vanilla circuit instance
+that (presumably) already holds whatever internal references it uses
+to reach its own Doors, Vents, and chamber Gas Sensor. If those are
+plain C# object references rather than in-game logic-network reads
+(likely, for compiled game code — a MonoBehaviour-style class typically
+holds direct references to its wired structures, not device-network
+lookups), the patch may already have access to them for free through
+that shared instance, no bridge required for that part at all.
+
+**What definitely still needs resolving either way:**
+
+- Detecting and switching the downstream APC (`HasDownstreamController`
+  / `SetDownstreamPower`) — addressed above ("Power architecture"),
+  reachable from the source side without a bridge, assuming the Card
+  and the APC's source-side connection point end up on the same
+  network as the new dedicated Power Controller.
+- Anything downstream the vanilla instance *doesn't* already hold a
+  reference to and that our new logic needs directly — not yet
+  identified as a concrete case, but can't be ruled out until
+  Milestone 1.5's decompiler pass shows what the vanilla class
+  actually looks like internally.
+
+**Added to the Milestone 1.5 checklist** (`PATCH_PLAN.md`): does the
+patched card have C#-level access to the vanilla instance's own
+door/Vent/chamber-sensor references (via the shared instance, or via
+reflection into private fields), or does it need to go through the
+in-game logic network to reach them? That answer decides whether any
+bridge is needed at all, not just which one.
+
+**If a bridge does turn out to be needed**, both fallbacks are already
+designed and documented:
+
+- **Vanilla:** a Logic Transmitter (Active) + Logic Transmitter
+  (Passive) pair, same pattern as `watcher.ic10`/`cycle.ic10` — proven,
+  but costs the two devices and the manual dial-pairing step.
+- **Re-Volt installed:** its Data Diode — see `revolt-mod`'s
+  `PARTS_DELTA.md` for the full case (network-bridging per its own
+  commit description, no manual pairing, fewer parts). Since this
+  branch is vanilla-first and doesn't assume Re-Volt (see `README.md`),
+  this would be the same kind of optional overlay the `ic10-airlock/`
+  build already has — a `mods/revolt/` variant on top of the vanilla
+  baseline, not a replacement for it.
+
 ## Graceful degradation
 
 Every optional input on `IAirlockHost` (`src/FailsafeController.cs`)

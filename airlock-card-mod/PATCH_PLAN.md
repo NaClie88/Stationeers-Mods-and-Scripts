@@ -113,6 +113,24 @@ Each `IAirlockHost` member below needs one real answer.
   gracefully (Deep Idle just doesn't run), but the adapter still needs
   to detect absence rather than assume presence.
 
+## Cross-network visibility — the question that decides if a bridge is needed at all
+
+**Before chasing a Transmitter pair or a Re-Volt Data Diode, answer
+this first:** does the patched card have C#-level access to the
+vanilla instance's own Door/Vent/chamber-Gas-Sensor references —
+either because the Harmony patch runs against the same instance and
+those fields are reachable directly or via reflection — or does
+reaching them require going through the in-game logic network the way
+an IC10 script would? See `GAP_ANALYSIS.md`'s "Cross-network
+visibility for the downstream side" for the full reasoning: unlike the
+original two-IC10-chip design (which needed a bridge no matter what,
+since separate chips can't share registers under any circumstances),
+this is a genuinely open question here, not an assumed requirement.
+If C#-level access already works, `ForceEvacuateAndUnlock()` and
+`HoldBothDoorsOpen()` need no bridge at all. If it doesn't, fall back to
+a Logic Transmitter pair (vanilla) or, for a Re-Volt-enhanced variant,
+the Data Diode already investigated on the `revolt-mod` branch.
+
 ## Where the Harmony patch itself attaches
 
 Two things needed from Milestone 1.5 beyond the above:
