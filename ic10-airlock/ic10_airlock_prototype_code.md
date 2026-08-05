@@ -491,6 +491,12 @@ l r5 SensInt RatioMethane
 sub r7 r4 r5
 abs r7 r7
 bgt r7 0.005 noMatch
+
+l r4 SensExt RatioNitrousOxide
+l r5 SensInt RatioNitrousOxide
+sub r7 r4 r5
+abs r7 r7
+bgt r7 0.005 noMatch
 move r6 1
 
 noMatch:
@@ -502,14 +508,17 @@ j loop
 Tolerance values (`2` used as a placeholder three times in earlier
 drafts) were guesses at the time this was written. **Now applied above**
 — Custom Airlock V2's real, live-used values: pressure ratio ~0.1,
-temperature ~0.02, trace gases (methane, pollutant) ~0.005. The
+temperature ~0.02, trace gases (methane, pollutant, NOx) ~0.005. The
 composition check itself was also rewritten in this pass — the earlier
 skeleton read a single generic `Ratio` field per sensor, which doesn't
 exist; there's no one field for "gas composition," only per-gas
-`RatioX` fields, so the match check now compares Oxygen, Pollutant, and
-Methane individually (NOx omitted here for line budget; add a fourth
-`RatioNitrousOxide` block the same shape if you want the full set Custom
-Airlock V2 checks).
+`RatioX` fields, so the match check now compares Oxygen, Pollutant,
+Methane, and Nitrous Oxide individually — the full set Custom Airlock V2
+checks. Room for this was never the constraint here (Chip C sits at 60
+of 128 lines as formatted, even with all five checks and its readability
+blank lines) — the earlier NOx omission was only ever about *Chip B's*
+line budget being tight, and Chip C is a separate chip with its own
+separate budget, so there was no real reason to leave it out here.
 
 **Dry-run finding (2026-08-04):** the flag write was originally
 `sbn FlagDevice PropFlagHash Setting r6`, with `FlagDevice` aliased to
@@ -534,6 +543,27 @@ original `sbn` line failing to parse there at all (`UNKNOWN_INSTRUCTION`
 independent confirmation the instruction itself is real; the type
 mismatch above is the actual bug, not the instruction's existence).
 
+**Functional dry-run (2026-08-04):** unlike the earlier pass, which only
+syntax-checked Chip C, this one actually exercised the match/mismatch
+branching in the emulator — 9 scenarios: fully matched (→ flag `1`),
+pressure just inside tolerance at 0.05 of the 0.1 band (→ still `1`,
+confirms the tolerance boundary itself, not just "some number works"),
+then five independent mismatch cases — pressure, temperature, Oxygen,
+Pollutant, Methane, and Nitrous Oxide each pushed out of tolerance one
+at a time with everything else held matched (→ `0` every time, confirms
+each check can independently veto a match rather than only the first
+one in the chain mattering), and finally a matched→mismatched→
+re-matched sequence across three consecutive ticks to confirm the flag
+tracks live with no unwanted latching — it recovers to `1` the instant
+conditions re-match, which is the correct behavior per the requirements
+doc ("Exit: either sensor detects a mismatch developing — immediately
+close and return to Idle," not a hysteresis-gated recovery like Chip
+A's Power Tier). All 9 passed as expected; zero program errors. (The
+emulator run used a spacing-free 40-line variant for convenience — the
+formatted 60-line version above, blank spacer lines included, is the
+one that actually ships, and blank lines count the same as code toward
+the 128-line cap. Either way, over 65 lines of slack remain.)
+
 ---
 
 ## What's genuinely done vs. still a skeleton
@@ -548,10 +578,15 @@ tick-by-tick), the full evacuate/pressurize/dwell cycle state machine
 (Chip B, functionally verified including the persistent-pending-
 direction fix described above), the Button-C override placement in
 Critical (now actually gated on real evacuation completion, not just a
-comment), the Deep Idle Transformer-switching approach, the
-type-hash-batch Propped-Open handoff between Chip B and C (syntax
-verified, matching addressing confirmed consistent between both chips).
-**Also solid:** the specific LogicType names `RatioPollutant`,
+comment), the Deep Idle Transformer-switching approach, and the
+match/mismatch branching in Chip C (functionally verified across 9
+scenarios — all five gas/pressure/temperature checks independently
+confirmed to veto a match, tolerance boundary confirmed, live
+recovery-without-latching confirmed). The type-hash-batch Propped-Open
+handoff *between* Chip B and C — as opposed to each side's own logic —
+is syntax-verified only; `lb`/`sb` are no-ops in the emulator used here,
+so the actual cross-chip signal exchange still needs a real in-game
+check. **Also solid:** the specific LogicType names `RatioPollutant`,
 `RatioNitrousOxide`, `RatioNitrogen`, `RatioOxygen`, `Pressure`,
 `Temperature`, `Open`, `Setting`, `Lock`, `Mode`, `On`, `Charge`,
 `Maximum`, and the match-tolerance values above — all confirmed against
