@@ -247,6 +247,21 @@ namespace AirlockCardMod
         // saving; everything else on this interface is either
         // inherited from vanilla or informational.
         void SetDownstreamPower(bool on);
+
+        // Extends that side's vent operation briefly so any excess
+        // pressure in its inline storage tank bleeds into the
+        // now-open room, instead of accumulating over repeated cycles
+        // (2026-08-05, project owner -- inline air tank design behind
+        // each Active Vent, used to speed up cycling). Deliberately NOT
+        // gated on reading live tank pressure -- that capability isn't
+        // confirmed to exist at all (Milestone 1.5 territory). Instead
+        // this always runs, on the principle that relieving pressure at
+        // a moment that's already safe by construction (a door that's
+        // open is already connected to a room -- venting excess there
+        // is harmless regardless of how much excess there is) beats
+        // reacting to a threshold. See OnDoorOpened() below for when
+        // this gets called.
+        void ExtendVentRelief(DoorSide side);
     }
 
     public sealed class FailsafeController
@@ -320,6 +335,27 @@ namespace AirlockCardMod
         public FailsafeController(IAirlockHost host)
         {
             this.host = host ?? throw new ArgumentNullException(nameof(host));
+        }
+
+        // Call whenever EITHER door opens, regardless of trigger source
+        // -- the native button that comes on powered doors, the
+        // Console UI, or this design's own Critical-tier logic
+        // (2026-08-05, project owner: this design modifies the whole
+        // airlock's behavior, not just the parts this class directly
+        // triggers, and the inline-tank relief needs to cover every
+        // cycle, not only the ones this class initiated). Separate
+        // from UpdateTier()/ApplyTierEffects() -- this isn't part of
+        // the per-tick loop, it's an event notification the patch
+        // fires whenever it observes a door transition to open,
+        // wherever in vanilla's code that turns out to happen.
+        //
+        // Suspended by MaintenanceModeEnabled, same as everything else
+        // in this class -- a player doing manual construction work
+        // shouldn't have this firing on them either.
+        public void OnDoorOpened(DoorSide side)
+        {
+            if (host.MaintenanceModeEnabled) return;
+            host.ExtendVentRelief(side);
         }
 
         // Call once per tick/update, same cadence as watcher.ic10's

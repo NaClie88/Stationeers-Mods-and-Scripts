@@ -5,6 +5,20 @@ review. Traced directly from `src/FailsafeController.cs` as it stands
 today. All open questions from earlier passes of this table are now
 resolved — see the changelog at the bottom for what changed and when.
 
+## `OnDoorOpened` — event-driven, not part of the tier tables below
+
+Not tied to `CurrentTier` or the per-tick loop at all — a separate
+public method, called once per door-open event, from wherever the
+eventual patch observes one (see `PATCH_PLAN.md`'s "Where
+`OnDoorOpened` attaches"). Only one state to note: `MaintenanceModeEnabled`
+suspends it, same as everything else in this class; otherwise it always
+calls `host.ExtendVentRelief(side)` unconditionally, regardless of
+`CurrentTier`, regardless of what triggered the door opening (native
+button, Console UI, or this design's own logic). Deliberately has no
+"off" switch beyond maintenance mode — see `GAP_ANALYSIS.md` item 12
+for why this one is meant to apply universally rather than being gated
+like most other capabilities on `IAirlockHost`.
+
 ## Maintenance mode — overrides everything below
 
 `MaintenanceModeEnabled` is checked once, immediately after
@@ -211,3 +225,12 @@ skip behavior be," and that's now answered.
   pair overrides that to favor whichever door was most recently used.
   Never applies in Critical — `ForceEvacuate()`'s unconditional
   both-doors-close already supersedes it there.
+- **2026-08-05:** Added `OnDoorOpened(DoorSide)` and `ExtendVentRelief`
+  for inline air tank management — the first capability in this design
+  that applies to every cycle universally (native button, Console UI,
+  or this design's own logic), not just ones `FailsafeController`
+  itself triggers. Corrects an earlier framing (top of `GAP_ANALYSIS.md`)
+  that implied normal vanilla cycling was permanently out of reach for
+  this design to extend — it isn't, that framing was about reusing
+  vanilla's math efficiently, not a restriction on what this design
+  will modify.

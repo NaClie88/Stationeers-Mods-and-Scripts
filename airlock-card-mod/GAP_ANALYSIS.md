@@ -5,6 +5,24 @@ we don't reimplement it, and isolate exactly what's actually new. This
 is what makes "patch the existing card" viable instead of building
 from scratch.
 
+**Correction (2026-08-05) — this is a reuse-what-works efficiency
+choice, not a boundary on what this design will modify.** An earlier
+version of this doc's framing implied vanilla's normal cycling was
+untouchable territory this project would only ever wrap, never change
+— that's not the goal. Project owner: this is 100% meant to be a
+better airlock overall, using the Console UI and each door's own native
+button as the familiar player-facing interface, not a thin fail-safe
+layer bolted onto an otherwise-frozen vanilla circuit. The actual
+reason to reuse vanilla's evacuate/pressurize-toward-target *math*
+where possible is just efficiency and risk-reduction — no reason to
+re-solve gas-target logic vanilla already solves well — not a
+philosophical line about which events this design is allowed to hook
+into. Concretely: this design can and does add behavior that applies
+to *every* cycle, regardless of whether the native door button, the
+Console UI, or this design's own Tier logic triggered it — see
+`ExtendVentRelief`/`OnDoorOpened` in `src/FailsafeController.cs` for a
+real example.
+
 Vanilla facts below are sourced from the Community Wiki (search
 snippets — the live pages block automated fetches for this project,
 same as everywhere else in this repo; verify directly once you're at
@@ -123,6 +141,22 @@ inherit for free by patching instead of replacing.
     piece existed in the IC10 build — genuinely new, and the second
     piece is the first place this project tracks anything resembling
     player movement.
+12. **Inline air tank relief, universal across every cycle** (project
+    owner, 2026-08-05) — for builds using an inline storage tank behind
+    each Active Vent to speed up cycling (drawing from/into a small
+    tank instead of the whole room). `ExtendVentRelief`/`OnDoorOpened`
+    extends that side's vent operation briefly whenever *either* door
+    opens, regardless of what triggered the cycle, so any pressure the
+    tank accumulated bleeds into the now-open room before it can build
+    up over repeated cycles — without needing to read live tank
+    pressure at all (unconfirmed capability, see "Cross-network
+    visibility" and Milestone 1.5's checklist). The design principle:
+    relieve at moments that are already safe by construction (an open
+    door is already connected to a room) instead of reacting to a
+    pressure threshold. This is the first capability that hooks into
+    *every* cycle rather than just this design's own Tier-triggered
+    ones — see the correction at the top of this doc for why that's a
+    real design choice, not scope creep.
 
 ## Reusing vanilla's Skip instead of custom Button C hardware
 

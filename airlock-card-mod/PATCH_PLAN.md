@@ -151,6 +151,42 @@ Each `IAirlockHost` member below needs one real answer.
   writes to the `FailsafeController` instance directly when a setting
   changes — no new interface member needed, and defaults already match
   validated behavior if no settings UI exists yet.
+- **`ExtendVentRelief(DoorSide)`** (2026-08-05, project owner —
+  universal inline-tank relief, see `GAP_ANALYSIS.md` item 12) — needs
+  a reference to that side's Active Vent (already needed for
+  `ForceEvacuate()`/`HoldBothDoorsOpen()`) and a way to briefly extend
+  its operation once the door opens. No live pressure read required —
+  see the "Where `OnDoorOpened` attaches" section below for the more
+  important open question this one depends on.
+
+## Where `OnDoorOpened` attaches — bigger than a single Postfix
+
+**This is a real expansion of Milestone 1.5's scope, not just another
+checklist item.** Every other `IAirlockHost` member so far gets driven
+by the single per-tick Postfix already planned (see "Where the Harmony
+patch itself attaches" below) — `FailsafeController.ApplyTierEffects()`
+runs once a tick regardless of what triggered anything. `OnDoorOpened`
+is different: it has to fire on **every** door-open event, including
+ones this design never initiates at all — a player pressing the native
+button that comes on a powered door, or clicking Console UI, both of
+which run entirely through vanilla's own untouched code (project owner,
+2026-08-05: this design is meant to improve the whole airlock, not just
+wrap around the parts it directly controls — see the correction at the
+top of `GAP_ANALYSIS.md`).
+
+That means Milestone 1.5 needs to find a **second** attachment point
+beyond the per-tick update method: whatever vanilla method actually
+opens a door (or fires when one opens), so a Harmony patch can call
+`FailsafeController.OnDoorOpened(side)` from there too. Two sub-questions
+worth resolving together, since the answer to one probably answers the
+other:
+
+1. Is there one shared "open this door" method both the native button
+   and the Console UI already funnel through, or do they take genuinely
+   separate code paths that would each need their own patch?
+2. Does that method (or whatever's closest to it) already know *which*
+   door — Exterior or Interior — so `DoorSide` can be passed through
+   correctly, or does the adapter need to infer that some other way?
 
 ## Cross-network visibility — the question that decides if a bridge is needed at all
 
