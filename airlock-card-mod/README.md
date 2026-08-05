@@ -17,6 +17,28 @@ either a documented, sourced fact about the toolchain, or an explicit
 "unconfirmed — needs your own local check," same discipline the rest of
 this project already holds itself to for IC10 LogicTypes.
 
+## Requirements (confirmed 2026-08-05, not just implementation detail)
+
+**BepInEx is a hard requirement for this mod to function.** Every piece
+of actual fail-safe *behavior* this project adds (Tier monitoring, Deep
+Idle, Propped-Open, the Critical-tier evacuation sequence) is C# code,
+not data — and the only mechanism to inject C# logic into a running
+Stationeers instance is Harmony patching, which ships inside BepInEx
+(`BepInEx/core/0Harmony.dll`). There's no code-mod path in this game's
+ecosystem that doesn't route through BepInEx, including the Unity-asset
+path (`StationeersMods` is itself loaded as a BepInEx plugin). This
+isn't a choice made along the way that could be swapped later — it's
+structural. Milestone 0's native XML path is the one exception, but
+it's data-only (recipes, maybe a cloned item) and can't carry any of
+the behavior that's the actual point of this project.
+
+**StationeersLaunchPad is recommended, not required** — a load-order
+and installation convenience layer (same category as its role for
+Re-Volt, see `database/mods.json`), not load-bearing. A player could
+drop the compiled DLL straight into `BepInEx/plugins/` manually (as
+`GETTING_STARTED.md` has you doing for Milestone 1) with zero LaunchPad
+involved and it would work.
+
 ## Three possible build paths
 
 0. **Native XML mod path — no code, no installs at all.** Stationeers
