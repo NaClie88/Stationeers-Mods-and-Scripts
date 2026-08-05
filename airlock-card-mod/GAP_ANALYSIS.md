@@ -443,45 +443,74 @@ explains a property of the code that would otherwise look like an
 oversight (no repressurize step anywhere in the Critical-tier
 sequence).
 
-**Active Vents are asymmetric.** Pulling gas *into* the pipe network
-from the room the vent physically sits in (evacuate/pump-down) is
-fast and reliable. Pushing gas *out of* the pipe network into a room
-(pressurize/repressurize) is comparatively slow and stall-prone,
-especially pushing from a tank through a constrained connection into a
-room that's already near-vacuum — there's little pressure differential
-driving flow. This is almost certainly the real reason vanilla's own
-stall handling and "Cancel Pressurize" button (see "What vanilla's
-Advanced Airlock Circuitboard already does," above) exist at all —
-overwhelmingly a pressurize-direction problem, rarely an evacuate one.
+**Corrected mechanics (2026-08-05):** an Active Vent moves a fixed
+*volume* of gas per operation, not a fixed number of moles. Since
+`PV = nRT`, the moles actually moved by that fixed volume scale with
+the pressure on the *supply* side — a stroke drawing from a
+high-pressure source carries far more gas than the same stroke drawing
+from a near-vacuum source. So the slow/stall-prone case isn't
+"pressurize" as a label — it's specifically **pulling near-vacuum gas
+out of one side and pushing it into an already-high-pressure side**:
+the source has almost nothing to give per stroke, and the destination
+pushes back the hardest. The favorable case is the mirror image —
+**a high-pressure source pushing toward a low-pressure destination**
+moves a lot of gas per stroke with little resistance, regardless of
+whether that happens to be labeled "evacuate" or "pressurize" for a
+given room.
 
-**`ForceEvacuate()`/`Tier.Critical` already follows this principle —
-this section documents *why*, the code hasn't changed:**
+In stock vanilla (no inline tanks) the pipe network is usually the
+emptier side, so evacuate (chamber → network) usually lands in the
+favorable case and pressurize (network → chamber) usually lands in the
+unfavorable one — which is almost certainly why vanilla's stall
+handling and "Cancel Pressurize" button (see "What vanilla's Advanced
+Airlock Circuitboard already does," above) are named the way they are.
+**That correlation does not hold once this design's inline tanks are
+in the loop.** The tanks charge up over repeated evacuation cycles, so
+the network side gets *higher* pressure over time, not lower. That
+flips the risk: evacuating the chamber down toward vacuum while
+pushing into an already-well-charged tank is exactly the unfavorable
+case (thin source, resistant destination) — worst right at the tail
+end, when the chamber is nearly empty and the tank is nearly full.
+Pressurizing the chamber from that same charged tank would actually be
+the *favorable* direction now.
+
+**`ForceEvacuate()`/`Tier.Critical` still evacuates rather than
+repressurizes — but the reason is a safety end-state, not a
+performance heuristic:**
 
 ```csharp
-host.ForceEvacuate();                                    // pump-down: always runs, the reliable direction
+host.ForceEvacuate();                                    // drive chamber toward vacuum: the intended end-state, not "the fast direction"
 if (host.SafeToUnlockTemperature) host.UnlockDoors();     // makes it openable -- no attempt to fill toward any target
 ```
 
-No repressurize step exists anywhere in the emergency sequence, and
-never has. Evacuating always completes (the safe, fast direction);
-unlocking just makes the door openable. Any actual repressurize only
-ever happens afterward, through vanilla's own normal button-driven
-cycling once someone genuinely wants to come back through — at which
-point vanilla's own stall/Skip handling, not this design, is what
-watches for a hang-up in the fragile direction. This design
-deliberately never builds automatic reliance on the fragile direction
-into the safety-critical path.
+The goal of Critical-tier evacuation is a chamber that's safe to open
+from *either* side without a large pressure differential — that's a
+correctness requirement (per the original design: "the doors can open
+to a vacuum from either side and that side's air can fill the
+airlock"), independent of which direction happens to be faster. No
+repressurize step exists anywhere in the emergency sequence, and never
+has; unlocking just makes the door openable. Any actual repressurize
+only happens afterward, through vanilla's own normal button-driven
+cycling once someone wants to come back through.
 
-**Open question this raises about `ExtendVentRelief` (item 12,
-above):** it works by pushing gas *out of* the tank into the room —
-the same weak direction. Probably fine here specifically, since a full
-tank pushing into an already-occupied room has a real differential
-driving flow (the opposite of the throttled case: a depleting tank
-pushing into a near-vacuum chamber, where nothing drives the flow) —
-but that's inference, not confirmed. Worth watching during Milestone
-1.5/actual in-game testing; if it turns out slower than expected in
-practice, this may need its own stall-timeout, distinct from the
-chamber-repressurize case vanilla already handles.
+**Real, newly-flagged risk:** with the corrected mechanics, a
+Critical-tier `ForceEvacuate()` pushing into an already-charged inline
+tank can genuinely stall near the vacuum tail, the same way vanilla's
+own pressurize direction does today. This isn't hypothetical the way
+the old "weak direction" framing implied — it follows directly from
+the fixed-volume/moles-scale-with-pressure mechanics above. Whatever
+stall/Skip handling vanilla already has needs to cover this evacuate
+case too, not just its own pressurize case; worth confirming
+explicitly during Milestone 1.5/in-game testing rather than assumed.
+
+**`ExtendVentRelief` (item 12, above) is on firmer ground than
+previously written.** It pushes gas *out of* the tank (charged high by
+repeated evacuation cycles) *into* the tank's source room (normal/low
+pressure) — a high-pressure source feeding a low-pressure destination,
+which is now confirmed as the *favorable* direction, not "the same
+weak direction" as previously hedged. Still worth confirming timing
+in-game, but there's no longer a physics reason to expect it to be
+slow.
 
 ## Considered and declined: Smart Breaker diagnostics
 
