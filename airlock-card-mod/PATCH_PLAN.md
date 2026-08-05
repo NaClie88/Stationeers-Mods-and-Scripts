@@ -93,13 +93,25 @@ Each `IAirlockHost` member below needs one real answer.
   fine to stub this out last.
 - **`SetDownstreamPower(bool)`** — almost certainly no vanilla
   equivalent (see `GAP_ANALYSIS.md`'s "Power architecture" section) —
-  needs a reference to a downstream APC/Power Controller feeding the
-  doors and Vent, set up as a new field, the same way the dedicated
-  battery reference above likely needs to be. **Check first whether
+  needs a reference to the traditional Area Power Controller feeding
+  the doors, Vents, and chamber Gas Sensor, set up as a new field, the
+  same way the dedicated battery reference above likely needs to be.
+  **Must be wired from the APC's power-source side** (project owner,
+  2026-08-05: an APC only exposes its logic there, not on its
+  downstream/output side) — don't look for a control hook on the
+  network the APC creates downstream of itself. **Check first whether
   "Area Power Controller" and "Power Controller" are the same device**
   (a wiki redirect suggests they might be) — if so, this is the exact
   same device and `On`-field question already flagged unconfirmed for
   `ic10-airlock/watcher.ic10`'s own zone gate, not new unknowns.
+- **`HasDownstreamController`** — presence check paired with the above:
+  does a controllable APC actually exist on the source-side network at
+  all. Same shape as `HasWakeButtons`'s presence check — likely "is the
+  reference/hash null" once `SetDownstreamPower`'s real hook is found.
+  Without this, `SetDownstreamPower` could get called against a device
+  that isn't there; `FailsafeController` already handles that
+  gracefully (Deep Idle just doesn't run), but the adapter still needs
+  to detect absence rather than assume presence.
 
 ## Where the Harmony patch itself attaches
 

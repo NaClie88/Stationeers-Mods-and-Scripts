@@ -19,16 +19,19 @@ directly from `watcher.ic10`'s `forceHold` on Tier 0.
 
 ## Tier: Low
 
-Downstream power depends on `HasWakeButtons` first, then (if true) on
-`wakeRequested`/`wakeHoldRemaining` — and `wakeRequested` now includes
-`PropAtmosphereMatched` (**resolved**, see changelog).
+Downstream power depends on `HasWakeButtons` **and**
+`HasDownstreamController` first (both required, added 2026-08-05 —
+see changelog), then, only if both hold, on
+`wakeRequested`/`wakeHoldRemaining` — and `wakeRequested` includes
+`PropAtmosphereMatched`.
 
-| `HasWakeButtons` | `wakeRequested` this tick (buttons / Console-click / presence / **matched atmosphere**) | `wakeHoldRemaining` | Downstream power | Propped-Open? |
-|---|---|---|---|---|
-| `false` | — | — | **On, continuously** | `HoldBothDoorsOpen()` called if matched — power's already on regardless, so this always takes effect when true. |
-| `true` | `true` | — | On, `wakeHoldRemaining` reset to 20 | Called if matched. If the *only* reason `wakeRequested` is true is a match (no button/click/presence), this is what's actually keeping the circuit awake. |
-| `true` | `false` | `> 0` | On (coasting on the hold timer), decrements by 1 | Called if matched (power's still on from the countdown). |
-| `true` | `false` | `0` | **Off** — Deep Idle | Not called — no atmosphere match to check even matters, since `PropAtmosphereMatched` being true would have kept `wakeRequested` true and prevented reaching this row at all. |
+| `HasWakeButtons` | `HasDownstreamController` | `wakeRequested` this tick (buttons / Console-click / presence / matched atmosphere) | `wakeHoldRemaining` | Downstream power | Propped-Open? |
+|---|---|---|---|---|---|
+| `false` | — | — | — | **On, continuously** | Called if matched — power's already on regardless. |
+| — | `false` | — | — | **On, continuously** | Called if matched — power's already on regardless. No APC found to switch, so there's nothing to idle even if buttons exist. |
+| `true` | `true` | `true` | — | On, `wakeHoldRemaining` reset to 20 | Called if matched. If the *only* reason `wakeRequested` is true is a match (no button/click/presence), this is what's actually keeping the circuit awake. |
+| `true` | `true` | `false` | `> 0` | On (coasting on the hold timer), decrements by 1 | Called if matched (power's still on from the countdown). |
+| `true` | `true` | `false` | `0` | **Off** — Deep Idle | Not called — no atmosphere match to check even matters, since `PropAtmosphereMatched` being true would have kept `wakeRequested` true and prevented reaching this row at all. |
 
 **Resolved (2026-08-05):** whether Propped-Open applies beyond Normal
 tier now falls entirely out of where the Gas Sensors are physically
@@ -118,3 +121,10 @@ critical and changes previously-tested, documented behavior either way.
   Critical, unconditionally, confirmed. Button C's exact interaction
   with Critical's forced evacuation remains open — asked directly in
   chat.
+- **2026-08-05:** Added `HasDownstreamController` — Deep Idle now
+  requires both a confirmed-safe wake mechanism (`HasWakeButtons`) and
+  something to actually switch (`HasDownstreamController`), gated
+  symmetrically. Prompted by project owner noting an APC only exposes
+  its logic on its power-source side, not downstream — meaning the
+  card has to actually confirm one is present and controllable rather
+  than assume it.

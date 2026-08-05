@@ -167,6 +167,26 @@ the IC10 build's Watcher/Gate split, just without a second chip:
   "downstream" circuit, and the new second Power Controller becomes the
   always-on one.
 
+**Wiring detail that affects Milestone 1.5, project owner (2026-08-05):
+an APC only exposes its logic to its power-SOURCE side, not its
+downstream/output side.** The network downstream of an APC is isolated
+(matches the earlier research finding: "used to segregate power into
+their own subnetworks") and doesn't carry the APC's own control
+interface. Concretely: the card's data connection for reading/writing
+the traditional Area Power Controller's `On` field has to come from the
+source side — which, given the architecture above, is naturally where
+the card and the new dedicated Power Controller already sit. This
+isn't a new wiring requirement so much as a confirmation that the
+already-planned architecture is wired the only way that could work —
+worth stating explicitly so Milestone 1.5 doesn't waste time looking
+for a control hook on the downstream side.
+
+**This also means the card should detect whether an APC is present at
+all, not assume one** (project owner, 2026-08-05) — see
+`HasDownstreamController` on `IAirlockHost` in
+`src/FailsafeController.cs`, and "Graceful degradation" below for what
+happens if none is found.
+
 **Naming question, working assumption as of 2026-08-05:** a search
 turned up the Community Wiki's "Area Power Controller" page redirecting
 to its "Power Controller" page — suggestive that "APC" and "Power
@@ -221,6 +241,17 @@ first).
   should default to 100 (always Normal), not 0 — a host with nothing
   to monitor should behave like vanilla with no fail-safe layer, not
   like vanilla stuck falsely believing it's always in a power crisis.
+- **No APC/Power Controller found on the downstream side at all
+  (2026-08-05, project owner) → Deep Idle doesn't run, same as no
+  buttons.** `HasDownstreamController` gates Low tier exactly the way
+  `HasWakeButtons` does — both have to be true for Deep Idle to
+  actually engage, either one missing holds downstream power on
+  continuously instead. Different reason than the buttons case (there's
+  nothing to switch, rather than nothing safe to wake from), same
+  fallback. This also protects `SetDownstreamPower` from being called
+  against a device that isn't there — see "Power architecture" above
+  for why an APC can only be found/controlled from its source side, not
+  by scanning downstream from the doors.
 
 ## Presence sensor placement (auto-cycling)
 

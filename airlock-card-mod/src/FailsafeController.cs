@@ -92,6 +92,22 @@ namespace AirlockCardMod
         // unconfirmed vanilla behavior.
         bool HasWakeButtons { get; }
 
+        // Capability flag: true if an APC/Power Controller is actually
+        // detected on the downstream circuit, in the position needed to
+        // gate the doors and Vent. Project owner (2026-08-05): an APC
+        // only exposes its logic on its power-SOURCE side, not its
+        // downstream/output side -- the network the APC creates
+        // downstream of itself is isolated and doesn't carry the APC's
+        // own control interface. So this check (and SetDownstreamPower's
+        // own write) both depend on the card being wired to that source
+        // side, not scanning for the APC from the downstream network it
+        // creates. Without one present at all, there's nothing for
+        // SetDownstreamPower to act on -- Deep Idle can't function no
+        // matter what else is wired. Same gating role as HasWakeButtons,
+        // for a different reason: HasWakeButtons is about whether it's
+        // SAFE to idle, this is about whether it's even POSSIBLE to.
+        bool HasDownstreamController { get; }
+
         // Optional, secondary wake source -- true whenever vanilla's
         // OWN logic wants to run a cycle right now (Console UI click,
         // most likely), regardless of trigger source. NOT required for
@@ -279,14 +295,16 @@ namespace AirlockCardMod
                     break;
 
                 case Tier.Low:
-                    // Deep Idle only runs at all if a confirmed-safe
-                    // wake mechanism (a physical button) actually
-                    // exists -- see HasWakeButtons's doc comment on
-                    // IAirlockHost. No buttons wired -> hold downstream
+                    // Deep Idle needs BOTH a confirmed-safe wake
+                    // mechanism (HasWakeButtons -- is it SAFE to idle)
+                    // and something to actually switch
+                    // (HasDownstreamController -- is it even POSSIBLE
+                    // to idle). Missing either one -> hold downstream
                     // power on continuously, same as Normal, rather
-                    // than gambling on whether a Console click survives
-                    // a power-gate delay.
-                    if (!host.HasWakeButtons)
+                    // than gambling on an unconfirmed vanilla behavior
+                    // or calling SetDownstreamPower with nothing on the
+                    // other end of it.
+                    if (!host.HasWakeButtons || !host.HasDownstreamController)
                     {
                         UpdateDownstreamPower(forceOn: true);
                         if (host.PropAtmosphereMatched) host.HoldBothDoorsOpen();
