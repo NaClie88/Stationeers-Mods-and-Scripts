@@ -435,6 +435,54 @@ its own purpose. The tradeoff for the convenience is its own
 which is exactly why this project didn't make it part of the core
 design and keeps it strictly optional here too.
 
+## Why Critical never auto-repressurizes: vent direction asymmetry
+
+Design justification, confirmed by project owner (2026-08-05) rather
+than inferred from vanilla docs — worth recording explicitly since it
+explains a property of the code that would otherwise look like an
+oversight (no repressurize step anywhere in the Critical-tier
+sequence).
+
+**Active Vents are asymmetric.** Pulling gas *into* the pipe network
+from the room the vent physically sits in (evacuate/pump-down) is
+fast and reliable. Pushing gas *out of* the pipe network into a room
+(pressurize/repressurize) is comparatively slow and stall-prone,
+especially pushing from a tank through a constrained connection into a
+room that's already near-vacuum — there's little pressure differential
+driving flow. This is almost certainly the real reason vanilla's own
+stall handling and "Cancel Pressurize" button (see "What vanilla's
+Advanced Airlock Circuitboard already does," above) exist at all —
+overwhelmingly a pressurize-direction problem, rarely an evacuate one.
+
+**`ForceEvacuate()`/`Tier.Critical` already follows this principle —
+this section documents *why*, the code hasn't changed:**
+
+```csharp
+host.ForceEvacuate();                                    // pump-down: always runs, the reliable direction
+if (host.SafeToUnlockTemperature) host.UnlockDoors();     // makes it openable -- no attempt to fill toward any target
+```
+
+No repressurize step exists anywhere in the emergency sequence, and
+never has. Evacuating always completes (the safe, fast direction);
+unlocking just makes the door openable. Any actual repressurize only
+ever happens afterward, through vanilla's own normal button-driven
+cycling once someone genuinely wants to come back through — at which
+point vanilla's own stall/Skip handling, not this design, is what
+watches for a hang-up in the fragile direction. This design
+deliberately never builds automatic reliance on the fragile direction
+into the safety-critical path.
+
+**Open question this raises about `ExtendVentRelief` (item 12,
+above):** it works by pushing gas *out of* the tank into the room —
+the same weak direction. Probably fine here specifically, since a full
+tank pushing into an already-occupied room has a real differential
+driving flow (the opposite of the throttled case: a depleting tank
+pushing into a near-vacuum chamber, where nothing drives the flow) —
+but that's inference, not confirmed. Worth watching during Milestone
+1.5/actual in-game testing; if it turns out slower than expected in
+practice, this may need its own stall-timeout, distinct from the
+chamber-repressurize case vanilla already handles.
+
 ## Considered and declined: Smart Breaker diagnostics
 
 Raised as a brainstorm idea, not built — worth recording why rather
