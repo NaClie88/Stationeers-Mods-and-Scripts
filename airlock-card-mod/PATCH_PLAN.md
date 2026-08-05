@@ -31,6 +31,23 @@ Each `IAirlockHost` member below needs one real answer.
   downstream-power wake logic (see below) — if vanilla has no concept
   of a chamber-interior button at all, that one specifically is new
   wiring, not a hook into existing behavior.
+- **`VanillaCycleRequested`** — **not optional, has to be found.**
+  Whatever vanilla's real cycle-trigger path is (Console UI click
+  handler most likely), this needs to surface as a boolean the patch
+  can read every tick. This is what keeps Deep Idle from stranding a
+  Console-only player who never wires the optional hardware buttons —
+  see `GAP_ANALYSIS.md`'s "Graceful degradation" section for the bug
+  this fixes. If vanilla's trigger is a one-shot event/callback rather
+  than a persistent flag, the adapter will need to latch it into a
+  boolean that stays true for at least one tick after the event fires.
+- **`PresenceDetected`** — optional. No vanilla equivalent, needs its
+  own new field referencing a Presence/Motion Sensor the same way
+  `PropAtmosphereMatched` needs Gas Sensor references. **Must be wired
+  to the always-on side**, not the switched downstream circuit — see
+  `GAP_ANALYSIS.md`'s "Presence sensor placement" section for why (the
+  sensor has to detect someone approaching *before* downstream power
+  comes back on, so it can't itself be behind the thing it's supposed
+  to wake).
 - **`PropAtmosphereMatched`** — almost certainly has no vanilla
   equivalent (see `GAP_ANALYSIS.md`) — this will likely need its own
   new field/method entirely, fed by two Gas Sensor references the way

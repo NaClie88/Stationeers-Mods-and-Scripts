@@ -69,6 +69,11 @@ inherit for free by patching instead of replacing.
    circuit powered continuously. Wholly new, and it's the one item on
    this list where the *architecture* matters as much as the logic —
    see "Power architecture" below.
+6. **Auto-cycling via an optional Presence/Motion Sensor** — open on
+   approach instead of requiring a button press. Not in vanilla, and
+   deliberately not part of the IC10 build's core wake path either
+   (see "Graceful degradation" below for why) — a genuinely new
+   optional extra, not a port of anything.
 
 ## Power architecture
 
@@ -91,15 +96,73 @@ second chip:
   zone-gate exactly. `SetDownstreamPower(bool)` on `FailsafeController`
   is this switch.
 
-**One naming question worth checking once you're at your PC:** a
-search turned up the Community Wiki's "Area Power Controller" page
-redirecting to its "Power Controller" page — suggestive that "APC" and
-"Power Controller" may be the same in-game device under two names,
-rather than two distinct devices. If so, this is literally the same
-device already used (and already flagged unconfirmed for its exact
-`On` LogicType) as the zone gate in `ic10-airlock/watcher.ic10` — worth
-confirming in Stationpedia, since it would mean this architecture isn't
-new territory at all, just the same proven device wired the same way.
+**Naming question, working assumption as of 2026-08-05:** a search
+turned up the Community Wiki's "Area Power Controller" page redirecting
+to its "Power Controller" page — suggestive that "APC" and "Power
+Controller" are the same in-game device under two names. Project owner
+confirms this matches their own understanding, so treating it as likely
+true from here on — still worth a Stationpedia glance during Milestone
+1.5 to fully close it out, but not blocking. If it holds, this
+architecture isn't new territory at all: it's the same device (and the
+same already-flagged-unconfirmed `On` LogicType) as the zone gate in
+`ic10-airlock/watcher.ic10`, just wired the same way again.
+
+## Graceful degradation
+
+Every optional input on `IAirlockHost` (`src/FailsafeController.cs`)
+was checked against "what happens if the end user never wires this."
+None of them should be able to crash or strand the airlock — worth
+recording exactly what each one falls back to, since some of these
+took a real fix to get right (see the `VanillaCycleRequested` entry
+below).
+
+- **No hardware Buttons (E/I/C) wired at all.** `ButtonEHeld`/`IHeld`/
+  `CHeld` all default false. `ButtonCHeld` false means Critical tier
+  never gets overridden — the forced evacuation always runs, which is
+  the correct safe default (nobody's holding the override, so nothing
+  should skip it). The Low-tier wake condition doesn't depend solely on
+  these — see the next point for why that matters.
+- **No way to detect a wake request at all would be a real bug, not a
+  degradation case.** An earlier version of this design tied the
+  Low-tier wake condition to the hardware buttons alone — if none were
+  wired, Deep Idle would cut downstream power and *never* restore it,
+  even if a player used the Console's own UI to request a cycle,
+  because the doors/Vent would stay depowered and unable to act on
+  that request. Fixed by adding `VanillaCycleRequested`, which reflects
+  vanilla's own request signal regardless of source (Console click,
+  hardware button, anything) — this one isn't optional the way the
+  others are, since a Console is required for the card to exist at all,
+  so Milestone 1.5 has to find vanilla's real trigger hook no matter
+  what else does or doesn't get wired.
+- **No external Gas Sensor pair (Propped-Open).** `PropAtmosphereMatched`
+  defaults false — doors simply never enter Propped-Open, normal
+  cycling proceeds exactly as it would otherwise. Already the same
+  behavior as skipping `gas_sensor.ic10` in the IC10 build.
+- **No Presence/Motion Sensor.** `PresenceDetected` defaults false — no
+  auto-cycling, Console UI and/or hardware buttons work exactly as
+  before, nothing else changes.
+- **No dedicated Power Controller at all.** `DedicatedBatteryChargeRatio`
+  should default to 100 (always Normal), not 0 — a host with nothing
+  to monitor should behave like vanilla with no fail-safe layer, not
+  like vanilla stuck falsely believing it's always in a power crisis.
+
+## Presence sensor placement (auto-cycling)
+
+Confirmed usable, but not the default, and not part of the
+safety-critical wake path — same reasoning this project already
+reached once, for the IC10 build's own "Optional afterthought: APC
+motion-sensor automation" section
+(`ic10-airlock/ic10_airlock_setup_guide.md`): Buttons are confirmed to
+cost nothing to monitor even fully unpowered (`SOURCES.md`), but a
+Motion/Presence Sensor's own idle power draw was never confirmed the
+same way. That's still true here. A presence sensor **must** sit on
+the always-on side (same circuit as the Console), not the switched
+downstream circuit — if it's fed from behind the APC, it can never
+detect anyone approaching while that circuit is depowered, defeating
+its own purpose. The tradeoff for the convenience is its own
+(unconfirmed-magnitude) continuous draw on the always-on circuit,
+which is exactly why this project didn't make it part of the core
+design and keeps it strictly optional here too.
 
 ## What this means for the patch
 

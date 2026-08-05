@@ -45,6 +45,15 @@ namespace AirlockCardMod
         // downstream circuit below -- it feeds the always-on Console
         // directly, same placement requirement as the IC10 build's
         // dedicated battery.
+        //
+        // Safe default if no dedicated Power Controller is wired at
+        // all: report 100 (always Normal), not 0. A host that can't
+        // find one should disable the fail-safe layer by always
+        // looking healthy, not fail closed into permanent false
+        // Critical-tier lockdowns -- there's nothing to be safe *from*
+        // if there's no dedicated battery to monitor in the first
+        // place, so this should behave like vanilla with no fail-safe
+        // layer at all, not like vanilla that's stuck evacuating.
         float DedicatedBatteryChargeRatio { get; }
 
         // Button reads. All three are confirmed elsewhere in this
@@ -52,10 +61,48 @@ namespace AirlockCardMod
         // entry) -- so unlike the dedicated battery above, it doesn't
         // matter whether these sit on the always-on side or the
         // switched downstream side of the APC. Source: watcher.ic10's
-        // r3/r4/r5 (BtnE/BtnI/BtnC), read via lbn.
+        // r3/r4/r5 (BtnE/BtnI/BtnC), read via lbn. All three default
+        // false if unwired -- see "Graceful degradation" in
+        // GAP_ANALYSIS.md for what that does to behavior.
         bool ButtonEHeld { get; }
         bool ButtonIHeld { get; }
         bool ButtonCHeld { get; }
+
+        // True whenever vanilla's OWN logic wants to run a cycle right
+        // now, regardless of trigger source -- Console UI click,
+        // hardware button wired directly into vanilla's own input
+        // handling, anything. NOT optional the way the members below
+        // are: since a Console is required for this card to exist at
+        // all, vanilla always has *some* way to receive a cycle
+        // request, and Milestone 1.5 has to find it. This is what keeps
+        // Deep Idle from stranding a player who never wires the
+        // optional hardware Buttons above and only ever uses the
+        // Console's own UI -- without this, Low tier would drain
+        // downstream power and never wake back up for a Console-only
+        // user, since ButtonEHeld/IHeld/CHeld would all stay false
+        // forever.
+        bool VanillaCycleRequested { get; }
+
+        // Optional. True while a Presence/Motion Sensor detects someone
+        // approaching, for auto-cycling instead of requiring a manual
+        // button press. Defaults false if not wired -- same graceful
+        // degradation as the buttons above.
+        //
+        // Placement matters here more than for buttons: this project's
+        // own IC10 design deliberately did NOT put a presence sensor on
+        // the core wake path, specifically because Buttons are
+        // confirmed to cost nothing to monitor even fully unpowered
+        // (SOURCES.md) while a Motion/Presence Sensor's own idle power
+        // draw is NOT confirmed the same way
+        // (ic10_airlock_setup_guide.md, "Optional afterthought: APC
+        // motion-sensor automation"). A presence sensor MUST sit on the
+        // always-on side, same as the Console -- if it's fed from the
+        // switched downstream circuit, it can never detect anyone
+        // approaching while that circuit is depowered, which defeats
+        // its own purpose. That placement cost is the tradeoff for the
+        // convenience; it's why this project didn't make it the
+        // default.
+        bool PresenceDetected { get; }
 
         // True once Propped-Open's match condition is confirmed (see
         // gas_sensor.ic10's tolerance checks). Optional -- a host that
@@ -142,7 +189,15 @@ namespace AirlockCardMod
         {
             host.SetWarningIndicator(CurrentTier);
 
-            bool anyButton = host.ButtonEHeld || host.ButtonIHeld || host.ButtonCHeld;
+            // Any of these should wake the downstream circuit in Low
+            // tier: the optional hardware buttons, vanilla's own
+            // request signal (covers Console-only users -- see
+            // VanillaCycleRequested's doc comment on IAirlockHost for
+            // why this one isn't optional), or an optional presence
+            // sensor.
+            bool wakeRequested =
+                host.ButtonEHeld || host.ButtonIHeld || host.ButtonCHeld ||
+                host.VanillaCycleRequested || host.PresenceDetected;
 
             switch (CurrentTier)
             {
@@ -182,11 +237,11 @@ namespace AirlockCardMod
 
                 case Tier.Low:
                     // watcher.ic10: the only tier where the gate isn't
-                    // unconditionally forced on -- a button press resets
+                    // unconditionally forced on -- a wake event resets
                     // the WakeHold countdown, otherwise it ticks down
                     // and cuts downstream power once it reaches zero.
                     // This is the actual Deep Idle power saving.
-                    UpdateDownstreamPower(forceOn: anyButton);
+                    UpdateDownstreamPower(forceOn: wakeRequested);
                     break;
             }
         }
