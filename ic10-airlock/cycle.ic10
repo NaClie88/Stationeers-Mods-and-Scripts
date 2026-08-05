@@ -1,8 +1,6 @@
 # Cycle chip: owns Doors, Vent, chamber Gas Sensor. Powered only when
-# Watcher's zone gate is on - not running otherwise, no separate Deep
-# Idle logic needed here, Watcher already handles that upstream.
-# No Light pin needed - Tier comes over the Logic Receiver (Channel0)
-# instead, since Lights have no "Setting" field to read here anyway.
+# Watcher's zone gate is on. "Receiver" = a 2nd Logic Transmitter in
+# Passive mode, tuned to Watcher's by name in-game - see code notes.
 
 alias DoorExt d1
 alias DoorInt d2
@@ -14,12 +12,24 @@ define PropFlagHash -1234567
 define TargetInt 100
 define TargetExt 2
 
+s Receiver Mode 0
 move r10 0
 move r11 0
 move r13 0
 
 loop:
-l r0 Receiver Channel0
+l r9 Receiver Setting
+mod r0 r9 10
+div r1 r9 10
+floor r1 r1
+mod r6 r1 10
+div r1 r1 10
+floor r1 r1
+mod r7 r1 10
+div r1 r1 10
+floor r1 r1
+mod r8 r1 10
+
 beq r0 2 tierCrit
 beq r0 0 checkProp
 j cycleCheck
@@ -38,8 +48,6 @@ l r14 DoorExt Open
 l r15 DoorInt Open
 bgtz r14 endLoop
 bgtz r15 endLoop
-l r6 Receiver Channel2
-l r7 Receiver Channel3
 bnez r6 reqExt
 bnez r7 reqInt
 j endLoop
@@ -98,7 +106,6 @@ s DoorInt Open 0
 j endLoop
 
 tierCrit:
-l r8 Receiver Channel1
 bnez r8 endLoop
 s DoorExt Open 0
 s DoorInt Open 0

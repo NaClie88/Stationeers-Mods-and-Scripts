@@ -60,11 +60,20 @@ IC10 talks to any sensor or light. Two ways to do this:
    community for exactly this kind of inter-circuit signaling — **but
    see the correction below: a Light specifically doesn't work for
    this**, since it has no free-form field to repurpose.
-2. **Logic Transmitter / Logic Receiver pair** — purpose-built for this:
-   a Transmitter broadcasts a value on a chosen channel, a Receiver
-   elsewhere picks it up, no direct wire needed between them. Each
-   channel only carries one value — multiple signals need multiple
-   channels (up to 8 per pair) or multiple pairs.
+2. **Logic Transmitter, Active/Passive pair** — purpose-built for this,
+   but not as originally described here. **Corrected (2026-08-05, from
+   a locally-saved copy of the Community Wiki's "Logic Transmitter"
+   page, since the live page blocked every fetch attempt):** there is
+   no separate "Logic Receiver" device and no numbered channel setting.
+   It's a single device, **Logic Transmitter**, used in either
+   **Active** or **Passive** `Mode` — a "receiver" is just a second
+   Logic Transmitter set to Passive. Each unit exposes exactly one
+   value field, `Setting` (not eight numbered channels), and pairing is
+   a physical, in-game action: tune the Passive unit's dial to the
+   Active unit's name. Multiple signals from one Active unit need
+   packing into that single `Setting` value (see
+   `ic10_airlock_code_notes.md` for how this design does it), not
+   multiple channels.
 
 **RESOLVED (2026-08-04, superseding the "deliberate choice" originally
 written here): option 1, a Light, was the original plan specifically
@@ -73,16 +82,17 @@ screenshots confirmed neither a standard Light nor the "battery
 backup" Light variant exposes a `Setting` field or anything else
 free-form; the only writable fields are `On` (and `Lock`, `Mode` on
 some variants) — nothing that can carry an arbitrary Tier value. The
-actual mechanism used is **option 2, a Logic Transmitter/Receiver
-pair**, with Tier carried as one of several channels alongside live
-button state (see `ic10_airlock_code_notes.md` for the full
-Watcher/Cycle implementation). The player-facing half of the original
-idea survives, just through different hardware: an **LED**
-(`StructureDiode`), confirmed to expose a `Color` field none of the
-Light variants have, mounted at the portal and driven directly by the
-same chip that computes Tier — still a single source of truth, still
-visible in-world, just no longer double-duty as the inter-chip signal
-too. Green/Normal, yellow/Low, red/Critical.
+actual mechanism used is **option 2, a Logic Transmitter pair (Active +
+Passive)**, with Tier and live button state packed into the single
+`Setting` value the Active unit broadcasts (see
+`ic10_airlock_code_notes.md` for the full Watcher/Cycle implementation).
+The player-facing half of the original idea survives, just through
+different hardware: an **LED** (`StructureDiode`), confirmed to expose
+a `Color` field none of the Light variants have, mounted at the portal
+and driven directly by the same chip that computes Tier — still a
+single source of truth, still visible in-world, just no longer
+double-duty as the inter-chip signal too. Green/Normal, yellow/Low,
+red/Critical.
 
 **Requirement (unchanged):** the LED's placement matters as much as its
 color — it needs to be visible from the portal itself (not tucked in a
@@ -421,9 +431,10 @@ Watcher only — not a plain Light, since neither Light variant exposes
 a field for the color-per-Tier signal this needs (confirmed in-game;
 see `ic10_airlock_code_notes.md`). Three Buttons — E (exterior),
 I (interior/base side), C (inside the chamber itself) — all read by
-Watcher and relayed to Cycle
-over a Logic Transmitter/Receiver pair, not wired directly to Cycle at
-all. A dedicated Gas Sensor inside the chamber itself, read by Cycle,
+Watcher and relayed to Cycle over a pair of Logic Transmitters (one
+Active, one Passive — see the correction above; not a separate
+"Receiver" device), not wired directly to Cycle at all. A dedicated
+Gas Sensor inside the chamber itself, read by Cycle,
 for unambiguous pressure sensing during a cycle. Two more Gas Sensors —
 one exterior-facing, one interior-facing — feeding the optional Gas
 Sensor chip continuously, used for the Propped-Open exception described
@@ -445,10 +456,11 @@ instead of cycling for no reason, reverting the instant either sensor
 detects the match has broken.
 
 **Transition into State 2 (Charge drops to ≤90%):** the LED switches to
-yellow — Watcher's Tier broadcast (Transmitter Channel0) tells Cycle
-this portal's power is uncertain, and the LED write in the same loop
-iteration visibly warns any player standing at the portal. From this
-point on, doors no longer
+yellow — Watcher's Tier broadcast (packed into the Logic Transmitter's
+`Setting` value, see the correction above) tells Cycle this portal's
+power is uncertain, and the LED write in the same loop iteration
+visibly warns any player standing at the portal. From this point on,
+doors no longer
 sit powered between uses: after any cycle completes, the door drops to
 unpowered+unlocked rather than staying live. The script now spends most
 of its time in an idle loop doing exactly one thing — reading E, I, and

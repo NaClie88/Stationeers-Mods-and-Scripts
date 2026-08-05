@@ -64,12 +64,13 @@ notes only, not part of the item name.
   E (exterior), I (interior/base side), C (inside the chamber itself) —
   all read by Watcher only, none wired to Cycle.
 
-- **Logic Transmitter** — qty **1**
-  On Watcher. Relays live button state to Cycle across the two
-  independently-powered circuits.
-
-- **Logic Receiver** — qty **1**
-  On Cycle. Tuned to the same channel as the Transmitter above.
+- **Logic Transmitter** — qty **2**
+  Yes, two — **there's no separate "Logic Receiver" device.** One goes
+  on Watcher set to **Active** mode, one on Cycle set to **Passive**
+  mode; the Passive one is manually tuned to the Active one's name via
+  a dial on the device itself, in-game (see step 6 below) — not
+  something the script sets. Relays Tier + live button state to Cycle
+  across the two independently-powered circuits.
 
 - **Gas Sensor — chamber** — qty **1**
   **New in this revision.** Mounted inside the chamber itself, read by
@@ -102,11 +103,12 @@ notes only, not part of the item name.
   wake/override for someone already caught inside.
 - **Button E / Button I: outside the chamber**, one per side, wherever
   makes sense for approach traffic.
-- **Logic Transmitter/Receiver: no placement constraint beyond being
-  powered on their respective circuits** — Transmitter on Watcher's
-  always-on side, Receiver on Cycle's gated side. Tune both to the same
-  channel via their own console/build menu before relying on them (a
-  one-time setup step, not something the script does).
+- **Both Logic Transmitters: no placement constraint beyond being
+  powered on their respective circuits** — Active unit on Watcher's
+  always-on side, Passive unit on Cycle's gated side. **Manually tune
+  the Passive unit's dial to the Active unit's name in-game** before
+  relying on them (see step 6) — a one-time physical pairing step, not
+  something the script sets.
 
 ## 3. Wiring — Watcher (always powered)
 
@@ -125,7 +127,9 @@ just wired to that pin.
   The zone-gate Power Controller.
 
 - **`d3`** — code alias `Transmitter`
-  Logic Transmitter.
+  Logic Transmitter, set to **Active** mode (the script also sets this
+  via `s Transmitter Mode 1` at startup, but the physical unit needs to
+  exist and be powered for that to take).
 
 Nothing else connects to this housing — the three Buttons are read by
 name over the network (see step 6), not pin-wired. Load `watcher.ic10`.
@@ -148,7 +152,11 @@ physically wire to that pin on the right.
   Active Vent.
 
 - **`d4`** — code alias `Receiver`
-  Logic Receiver.
+  A second Logic Transmitter, set to **Passive** mode (script sets this
+  via `s Receiver Mode 0` at startup) and physically tuned to Watcher's
+  Active unit by name — see step 6. There's no separate "Logic
+  Receiver" device; `Receiver` is just this project's alias name for
+  it.
 
 - **`d5`** — code alias `ChamberSensor`
   The chamber Gas Sensor.
@@ -184,13 +192,13 @@ during Normal tier anyway when the zone is already powered
 continuously — the always-on circuit is the simpler choice if you're
 unsure.
 
-## 6. Naming the three Buttons (required — Watcher won't see them otherwise)
+## 6. Naming the Buttons and pairing the two Logic Transmitters (both required)
 
-Watcher reads all three Buttons via named batch (`lbn`), not pins,
-because owning the dedicated Power Controller, LED, zone gate, and
-Transmitter already accounts for most of its wiring, and named
-addressing was already validated as reliable for this. Each Button
-needs a unique name assigned in-game:
+**Buttons.** Watcher reads all three Buttons via named batch (`lbn`),
+not pins, because owning the dedicated Power Controller, LED, zone
+gate, and Transmitter already accounts for most of its wiring, and
+named addressing was already validated as reliable for this. Each
+Button needs a unique name assigned in-game:
 
 1. Get a Labeller.
 2. Point it at the exterior Button, rename it exactly `AirlockBtnE`.
@@ -210,6 +218,27 @@ this project's research pass, not independently cross-confirmed. If
 your buttons aren't recognized at all (not just misnamed), this hash
 not matching your button's actual structure type is the first thing to
 check — see Troubleshooting below.
+
+**The two Logic Transmitters.** This is a physical, in-game pairing
+step — the script sets each unit's `Mode` correctly on its own
+(`s Transmitter Mode 1` on Watcher, `s Receiver Mode 0` on Cycle), but
+it cannot make them find each other. There is no console channel
+setting for this, and no separate "Logic Receiver" device — both are
+the same "Logic Transmitter" structure, one Active and one Passive:
+
+1. Build both, wire each into its housing (see wiring steps 3 and 4
+   above), and power both chips on so the Active one is actually
+   broadcasting.
+2. On the **Passive** unit (Cycle's), find its tuning dial in its
+   build-menu UI and select the Active unit's name from the list of
+   currently-broadcasting Active transmitters it can see.
+3. If the Active unit doesn't show up as an option, confirm it's
+   actually powered and its `Mode` really is 1 — the wiki notes it must
+   be on and active to appear in the passive unit's list at all.
+
+Naming the Active unit itself via Labeller first (e.g. `AirlockLink`)
+makes it easier to pick out of the list if you have other Transmitters
+elsewhere in your base.
 
 ## 7. Constants to check before first power-on
 
@@ -262,10 +291,11 @@ caveats follow underneath.
 - **`BtnHash`** — Watcher, currently `-1591419276`
   See step 6 — single-sourced, verify against Stationpedia.
 
-- **Transmitter/Receiver channel** — Watcher + Cycle, device-level
-  setting, not in code
-  Set on both devices via their own console/build menu, must match.
-  Not an IC10 `define` — a one-time hardware configuration step.
+- **Transmitter pairing** — Watcher + Cycle, device-level, not in code
+  The Passive unit's dial must be pointed at the Active unit's name,
+  in-game — see step 6. Not an IC10 `define`, and not a numeric
+  channel — an earlier draft of this guide described it as a channel
+  setting, which was wrong; it's a name-based physical pairing.
 
 ## 8. First-time power-on order
 
@@ -321,6 +351,10 @@ Carried over from `ic10_airlock_code_notes.md`, not fixed yet:
 - **The zone-gate LogicType, `BtnHash`, and the LED `Color` values are
   all unconfirmed** — see step 7. Verify early; they're load-bearing
   for the whole build.
+- **The two Logic Transmitters need manual pairing** (step 6) — easy to
+  forget since nothing in the script can detect or fix a missed
+  pairing. If Cycle seems to never hear from Watcher, this is the first
+  thing to check.
 
 ## 10. Troubleshooting
 
@@ -337,9 +371,12 @@ Carried over from `ic10_airlock_code_notes.md`, not fixed yet:
   the single most likely point of failure in the whole build precisely
   because it's the one thing research couldn't confirm. Check it with a
   Logic Reader before assuming anything else is broken.
-- **Cycle powers on but never receives a wake reason / doors don't
-  respond to buttons even though the zone gate is clearly on:** check
-  the Logic Transmitter and Receiver are tuned to the same channel.
+- **Cycle powers on but doors don't respond to buttons even though the
+  zone gate is clearly on:** check the Passive Transmitter's dial is
+  actually tuned to the Active one's name (step 6) — this is a manual
+  pairing step the script can't verify or fix for you. Confirm the
+  Active unit is powered and its `Mode` reads 1 (Watcher sets this
+  automatically, but only if `d3` is actually wired).
 - **Doors never lock/unlock as expected:** confirm you didn't leave a
   Circuitboard (Airlock) or Circuitboard (Advanced Airlock) also wired
   to the same Portals — this design assumes the Cycle chip is the

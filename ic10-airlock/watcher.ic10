@@ -1,11 +1,14 @@
 # Watcher chip: Power Tier monitor + Button reader + zone-gate control.
 # Always powered - never gated off, unlike the Cycle chip below.
 # Owns: dedicated Power Controller, warning LED, Cycle-zone power gate,
-# Logic Transmitter (broadcasts Tier + live E/I/C button state to Cycle
-# chip - Tier goes over the Transmitter, NOT the LED, since neither a
-# Light nor an LED has a "Setting" field in this game - confirmed
-# in-game 2026-08-04). LED shows Tier as color: green/yellow/red -
-# TODO verify Color enum values below against Data Network Colors wiki.
+# Logic Transmitter (Active mode - see Mode write below). NOTE: there is
+# no separate "Logic Receiver" device - Cycle's matching unit is another
+# Logic Transmitter in Passive mode, tuned to this one's name via its
+# physical dial in-game (a one-time manual pairing step, not scripted).
+# There's also no Channel0-7 on this device, only one "Setting" field -
+# Tier + all 3 button states are packed into one number (see below).
+# LED shows Tier as color: green/yellow/red - TODO verify Color enum
+# values below against Data Network Colors wiki.
 
 alias Battery d0
 alias LED d1
@@ -21,6 +24,7 @@ define ColorGreen 2
 define ColorYellow 5
 define ColorRed 4
 
+s Transmitter Mode 1
 move r0 0
 move r7 0
 
@@ -57,7 +61,6 @@ riseCrit:
 move r0 1
 
 stay:
-s Transmitter Channel0 r0
 s LED On 1
 beq r0 0 ledGreen
 beq r0 1 ledYellow
@@ -73,9 +76,15 @@ ledDone:
 lbn r3 BtnHash BtnEName Activate 0
 lbn r4 BtnHash BtnIName Activate 0
 lbn r5 BtnHash BtnCName Activate 0
-s Transmitter Channel1 r5
-s Transmitter Channel2 r3
-s Transmitter Channel3 r4
+
+# Pack Tier + 3 buttons into one number: BtnC*1000 + BtnI*100 + BtnE*10 + Tier
+mul r9 r5 1000
+mul r8 r4 100
+add r9 r9 r8
+mul r8 r3 10
+add r9 r9 r8
+add r9 r9 r0
+s Transmitter Setting r9
 
 move r6 0
 beq r0 0 forceHold

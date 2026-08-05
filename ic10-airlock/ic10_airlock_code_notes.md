@@ -213,13 +213,13 @@ whichever chip owns them.
 
 ## Watcher — Power Tier, Buttons, and the Cycle-zone gate
 
-Always powered. Full code in `watcher.ic10` — 103 of 128
+Always powered. Full code in `watcher.ic10` — 112 of 128
 lines as formatted there, comfortable margin remaining.
 
 **Pins:** `d0` dedicated Power Controller, `d1` warning LED (device
 type `StructureDiode`/"LED" — see correction below for why this isn't
 a plain Light), `d2` Cycle-zone gate (a Power Controller, not a
-Transformer — see above), `d3` Logic Transmitter.
+Transformer — see above), `d3` Logic Transmitter (Active mode).
 
 **Correction (2026-08-04, confirmed via in-game screenshots):** the
 original design across this entire project — since before this
@@ -229,10 +229,27 @@ field as a signal flag" trick. **It doesn't.** The project owner
 screenshotted a standard Light's Logic panel (`Power`, `Lock`, `On`,
 `RequiredPower`, `PrefabHash`, `ReferenceId`, `NameHash` — no
 `Setting`) and the "battery backup" Light variant too (same set plus
-`Mode`, still no `Setting`). **Fix, part 1:** Tier now goes out on
-`Transmitter Channel0` — the same Logic Transmitter already carrying
-button state to Cycle — instead of through any Light-family device at
-all.
+`Mode`, still no `Setting`). **Fix, part 1:** Tier now goes out via the
+Logic Transmitter instead of through any Light-family device at all.
+
+**Correction, part 1b (2026-08-05) — the Transmitter/Receiver mechanism
+itself was also wrong, caught from a saved copy of the Community Wiki's
+"Logic Transmitter" page.** Earlier drafts assumed a "Logic Receiver"
+device paired to a Transmitter over one of 8 numbered `Channel0`–
+`Channel7` fields, tuned via a console channel setting. **None of that
+exists.** There is only one device, **Logic Transmitter**
+(`StructureLogicTransmitter`), used in either **Active** or **Passive**
+`Mode` (0/1) — a "Receiver" is just a second Logic Transmitter set to
+Passive. It has exactly one value field, `Setting` (type "Any"), not
+eight channels. Pairing is a physical, in-game, one-time action: adjust
+a dial on the Passive unit until it shows the Active unit's name — not
+an IC10-settable numeric channel at all. **Fix:** Watcher sets its unit
+to Active (`s Transmitter Mode 1`, once, before the loop) and packs all
+four values it needs to send — Tier plus the three live button states —
+into a single number written to `Setting`: `BtnC*1000 + BtnI*100 +
+BtnE*10 + Tier`. Cycle's unit is set to Passive (`s Receiver Mode 0`)
+and unpacks that same number back into four registers via chained
+`mod`/`div`/`floor`, once at the top of every loop iteration.
 
 **Fix, part 2 — the player-facing indicator got upgraded, not just
 patched.** A further screenshot of the LED (`StructureDiode`, 25W) showed
@@ -294,30 +311,53 @@ safety-critical case this whole restructuring had to preserve; (5) the
 gate never drops while Critical persists, re-extending every tick for
 as long as Tier stays 2.
 
-**Additional dry-run pass (2026-08-04, the LED/Color fix above):** the
-same emulator confirms `Transmitter Channel0` correctly carries Tier
-(0/1/2) across a full Normal→Low→Critical→Normal sweep, `LED On` stays
-1 throughout (always lit, color is what carries meaning now), and
-`LED Color` lands on green/yellow/red exactly at the tier boundaries,
-including recovering to green on the trip back to Normal — all
-consistent with the one-tier-per-tick transition behavior already
-established for the hysteresis state machine itself.
+**Additional dry-run pass (2026-08-04, the LED/Color fix):** the same
+emulator confirms `LED On` stays 1 throughout (always lit, color is
+what carries meaning now), and `LED Color` lands on green/yellow/red
+exactly at the tier boundaries, including recovering to green on the
+trip back to Normal — all consistent with the one-tier-per-tick
+transition behavior already established for the hysteresis state
+machine itself.
+
+**Further dry-run pass (2026-08-05, the Transmitter/pack-unpack fix):**
+verified the packing math in isolation across several combinations of
+Tier and button states (e.g. Tier=1, only BtnI held → packs to `101`;
+Tier=2 with all three buttons held → packs to `1112`) — each correctly
+round-trips through Cycle's unpack sequence (below) to the exact
+original values. Also ran a full Watcher-packs → Cycle-unpacks handoff
+end to end (packed value produced by one chip fed directly into the
+other), confirming the two sides agree on the encoding. Line count rose
+from 103 to 112 — comfortable margin remains.
 
 ---
 
 ## Cycle — Doors, Vent, chamber sensor
 
 Powered only when Watcher's zone gate is on. Full code in
-`cycle.ic10` — 115 of 128 lines as formatted there.
+`cycle.ic10` — 122 of 128 lines as formatted there — **tighter than
+before** (was 115), see the unpack-sequence note below for why, and
+keep this in mind before adding anything further to this chip.
 
 **Pins:** `d1`/`d2` exterior/interior Portal, `d3` Vent, `d4` Logic
-Receiver, `d5` a **dedicated Gas Sensor physically inside the chamber**
-(new hardware — see "Bonus" note above for why). `d0` is unused — this
-chip no longer needs a Light pin at all (see the Light-fix note under
-Watcher above): Tier arrives over the Receiver instead, which also
-retires the "cross-circuit data wiring to the Light" item that used to
-sit in the still-open list below, since there's no longer any
-Light-related wiring on this chip to verify.
+Transmitter (Passive mode — "Receiver" is this project's alias name for
+it, not a separate device; see Watcher's part 1b correction above for
+the full mechanism), `d5` a **dedicated Gas Sensor physically inside
+the chamber** (new hardware — see "Bonus" note above for why). `d0` is
+unused — this chip no longer needs a Light pin at all: Tier arrives
+over the Receiver instead, which also retires the "cross-circuit data
+wiring to the Light" item that used to sit in the still-open list
+below, since there's no longer any Light-related wiring on this chip to
+verify.
+
+**The unpack sequence at the top of the loop** (`mod`/`div`/`floor`
+chained three times) is why this chip's line budget got noticeably
+tighter — 9 lines to undo Watcher's `BtnC*1000 + BtnI*100 + BtnE*10 +
+Tier` packing back into four separate registers (`r0`=Tier, `r6`=BtnE,
+`r7`=BtnI, `r8`=BtnC), once per loop iteration, before any tier
+branching happens. Those four registers are then referenced exactly
+where the old direct-channel reads used to be — `r6`/`r7` inside
+`cycleCheck`, `r8` inside `tierCrit` — so nothing downstream of the
+unpack changed at all.
 
 **What changed from the old Chip B besides the Receiver swap:** the
 Propped-Open check (`checkProp`) now only runs when Tier is Normal,
@@ -344,9 +384,10 @@ opening the door the instant target pressure is reached; (3) Critical
 tier closes both doors and starts evacuating via the Vent; (4) doors
 stay locked and the Vent keeps running until chamber pressure actually
 reaches the near-vacuum target — unlock only happens after, not in the
-same tick as closing; (5) Button C held during Critical (relayed live
-on Channel1) skips the entire evacuation branch for that loop, leaving
-doors/locks exactly as they were; (6) the Propped-Open branch parses
+same tick as closing; (5) Button C held during Critical (relayed live,
+unpacked into `r8` from the Transmitter's `Setting` value) skips the
+entire evacuation branch for that loop, leaving doors/locks exactly as
+they were; (6) the Propped-Open branch parses
 and wires correctly, though the actual Gas Sensor chip's flag write
 still can't be exercised end-to-end in this emulator (`lb`/`sb` are
 no-ops here, same limitation noted for the Gas Sensor chip below).
@@ -410,12 +451,15 @@ the Gas Sensor chip's match/mismatch branching.
   Colors" page, which blocked every direct fetch attempt. The
   color-per-Tier branching logic itself is solid regardless of the
   exact numbers.
-- Whether the Logic Transmitter/Receiver pair actually behaves as
-  expected across two independently-power-gated circuits — reasoned
-  through carefully against confirmed game mechanics, but not verified
-  in an actual running game. (The LED's LogicTypes specifically *are*
-  now confirmed — see the Watcher section above — this item is just
-  about the Transmitter/Receiver link itself.)
+- The pack/unpack encoding (`BtnC*1000 + BtnI*100 + BtnE*10 + Tier`) is
+  dry-run verified as internally consistent — Watcher's packer and
+  Cycle's unpacker agree with each other — but the actual wireless
+  Active/Passive link between two real, physically-paired Logic
+  Transmitters across two independently-power-gated circuits hasn't
+  been tested in a running game. Also: the two units need a one-time
+  manual pairing step in-game (adjusting the Passive unit's dial to the
+  Active unit's name) — not scripted, easy to forget, worth calling out
+  clearly in the setup guide.
 - Stalled-phase detection/recovery, and Propped-Open's mid-mismatch
   exit ordering — unchanged gaps from before this restructuring.
 - Whether `brdns` should replace pure batch addressing for the optional
@@ -426,13 +470,25 @@ the "battery backup" Light variant — have no `Setting` LogicType at
 all, confirmed by the project owner's own in-game Logic panel
 screenshots. This was a project-wide assumption baked in since before
 any of this session's work, silently broken the entire time. Fixed by
-moving Tier onto the already-existing Logic Transmitter/Receiver
-channel instead of any Light-family device, and upgrading the
-player-facing indicator to an LED driven by its `Color` field — a real
-mechanism the Light variants don't have, giving back the three
-visually-distinct states the original design wanted. See the Watcher
-section above for the full explanation, the simpler on/off fallback
-kept for posterity, and dry-run verification.
+moving Tier onto the Logic Transmitter instead of any Light-family
+device, and upgrading the player-facing indicator to an LED driven by
+its `Color` field — a real mechanism the Light variants don't have,
+giving back the three visually-distinct states the original design
+wanted. See the Watcher section above for the full explanation, the
+simpler on/off fallback kept for posterity, and dry-run verification.
+
+**Resolved in-game (2026-08-05):** the Logic Transmitter/Receiver
+mechanism itself was also wrong from the start — there is no "Logic
+Receiver" device, no `Channel0`–`Channel7`, and no console-set numeric
+channel. Confirmed from a locally-saved copy of the Community Wiki's
+"Logic Transmitter" page (the live page, like most on that wiki, blocks
+automated fetches). The real device is a single "Logic Transmitter"
+used in Active or Passive `Mode`, exposing one `Setting` field, paired
+by physically tuning the Passive unit's dial to the Active unit's name
+in-game. Fixed by packing all four values Cycle needs (Tier + 3 button
+states) into one number written to `Setting`, unpacked back into four
+registers on the other end. See the Watcher and Cycle sections above
+for the full mechanism and dry-run verification.
 
 **Reference:** IC10 syntax and instruction patterns confirmed via
 XGamingServer's IC10 programming guide (LogicType read/write syntax,
