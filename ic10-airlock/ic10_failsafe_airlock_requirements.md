@@ -296,20 +296,20 @@ build-specific or blocked behind a Cloudflare wall no fetch tool got past.
    check its tooltip if your build uses one; likely the same order of
    magnitude as Composite, not confirmed identical.
 2. **Exact LogicType name for Power Controller charge — Resolved, and it
-   changes Chip A.** `Charge` (Joules, absolute) and `Maximum` (Joules,
-   battery capacity) are the confirmed pair — seen both in a community
-   wiki-derived LogicType reference and in a real working Power
-   Controller IC10 script. **No dedicated `Ratio`/`ChargeRatio` field was
-   found on the Power Controller itself** (a plain `Ratio` LogicType does
-   exist, but confirmed sources only show it read directly off a
-   standalone Battery device, not through a Power Controller). The real
-   script computes percentage manually: `div r0 charge max`. **Action
-   needed:** Chip A's current `l r1 PC Ratio` (see prototype doc) should
-   change to reading `Charge` and `Maximum` separately and dividing —
-   flagged as a prototype-code fix below, not just a doc note. Still
-   worth one in-game double check with a Logic Reader on your specific
-   Power Controller in case your version does expose `Ratio` directly —
-   but design against Charge/Maximum as the safer default.
+   changed the Watcher chip.** `Charge` (Joules, absolute) and `Maximum`
+   (Joules, battery capacity) are the confirmed pair — seen both in a
+   community wiki-derived LogicType reference and in a real working
+   Power Controller IC10 script. **No dedicated `Ratio`/`ChargeRatio`
+   field was found on the Power Controller itself** (a plain `Ratio`
+   LogicType does exist, but confirmed sources only show it read
+   directly off a standalone Battery device, not through a Power
+   Controller). The real script computes percentage manually:
+   `div r0 charge max`. Watcher's `l r1 Battery Ratio` (an early draft's
+   assumption — see prototype doc) was changed to reading `Charge` and
+   `Maximum` separately and dividing, not just a doc note. Still worth
+   one in-game double check with a Logic Reader on your specific Power
+   Controller in case your version does expose `Ratio` directly — but
+   design against Charge/Maximum as the safer default.
 3. **Absolute vs relative threshold — Resolved by item 2.** Since no
    confirmed direct ratio field exists on the Power Controller, the
    script computes a relative ratio itself (`Charge / Maximum × 100`)
@@ -329,13 +329,14 @@ build-specific or blocked behind a Cloudflare wall no fetch tool got past.
    `Open` confirmed for door state. For vent control, a real airlock
    script example confirms `On` (power the vent) and `Mode` (0 = outward
    /depressurize, 1 = inward/pressurize) as the pair driving
-   evacuation/pressurization — worth adopting these names directly in
-   Chip B's stubbed sequences instead of guessing new ones.
+   evacuation/pressurization — adopted directly in the Cycle chip's
+   evacuate/pressurize sequences rather than guessing new names.
 6. **Hysteresis gap size — Resolved (starting value confirmed).** 3% of
    capacity is confirmed as a reasonable starting gap — matches the
-   existing 90%/93% and 10%/13% bands already in Chip A exactly, so no
-   code change needed here. Still worth watching real Charge jitter
-   under load once built and tightening/loosening if it flaps or lags.
+   existing 90%/93% and 10%/13% bands already in the Watcher chip
+   exactly, so no code change needed here. Still worth watching real
+   Charge jitter under load once built and tightening/loosening if it
+   flaps or lags.
 7. **Chamber footprint — Resolved (planning figure).** Budget **1–2
    grid volumes** for the chamber itself, plus **at least 1 more grid of
    spillover** for the hardware that doesn't fit inside the chamber
@@ -344,19 +345,19 @@ build-specific or blocked behind a Cloudflare wall no fetch tool got past.
    must be *inside* the chamber (for battery-swap access) — plan the
    1–2 grid interior with that constraint in mind, not just doors +
    buttons + light.
-8. **Gas Sensor LogicType names — Resolved, and it surfaces a Chip C
-   bug.** Confirmed real fields: `Pressure`, `Temperature`, and
-   per-gas ratios `RatioOxygen`, `RatioCarbonDioxide`, `RatioNitrogen`,
-   `RatioPollutant`, `RatioMethane`, `RatioNitrousOxide`,
-   `RatioHydrogen`, `RatioWater`, `RatioPollutedWater`, `RatioHydrazine`,
-   `RatioLiquidAlcohol`, `RatioHelium`, `RatioSilanol`,
-   `RatioHydrochloricAcid`, `RatioOzone`, `RatioLiquidOzone` — **there is
-   no single generic `Ratio` field for "gas composition"** the way Chip
-   C's current skeleton reads it (`l r4 SensExt Ratio`). That line is
-   wrong as written — composition matching needs separate reads per
-   relevant gas (at minimum Oxygen, Pollutant, and Methane/NOx per the
-   tolerance list already in the prototype doc), each compared against
-   its own tolerance. Flagged as a prototype-code fix below.
+8. **Gas Sensor LogicType names — Resolved, and it surfaces a Gas
+   Sensor chip bug.** Confirmed real fields: `Pressure`, `Temperature`,
+   and per-gas ratios `RatioOxygen`, `RatioCarbonDioxide`,
+   `RatioNitrogen`, `RatioPollutant`, `RatioMethane`,
+   `RatioNitrousOxide`, `RatioHydrogen`, `RatioWater`,
+   `RatioPollutedWater`, `RatioHydrazine`, `RatioLiquidAlcohol`,
+   `RatioHelium`, `RatioSilanol`, `RatioHydrochloricAcid`, `RatioOzone`,
+   `RatioLiquidOzone` — **there is no single generic `Ratio` field for
+   "gas composition"** the way an early draft of the Gas Sensor chip
+   read it (`l r4 SensExt Ratio`). That line was wrong as written —
+   composition matching needs separate reads per relevant gas (Oxygen,
+   Pollutant, Methane, and NOx per the tolerance list in the prototype
+   doc), each compared against its own tolerance — since fixed there.
 9. **Actual Powered/Large Powered Vent wattage — Resolved (in-game
    confirmed).** Standard Active Vent: **100W** (matches the earlier
    wiki figure). **Large Powered Vent: 500W**, confirmed directly
