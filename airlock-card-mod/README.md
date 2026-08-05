@@ -17,8 +17,23 @@ either a documented, sourced fact about the toolchain, or an explicit
 "unconfirmed — needs your own local check," same discipline the rest of
 this project already holds itself to for IC10 LogicTypes.
 
-## Two possible build paths
+## Three possible build paths
 
+0. **Native XML mod path — no code, no installs at all.** Stationeers
+   has its own built-in mod format, no BepInEx/Unity/Visual Studio
+   required: a folder under
+   `%USERPROFILE%/Documents/my games/Stationeers/mods/<ModName>/`
+   containing an `About/About.xml` manifest plus a `GameData/` folder
+   of XML files that override the game's own data files (the game's
+   real ones live at
+   `<Stationeers install>/rocketstation_Data/StreamingAssets/Data/`,
+   27 files, recipes/traders/start-conditions/etc.). **Confirmed**: this
+   can change data on an *existing* item (recipe costs, etc.) — this
+   project found a real example overriding `ItemKitBattery`'s recipe,
+   see "Sources." **Not yet confirmed:** whether it can introduce a
+   brand-new `PrefabName` that doesn't already exist, vs. only
+   reconfiguring one that does. This is the one open question worth
+   resolving before anything else — see Milestone 0.
 1. **Unity asset path** — `StationeersModding/StationeersUnityModdingTemplate`.
    Needed only if the card needs its own custom 3D model/icon. Requires
    Unity 2022.3.62f3 (must match the game's editor version) plus a
@@ -29,7 +44,10 @@ this project already holds itself to for IC10 LogicTypes.
    Code + the "Build Tools for Visual Studio" package, which is a much
    lighter install than the full IDE — the template is a classic
    .NET Framework project, so either works) + three DLL references
-   that already exist once BepInEx is installed.
+   that already exist once BepInEx is installed. **Still required for
+   the actual failsafe behavior regardless of how path 0 resolves** —
+   XML modding changes data, not logic; the Tier-monitoring state
+   machine has to be real code somewhere.
 
 **Confirmed by project owner (2026-08-05, in-game observation, same
 trust level this project already gives that source category — see
@@ -49,6 +67,20 @@ other registration hook. Answering this is Milestone 1.5. Unity stays
 the fallback only if 1.5 turns up a hard blocker, not the default plan.
 
 ## Milestones
+
+### Milestone 0 — resolve the native-XML open question (no installs, whenever you're next at the PC)
+
+Needs nothing beyond what's already on the machine you play Stationeers
+on — no downloads, no Visual Studio, no BepInEx. See
+`NATIVE_XML_CHECKLIST.md` for the exact steps. Point: open the game's
+own `StreamingAssets/Data/` XML files, find the entry for
+`Circuitboard (Advanced Airlock)`, and see whether that entry *defines*
+the item (mesh, icon, everything) or just supplies recipe costs for an
+item defined elsewhere. That answer decides whether path 0 alone can
+ever produce a genuinely new card, or whether it's only useful for
+tweaking the vanilla one's costs. Report back the real `PrefabName` and
+whatever structure you find — same as Milestone 1.5 below, this turns
+a guess into a fact.
 
 ### Milestone 1 — prove the toolchain (no real logic yet)
 
@@ -116,6 +148,41 @@ requirements doc's verification checklist.
 
 ## Sources
 
+- Stationeers Community Wiki, "Modding:XMLMods" / "Guide (Modding)" —
+  native XML mod format: mods folder location, `About/About.xml` +
+  `GameData/` structure, and a real recipe-override example (search
+  snippet, not a direct fetch — the live wiki pages block automated
+  fetches for this project, same issue noted throughout `SOURCES.md`
+  for the IC10 side of this repo):
+  ```xml
+  <?xml version="1.0" encoding="utf-8"?>
+  <GameData xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <ElectronicsPrinterRecipes>
+      <RecipeData>
+        <PrefabName>ItemKitBattery</PrefabName>
+        <Recipe>
+          <Time>5</Time>
+          <Energy>100</Energy>
+          <Iron>0</Iron>
+          <Gold>20</Gold>
+          <Carbon>0</Carbon>
+          <Copper>40</Copper>
+          <Steel>0</Steel>
+          <Uranium>0</Uranium>
+          <Hydrocarbon>0</Hydrocarbon>
+        </Recipe>
+      </RecipeData>
+    </ElectronicsPrinterRecipes>
+  </GameData>
+  ```
+  Real game data lives at
+  `<Stationeers install>/rocketstation_Data/StreamingAssets/Data/`
+  (27 XML files) — this is the authoritative source to check against,
+  not this write-up. The game also ships two working example mods at
+  `<Stationeers install>/rocketstation_Data/StreamingAssets/`
+  (`ExampleMod.zip`, `AttributesExampleMod`) — better to copy the exact
+  `About.xml` schema from those directly than trust this doc's
+  paraphrase of it.
 - `StationeersModding/StationeersUnityModdingTemplate` — Unity asset
   path template, wizard-driven setup, three Player Settings fields
   (Company Name, Product Name, Bundle version) required.
