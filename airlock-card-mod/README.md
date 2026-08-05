@@ -96,49 +96,59 @@ This deliberately tests nothing about airlocks, Circuitboards, or game
 internals — only "does my build → install → load pipeline work at
 all." Get this working before anything else.
 
+**Strategy change (this session):** rather than build a new item from
+scratch, patch *extra* behavior onto the existing vanilla Advanced
+Airlock Circuitboard first, prove it works, and only fork it into a
+separate item afterward. Vanilla already does most of the cycling work
+correctly — see `GAP_ANALYSIS.md` for exactly what it covers and what's
+actually new. This let two things get written in this session without
+needing your machine at all:
+
+- **`GAP_ANALYSIS.md`** — what vanilla's Advanced Airlock Circuitboard
+  already does (cycling, stall/cancel, lock persistence, Console
+  Slaves) vs. what this design actually adds (Tier-based power
+  monitoring, the Button C trapped-player override, Propped-Open).
+- **`src/FailsafeController.cs`** — a complete, game-independent C#
+  port of `watcher.ic10` + `cycle.ic10`'s Tier/Button-C/Propped-Open
+  logic. No Stationeers/Unity/BepInEx dependency at all, so it didn't
+  need to wait on a decompiler — it's ready to attach the moment real
+  hooks are known.
+
 ### Milestone 1.5 — find the real classes (needs a decompiler, your machine only)
 
 Once Milestone 1 works, open the game's `Assembly-CSharp.dll`
 (`<Stationeers install>/rocketstation_Data/Managed/Assembly-CSharp.dll`)
-in a free decompiler — dnSpy or ILSpy, either works. Find:
-
-- The class behind `Circuitboard (Advanced Airlock)` — likely named
-  something like `InternalCircuitAdvancedAirlock` or similar, but the
-  exact name is unconfirmed. This is the class whose behavior we'd
-  either Harmony-patch or use as a template for a new class.
-- How the Console device (`ItemConsole` or similar, unconfirmed) knows
-  which Circuitboard is inserted and delegates to it — this is the
-  actual "plug and play" mechanism we need to hook.
-- How/where new items get registered into the game's prefab/recipe
-  database at startup, and specifically whether an existing
-  Circuitboard's prefab entry (model, mesh reference, icon) can be
-  cloned under a new internal name via code — this is what makes or
-  breaks the "no Unity needed" plan above, now that a new model isn't
-  required.
+in a free decompiler — dnSpy or ILSpy, either works. **`PATCH_PLAN.md`
+has the exact checklist**, one item per thing `FailsafeController.cs`
+needs from the real game: the Advanced Airlock Circuitboard's real
+class name, its per-tick update method, and where (if anywhere) it
+already exposes button input, a Power Controller reference, and
+door/vent control methods.
 
 **Report back what you find** — class names, method signatures,
 whatever's visible — so the next step is real code, not a guess. I
 can't do this step myself; I have no access to that DLL from this
 sandbox.
 
-### Milestone 2 — a minimal real patch
+### Milestone 2 — patch the existing card in place
 
-Once Milestone 1.5 gives us real class names: the smallest possible
-change that does *something* visible and airlock-related — e.g.
-patching the Advanced Airlock Circuitboard's tooltip/description, or a
-single behavioral tweak — before attempting the full state machine.
-Same "small, verifiable step" discipline as Milestone 1.
+Wire `FailsafeController` into the real vanilla class via a Harmony
+`Postfix` patch (shape sketched in `PATCH_PLAN.md`, not written yet —
+it needs Milestone 1.5's real names to mean anything). Test this
+**as a patch on the vanilla `Circuitboard (Advanced Airlock)` item
+itself** — every one a player builds gets the new fail-safe behavior,
+nothing separate yet. This is deliberately the fastest path to seeing
+the whole design work end-to-end in-game, at the cost of changing
+vanilla's own item while testing.
 
-### Milestone 3 — port the Watcher/Cycle logic to C#
+### Milestone 3 — fork into its own item
 
-The actual goal: reimplement the `ic10-airlock/watcher.ic10` +
-`cycle.ic10` state machine (Tier monitoring, staged fail-safe response,
-button-driven cycling, Propped-Open) as the new card's hardcoded C#
-logic. This is a straightforward port once Milestone 1.5's classes are
-known — the state machine itself is already fully designed and
-dry-run verified in `ic10-airlock/ic10_failsafe_airlock_requirements.md`
-and `ic10_airlock_code_notes.md`; this milestone is "translate it,"
-not "redesign it."
+Once Milestone 2 is proven working, split it off: a distinct card
+(new name, own recipe) carrying this behavior, vanilla's own Advanced
+Airlock Circuitboard left untouched for anyone who doesn't want it.
+Whether this reuses Milestone 0's native-XML findings, `LaunchPadBooster`'s
+prefab registration API, or something else entirely depends on what
+those two milestones turn up — deliberately not decided yet.
 
 ### Milestone 4 — parity testing
 
