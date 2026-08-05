@@ -213,12 +213,52 @@ whichever chip owns them.
 
 ## Watcher — Power Tier, Buttons, and the Cycle-zone gate
 
-Always powered. Full code in `watcher.ic10` — 85 of 128
+Always powered. Full code in `watcher.ic10` — 103 of 128
 lines as formatted there, comfortable margin remaining.
 
-**Pins:** `d0` dedicated Power Controller, `d1` shared Light, `d2`
-Cycle-zone gate (a Power Controller, not a Transformer — see above),
-`d3` Logic Transmitter.
+**Pins:** `d0` dedicated Power Controller, `d1` warning LED (device
+type `StructureDiode`/"LED" — see correction below for why this isn't
+a plain Light), `d2` Cycle-zone gate (a Power Controller, not a
+Transformer — see above), `d3` Logic Transmitter.
+
+**Correction (2026-08-04, confirmed via in-game screenshots):** the
+original design across this entire project — since before this
+Watcher/Cycle restructuring even existed — assumed a Light exposes a
+`Setting` LogicType for exactly this kind of "repurpose an unrelated
+field as a signal flag" trick. **It doesn't.** The project owner
+screenshotted a standard Light's Logic panel (`Power`, `Lock`, `On`,
+`RequiredPower`, `PrefabHash`, `ReferenceId`, `NameHash` — no
+`Setting`) and the "battery backup" Light variant too (same set plus
+`Mode`, still no `Setting`). **Fix, part 1:** Tier now goes out on
+`Transmitter Channel0` — the same Logic Transmitter already carrying
+button state to Cycle — instead of through any Light-family device at
+all.
+
+**Fix, part 2 — the player-facing indicator got upgraded, not just
+patched.** A further screenshot of the LED (`StructureDiode`, 25W) showed
+it has a `Color` LogicType (Read/Write) that neither Light variant
+does. Rather than settle for the simplest fix (see footnote below),
+Watcher now drives the LED's actual color per Tier: green in Normal,
+yellow in Low, red in Critical — closer to the three visually-distinct
+states the original design wanted than a plain on/off ever could be,
+and through a mechanism that's confirmed to exist rather than one that
+wasn't. **`ColorGreen`/`ColorYellow`/`ColorRed` (2/5/4) are not yet
+independently confirmed** — sourced from aggregated search results
+citing the Community Wiki's "Data Network Colors" page, which has
+resisted every direct fetch attempt this project has tried. Verify
+against that page (or in-game trial) before trusting the exact values;
+the branching structure that picks a color per Tier is solid regardless
+of what the three numbers turn out to be.
+
+**Footnote — the simpler on/off version, kept for posterity.** Before
+settling on the LED/Color approach, this fix was implemented as a
+plain binary indicator on a standard Light: `sgt r8 r0 0` then
+`s Light On r8` (off in Normal, on for Low or Critical) in place of the
+whole color-branch block above, with `alias Light d1` instead of
+`alias LED d1`. Dry-run verified working at the time. If the Color enum
+values above turn out to be wrong and a quick fix is needed, this
+three-line swap is the fallback — real, tested, just less informative
+than the color version.
 
 **`BtnHash` (`-1591419276`)** is a community-sourced Logic Switch
 structure hash, found from a single search result rather than
@@ -254,19 +294,30 @@ safety-critical case this whole restructuring had to preserve; (5) the
 gate never drops while Critical persists, re-extending every tick for
 as long as Tier stays 2.
 
+**Additional dry-run pass (2026-08-04, the LED/Color fix above):** the
+same emulator confirms `Transmitter Channel0` correctly carries Tier
+(0/1/2) across a full Normal→Low→Critical→Normal sweep, `LED On` stays
+1 throughout (always lit, color is what carries meaning now), and
+`LED Color` lands on green/yellow/red exactly at the tier boundaries,
+including recovering to green on the trip back to Normal — all
+consistent with the one-tier-per-tick transition behavior already
+established for the hysteresis state machine itself.
+
 ---
 
 ## Cycle — Doors, Vent, chamber sensor
 
 Powered only when Watcher's zone gate is on. Full code in
-`cycle.ic10` — 114 of 128 lines as formatted there.
+`cycle.ic10` — 115 of 128 lines as formatted there.
 
-**Pins:** `d0` shared Light (read-only here — cross-circuit data wiring
-to a device on Watcher's always-on power circuit, the same pattern the
-original 3-chip design already relied on for Chip A/B sharing this same
-Light), `d1`/`d2` exterior/interior Portal, `d3` Vent, `d4` Logic
+**Pins:** `d1`/`d2` exterior/interior Portal, `d3` Vent, `d4` Logic
 Receiver, `d5` a **dedicated Gas Sensor physically inside the chamber**
-(new hardware — see "Bonus" note above for why).
+(new hardware — see "Bonus" note above for why). `d0` is unused — this
+chip no longer needs a Light pin at all (see the Light-fix note under
+Watcher above): Tier arrives over the Receiver instead, which also
+retires the "cross-circuit data wiring to the Light" item that used to
+sit in the still-open list below, since there's no longer any
+Light-related wiring on this chip to verify.
 
 **What changed from the old Chip B besides the Receiver swap:** the
 Propped-Open check (`checkProp`) now only runs when Tier is Normal,
@@ -354,15 +405,34 @@ the Gas Sensor chip's match/mismatch branching.
 - The exact LogicType that gates a Power Controller's own output —
   assumed `On`, not independently confirmed.
 - `BtnHash` — single-sourced, not cross-confirmed.
-- Whether direct data wiring (Cycle chip's Light read) or the Logic
-  Transmitter/Receiver pair actually behave as expected across two
-  independently-power-gated circuits — reasoned through carefully
-  against confirmed game mechanics (data network ≠ power network), but
-  not verified in an actual running game.
+- `ColorGreen`/`ColorYellow`/`ColorRed` (2/5/4) — sourced from
+  aggregated search results citing the Community Wiki's "Data Network
+  Colors" page, which blocked every direct fetch attempt. The
+  color-per-Tier branching logic itself is solid regardless of the
+  exact numbers.
+- Whether the Logic Transmitter/Receiver pair actually behaves as
+  expected across two independently-power-gated circuits — reasoned
+  through carefully against confirmed game mechanics, but not verified
+  in an actual running game. (The LED's LogicTypes specifically *are*
+  now confirmed — see the Watcher section above — this item is just
+  about the Transmitter/Receiver link itself.)
 - Stalled-phase detection/recovery, and Propped-Open's mid-mismatch
   exit ordering — unchanged gaps from before this restructuring.
 - Whether `brdns` should replace pure batch addressing for the optional
   Gas Sensors — a real improvement per Custom Airlock V2, not yet made.
+
+**Resolved in-game (2026-08-04):** a standard Light — and separately,
+the "battery backup" Light variant — have no `Setting` LogicType at
+all, confirmed by the project owner's own in-game Logic panel
+screenshots. This was a project-wide assumption baked in since before
+any of this session's work, silently broken the entire time. Fixed by
+moving Tier onto the already-existing Logic Transmitter/Receiver
+channel instead of any Light-family device, and upgrading the
+player-facing indicator to an LED driven by its `Color` field — a real
+mechanism the Light variants don't have, giving back the three
+visually-distinct states the original design wanted. See the Watcher
+section above for the full explanation, the simpler on/off fallback
+kept for posterity, and dry-run verification.
 
 **Reference:** IC10 syntax and instruction patterns confirmed via
 XGamingServer's IC10 programming guide (LogicType read/write syntax,

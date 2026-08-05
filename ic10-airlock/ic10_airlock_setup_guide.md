@@ -52,9 +52,13 @@ notes only, not part of the item name.
   self-rescue by swapping the battery. Feeds Watcher continuously and,
   via the zone gate above, the Cycle chip and doors.
 
-- **Light** — qty **1**
-  Dual-purpose warning signal + inter-chip flag. Mount visibly at the
-  portal, not tucked in a rack. Wired to **both** IC Housings.
+- **LED** (`StructureDiode`, **not** a plain Light) — qty **1**
+  Player-facing warning signal, three colors (green/yellow/red per
+  Tier) — wired to Watcher only, not Cycle; inter-chip Tier signaling
+  goes over the Transmitter/Receiver instead. **Specifically an LED,
+  not a Light** — confirmed in-game that neither Light variant has a
+  `Color` field, only the LED does. Mount visibly at the portal, not
+  tucked in a rack.
 
 - **Logic Switch ("Button")** — qty **3**
   E (exterior), I (interior/base side), C (inside the chamber itself) —
@@ -86,14 +90,14 @@ notes only, not part of the item name.
   the Cycle IC Housing — it's not the same device as the dedicated one
   above, and doesn't need to be inside the chamber itself.
 - **Chamber footprint: budget 1–2 grid volumes** for the chamber
-  itself (Portals + dedicated Power Controller + Light + Button C +
+  itself (Portals + dedicated Power Controller + LED + Button C +
   the new chamber Gas Sensor), **plus at least 1 more grid of
   spillover** for hardware that doesn't fit inside the chamber proper —
   specifically the Vent's pressure tanks for cycle air, the zone-gate
   Power Controller, and the two IC Housings.
-- **Light: mounted at the portal, visible from outside it**, with wires
-  run to both IC Housings. Its second job is warning a player standing
-  there, not just signaling between chips.
+- **LED: mounted at the portal, visible from outside it**, wired to
+  Watcher only — it's a player-facing warning now, not an inter-chip
+  signal (that moved to the Transmitter/Receiver).
 - **Button C: inside the chamber**, not at either portal — it's the
   wake/override for someone already caught inside.
 - **Button E / Button I: outside the chamber**, one per side, wherever
@@ -113,8 +117,9 @@ just wired to that pin.
 - **`d0`** — code alias `Battery`
   Dedicated Power Controller (the one inside the chamber).
 
-- **`d1`** — code alias `Light`
-  The shared Light.
+- **`d1`** — code alias `LED`
+  The warning LED (`StructureDiode`) — not a plain Light, see hardware
+  list above for why.
 
 - **`d2`** — code alias `Gate`
   The zone-gate Power Controller.
@@ -129,13 +134,9 @@ circuit as the dedicated Power Controller itself.
 
 ## 4. Wiring — Cycle (powered only when the zone gate is on)
 
-IC Housing pins, **all 6 used**. Same idea as the Watcher table above —
-code alias on the left, what to physically wire to that pin on the
-right.
-
-- **`d0`** — code alias `Light`
-  The shared Light — same physical Light as Watcher, wire it to both
-  housings.
+IC Housing pins, 5 of 6 used (`d0` intentionally spare — see below).
+Same idea as the Watcher table above — code alias on the left, what to
+physically wire to that pin on the right.
 
 - **`d1`** — code alias `DoorExt`
   Exterior Portal.
@@ -151,6 +152,12 @@ right.
 
 - **`d5`** — code alias `ChamberSensor`
   The chamber Gas Sensor.
+
+**`d0` is not wired to anything.** An earlier revision had this chip
+reading Tier off the shared Light's `Setting` field — that field
+doesn't exist on any Light variant (confirmed in-game), so Tier now
+arrives over `d4`'s Receiver instead, and Cycle never needs to touch
+the Light at all.
 
 Load `cycle.ic10`. **This entire housing, along with both Portals and
 the Vent, sits on the zone-gate Power Controller's switched output** —
@@ -180,7 +187,7 @@ unsure.
 ## 6. Naming the three Buttons (required — Watcher won't see them otherwise)
 
 Watcher reads all three Buttons via named batch (`lbn`), not pins,
-because owning the dedicated Power Controller, Light, zone gate, and
+because owning the dedicated Power Controller, LED, zone gate, and
 Transmitter already accounts for most of its wiring, and named
 addressing was already validated as reliable for this. Each Button
 needs a unique name assigned in-game:
@@ -215,6 +222,16 @@ caveats follow underneath.
   LogicType on other powered devices in this project turned out to be
   `On`, so it's a strong default, but check your own Power Controller's
   Stationpedia entry or Logic Reader "VAR" list before trusting it.
+
+- **`ColorGreen`/`ColorYellow`/`ColorRed`** — Watcher, currently
+  `2`/`5`/`4`
+  Values written to the LED's `Color` field per Tier. **Not
+  independently confirmed** — sourced from aggregated search results
+  citing the Community Wiki's "Data Network Colors" page, which
+  couldn't be fetched directly. Check that page yourself, or just watch
+  what color actually shows up at each Tier during step 8 below and
+  adjust the numbers if they're wrong — the branching logic that picks
+  a color per Tier doesn't need to change either way.
 
 - **`WakeHold`** — Watcher, currently `20` ticks
   How long the zone gate stays open after the last button press before
@@ -254,12 +271,15 @@ caveats follow underneath.
 
 Test incrementally, not everything at once:
 
-1. **Power Watcher alone first.** Confirm the Light's `Setting` changes
-   as you vary the dedicated Power Controller's charge. Confirm the
-   zone-gate Power Controller's output actually toggles when Watcher
-   writes to it — this is the one genuinely unconfirmed LogicType in
-   the whole build (see step 7), so verify it here before wiring
-   anything downstream of it.
+1. **Power Watcher alone first.** Confirm the LED shows green, then
+   turns yellow as you drop the dedicated Power Controller's charge
+   into Low range, then red into Critical, and back to green on
+   recovery to Normal. If it stays off or shows the wrong color, the
+   `ColorGreen`/`ColorYellow`/`ColorRed` values are the first thing to
+   check (see step 7 — flagged unconfirmed). Confirm the zone-gate
+   Power Controller's output actually toggles when Watcher writes to it
+   — this is the *other* genuinely unconfirmed LogicType in the whole
+   build, so verify it here before wiring anything downstream of it.
 2. **Power Cycle next**, fed only through the (now-confirmed) zone
    gate. Test in this order:
    - With Watcher in Normal tier and no button pressed, confirm the
@@ -298,14 +318,20 @@ Carried over from `ic10_airlock_code_notes.md`, not fixed yet:
   you're using the Gas Sensor chip and a mismatch develops while both
   doors are propped open, which door closes first isn't decided in the
   code.
-- **The zone-gate LogicType and `BtnHash` are both unconfirmed** — see
-  step 7. Verify both early; they're load-bearing for the whole build.
+- **The zone-gate LogicType, `BtnHash`, and the LED `Color` values are
+  all unconfirmed** — see step 7. Verify early; they're load-bearing
+  for the whole build.
 
 ## 10. Troubleshooting
 
 - **Buttons don't do anything:** check the Labeller names exactly match
   `AirlockBtnE`/`AirlockBtnI`/`AirlockBtnC` (case-sensitive), then check
   `BtnHash` against your actual button's Stationpedia type hash.
+- **LED stays off, or shows a color that doesn't match the Tier you
+  expect:** `ColorGreen`/`ColorYellow`/`ColorRed` are unconfirmed
+  guesses (see step 7) — check the actual color against the Community
+  Wiki's "Data Network Colors" page or just try different values until
+  the right ones show up.
 - **Zone gate never toggles / Cycle never wakes:** the assumed `On`
   field on the zone-gate Power Controller may not be right — this is
   the single most likely point of failure in the whole build precisely

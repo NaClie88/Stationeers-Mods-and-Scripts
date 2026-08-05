@@ -54,43 +54,49 @@ to and reading from a **shared device's LogicType**, the same way any
 IC10 talks to any sensor or light. Two ways to do this:
 
 1. **Repurpose an existing device's LogicType as a signal flag** — e.g.,
-   one chip writes a Light's `Setting` to a specific value not otherwise
-   meaningful for lighting, a second chip reads that same Light's
-   `Setting` to know what the first chip decided. Confirmed as a real
-   pattern used by the community for exactly this kind of inter-circuit
-   signaling.
+   one chip writes some device's field to a value not otherwise
+   meaningful, a second chip reads that same field to know what the
+   first chip decided. Confirmed as a real pattern used by the
+   community for exactly this kind of inter-circuit signaling — **but
+   see the correction below: a Light specifically doesn't work for
+   this**, since it has no free-form field to repurpose.
 2. **Logic Transmitter / Logic Receiver pair** — purpose-built for this:
-   a Transmitter broadcasts a `Mode` value on a chosen channel, a Receiver
+   a Transmitter broadcasts a value on a chosen channel, a Receiver
    elsewhere picks it up, no direct wire needed between them. Each
-   transmitter only carries one value per channel — multiple signals need
-   multiple pairs or channels.
+   channel only carries one value — multiple signals need multiple
+   channels (up to 8 per pair) or multiple pairs.
 
-**Deliberate choice for this design: option 1, a Light, specifically for
-its dual purpose.** Unlike a Transmitter/Receiver pair — which is purely
-machine-to-machine, invisible to a player standing at the airlock — a
-Light physically placed at the portal does double duty: the same write
-that tells a second IC10 "this portal's power state is uncertain" also
-gives the **player** a visible, in-world signal at the point where it
-matters most. A player walking up to an airlock doesn't need to check a
-console reading to know something's wrong — the light at the door itself
-tells them. This is the right tool specifically because the requirement
-isn't just inter-chip signaling, it's also player-facing warning at the
-exact location the warning is relevant to, and a Light is the one option
-that serves both jobs from a single write.
+**RESOLVED (2026-08-04, superseding the "deliberate choice" originally
+written here): option 1, a Light, was the original plan specifically
+for its dual purpose — but it doesn't work.** In-game Logic panel
+screenshots confirmed neither a standard Light nor the "battery
+backup" Light variant exposes a `Setting` field or anything else
+free-form; the only writable fields are `On` (and `Lock`, `Mode` on
+some variants) — nothing that can carry an arbitrary Tier value. The
+actual mechanism used is **option 2, a Logic Transmitter/Receiver
+pair**, with Tier carried as one of several channels alongside live
+button state (see `ic10_airlock_code_notes.md` for the full
+Watcher/Cycle implementation). The player-facing half of the original
+idea survives, just through different hardware: an **LED**
+(`StructureDiode`), confirmed to expose a `Color` field none of the
+Light variants have, mounted at the portal and driven directly by the
+same chip that computes Tier — still a single source of truth, still
+visible in-world, just no longer double-duty as the inter-chip signal
+too. Green/Normal, yellow/Low, red/Critical.
 
-**Requirement (added):** the Light's placement matters as much as its
-LogicType value — it needs to be visible from the portal itself (not
-tucked in a rack with other indicator lights), since its second job is
-informing the player standing there, not just the paired IC10.
+**Requirement (unchanged):** the LED's placement matters as much as its
+color — it needs to be visible from the portal itself (not tucked in a
+rack with other indicator lights), since its job is informing the
+player standing there.
 
 **Why this matters for the 128-line limit:** if the full state machine
 (normal cycling + Charge monitoring + staged fail-safe response) doesn't
 fit in one IC10's 128 lines, split it — e.g., one chip owns door/vent
-cycling and reads the shared light's Setting for "are we in fail-safe
-mode," a second chip owns Power Controller monitoring and writes that
-Setting (the same write that lights up the warning for the player).
-Neither chip needs to know the other's internal logic, only the shared
-LogicType they both touch.
+cycling and reads the Tier channel for "are we in fail-safe mode," a
+second chip owns Power Controller monitoring and broadcasts that
+channel (plus drives the LED for the player, a separate write to a
+separate device). Neither chip needs to know the other's internal
+logic, only the shared channel they both touch.
 
 ## The core problem this script solves
 
@@ -126,7 +132,7 @@ guarantees they're never depending on rescue from outside to get
 themselves out.
 
 **Checkpoint:** confirm the Power Controller kit's footprint fits inside
-your chamber's dimensions alongside the two Portals, the signal Light,
+your chamber's dimensions alongside the two Portals, the warning LED,
 and Button C, without the chamber becoming so cramped it's awkward to
 use day-to-day.
 
@@ -202,9 +208,10 @@ nothing to keep monitoring — are what wake the door back up:
    zero power cost regardless of the doors' own power state
 3. On any Button press, IC10 powers the relevant door(s), cycles for
    passage, then drops back to unpowered+unlocked once clear
-4. The warning Light (see "Multiple IC10 chips" above) still fires the
-   same dual-purpose signal at the State 2 threshold — this doesn't
-   replace that, it's an additional saving layered on top
+4. The warning LED (see "Multiple IC10 chips" above) still fires the
+   same Tier-broadcast-plus-visual-warning signal at the State 2
+   threshold — this doesn't replace that, it's an additional saving
+   layered on top
 
 **Net effect:** State 2 goes from "same power draw, dimmer light" to
 "door draws ~0W between uses, only spending power during an actual
@@ -228,7 +235,7 @@ isolated Power Controller rather than running off the main grid):
   loop iteration to detect the transition into State 2
 
 ### State 2 — Low Power Warning (Charge ≤ 90%, > 10%)
-- **Requirement:** the portal's dedicated signal Light (see "Multiple IC10 chips" above) changes state to a dual-purpose warning — the same write both (a) informs any second IC10 reading that Light's Setting that this portal's power is uncertain, and (b) visually warns a player standing at the airlock that something's degraded, before they're relying on it mid-cycle
+- **Requirement:** the portal's warning LED (see "Multiple IC10 chips" above) changes to yellow — Watcher's Tier broadcast on the Transmitter channel handles telling Cycle a fail-safe response may be coming, and the LED write is a separate but simultaneous action that visually warns a player standing at the airlock that something's degraded, before they're relying on it mid-cycle
 - **Requirement (see "Deep idle mode" above):** door power cuts between cycles rather than staying continuously powered — door sits unpowered+unlocked at rest, powers up on any of the three Buttons (E/I/C) being pressed, drops back to unpowered+unlocked once clear. This is now the state's primary power saving, not just the warning light.
 - Open questions (LogicType name for Charge, absolute-vs-relative threshold) consolidated in "In-Game Verification Checklist" below — items 2 and 3
 
@@ -402,15 +409,19 @@ Putting the pieces above together, here's how the airlock actually
 behaves end to end, state by state.
 
 **Hardware in place:** two IC10s (Watcher and Cycle, each in its own IC
-Housing, see ic10_airlock_code_notes.md for the split) — no airlock circuitboard in
-the loop. Watcher stays powered continuously; Cycle is powered only
+Housing, see `ic10_airlock_code_notes.md` for the split) — no airlock
+circuitboard in the loop. Watcher stays powered continuously; Cycle is
+powered only
 when Watcher's Power Controller-based zone gate is on, and owns both
 Portals and the Active Vent directly. A dedicated, isolated Power
 Controller (its own battery, off the main grid, physically inside the
 chamber for battery-swap access) feeds Watcher and, via the zone gate,
-Cycle and the doors. One signal Light mounted at the portal, wired to
-both chips. Three Buttons — E (exterior), I (interior/base side), C
-(inside the chamber itself) — all read by Watcher and relayed to Cycle
+Cycle and the doors. One warning LED mounted at the portal, wired to
+Watcher only — not a plain Light, since neither Light variant exposes
+a field for the color-per-Tier signal this needs (confirmed in-game;
+see `ic10_airlock_code_notes.md`). Three Buttons — E (exterior),
+I (interior/base side), C (inside the chamber itself) — all read by
+Watcher and relayed to Cycle
 over a Logic Transmitter/Receiver pair, not wired directly to Cycle at
 all. A dedicated Gas Sensor inside the chamber itself, read by Cycle,
 for unambiguous pressure sensing during a cycle. Two more Gas Sensors —
@@ -427,16 +438,17 @@ standard automated airlock. Doors stay powered and lock during an active
 cycle, per the normal safety behavior for pressure changes. Any of the
 three Buttons can request a cycle; the script sequences vent
 evacuation/pressurization and door open/close in the usual order. The
-Light stays in its normal (non-warning) state. The two Gas Sensors run
+LED stays green. The two Gas Sensors run
 continuously in the background here too — if they ever confirm a
 genuine match on both sides, the airlock can prop both doors open
 instead of cycling for no reason, reverting the instant either sensor
 detects the match has broken.
 
-**Transition into State 2 (Charge drops to ≤90%):** the Light switches
-to its warning state — the single write that both signals a second IC10
-(if one exists) that this portal's power is uncertain, and visibly warns
-any player standing at the portal. From this point on, doors no longer
+**Transition into State 2 (Charge drops to ≤90%):** the LED switches to
+yellow — Watcher's Tier broadcast (Transmitter Channel0) tells Cycle
+this portal's power is uncertain, and the LED write in the same loop
+iteration visibly warns any player standing at the portal. From this
+point on, doors no longer
 sit powered between uses: after any cycle completes, the door drops to
 unpowered+unlocked rather than staying live. The script now spends most
 of its time in an idle loop doing exactly one thing — reading E, I, and

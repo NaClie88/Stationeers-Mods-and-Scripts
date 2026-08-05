@@ -1,10 +1,14 @@
 # Watcher chip: Power Tier monitor + Button reader + zone-gate control.
 # Always powered - never gated off, unlike the Cycle chip below.
-# Owns: dedicated Power Controller, shared Light, Cycle-zone power gate,
-# Logic Transmitter (broadcasts live E/I/C button state to Cycle chip).
+# Owns: dedicated Power Controller, warning LED, Cycle-zone power gate,
+# Logic Transmitter (broadcasts Tier + live E/I/C button state to Cycle
+# chip - Tier goes over the Transmitter, NOT the LED, since neither a
+# Light nor an LED has a "Setting" field in this game - confirmed
+# in-game 2026-08-04). LED shows Tier as color: green/yellow/red -
+# TODO verify Color enum values below against Data Network Colors wiki.
 
 alias Battery d0
-alias Light d1
+alias LED d1
 alias Gate d2
 alias Transmitter d3
 
@@ -13,6 +17,9 @@ define BtnEName HASH("AirlockBtnE")
 define BtnIName HASH("AirlockBtnI")
 define BtnCName HASH("AirlockBtnC")
 define WakeHold 20
+define ColorGreen 2
+define ColorYellow 5
+define ColorRed 4
 
 move r0 0
 move r7 0
@@ -50,7 +57,18 @@ riseCrit:
 move r0 1
 
 stay:
-s Light Setting r0
+s Transmitter Channel0 r0
+s LED On 1
+beq r0 0 ledGreen
+beq r0 1 ledYellow
+s LED Color ColorRed
+j ledDone
+ledGreen:
+s LED Color ColorGreen
+j ledDone
+ledYellow:
+s LED Color ColorYellow
+ledDone:
 
 lbn r3 BtnHash BtnEName Activate 0
 lbn r4 BtnHash BtnIName Activate 0

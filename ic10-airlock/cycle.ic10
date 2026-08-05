@@ -1,8 +1,9 @@
 # Cycle chip: owns Doors, Vent, chamber Gas Sensor. Powered only when
 # Watcher's zone gate is on - not running otherwise, no separate Deep
 # Idle logic needed here, Watcher already handles that upstream.
+# No Light pin needed - Tier comes over the Logic Receiver (Channel0)
+# instead, since Lights have no "Setting" field to read here anyway.
 
-alias Light d0
 alias DoorExt d1
 alias DoorInt d2
 alias Vent d3
@@ -18,7 +19,7 @@ move r11 0
 move r13 0
 
 loop:
-l r0 Light Setting
+l r0 Receiver Channel0
 beq r0 2 tierCrit
 beq r0 0 checkProp
 j cycleCheck
