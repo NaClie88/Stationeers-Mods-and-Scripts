@@ -12,7 +12,9 @@ CREDITS/SOURCES file without hunting back through chat history.
 - GitHub, SnorreSelmer/stationeers_ic10, "mips-programming-101.md" — https://github.com/SnorreSelmer/stationeers_ic10/blob/main/mips-programming-101.md
   (128 lines / 90 chars claim — conflicts with the entry below)
 - GitHub, jhillacre/stationeers-scripts — https://github.com/jhillacre/stationeers-scripts
-  (128 lines / 52 chars claim — conflicts with the entry above; unresolved, see verification checklist)
+  (128 lines / 52 chars claim — conflicts with the entry above; the 52-char figure is phrased as "to respect the in-game editor" in this repo's own README, reads more like a self-imposed style choice than a documented hard limit — checklist item 10 now leans 90, still not 100% confirmed since the wiki's primary source is blocked by Cloudflare bot-protection)
+- StationeersLua Docs, "Enumerations & Constants" — https://orbitalfoundrymodteam.github.io/StationeersLuaDocs/guide/enums-constants.html
+  (community-maintained LogicType/LogicSlotType reference; used to cross-check `Charge`, `Maximum`, `Ratio` existence)
 - GitHub, Zappes/Stationeers — https://github.com/Zappes/Stationeers
   (notes in-game Workshop script publishing is broken, why community code lives on GitHub instead)
 - GitHub, drclaw1188/stationeers_ic10 — https://github.com/drclaw1188/stationeers_ic10
@@ -40,6 +42,19 @@ CREDITS/SOURCES file without hunting back through chat history.
   (2x/4x pressure throughput vs standard, "slightly higher" consumption, no internal pressure limiter)
 - Steam Community, official patch notes discussion, "Update v0.2.4294.19984" — https://stationeers-wiki.com/Update_v0.2.4294.19984
   (active vent nonlinear pull-rate taper-off, confirmed)
+- Gist, Twipped/77bf1bcdaa74a9bad404f937e0f40cf0d, "Stationeers Power Controller IC10 Script" — https://gist.github.com/Twipped/77bf1bcdaa74a9bad404f937e0f40cf0
+  (real working script confirming Power Controller exposes `Charge` and `Maximum`, Joules, ratio computed manually via division — not a direct `Ratio`/`ChargeRatio` field; resolves requirements-doc checklist item 2)
+- Community Wiki (community-derived enum reference), StationeersLua Docs "Enumerations & Constants" — https://orbitalfoundrymodteam.github.io/StationeersLuaDocs/guide/enums-constants.html
+  (LogicType table cross-checked: `Charge`/`Maximum` confirmed, generic `Ratio` confirmed to exist as a LogicType but not shown tied to Power Controller specifically, no `Lock` entry found on this particular page — see the Steam Community "Question about locking" entry below for that confirmation instead)
+- Steam Community, "Question about locking" — https://steamcommunity.com/app/544550/discussions/0/1729828401685627356/
+  (confirms `Lock` is a real LogicType — a plain bit, 0 = unlocked, 1 = locked)
+- StationeersLua Docs, "Airlock Controller" example — https://orbitalfoundrymodteam.github.io/StationeersLuaDocs/examples/airlock.html
+  (confirms `On` and `Mode` as the vent-control pair — Mode 0 = outward/depressurize, 1 = inward/pressurize)
+- Search-aggregated result, Composite Door power draw — 10W/tick confirmed via community wiki "Composite Door" / "Power" pages (direct fetch blocked by Cloudflare bot-protection; figure surfaced consistently across independent search snippets, not independently re-verified against the raw page)
+
+## Sensors
+- Search-aggregated result, Gas Sensor LogicTypes — https://stationeers-wiki.com/Gas_Sensor
+  (confirms `Pressure`, `Temperature`, and per-gas `RatioX` fields — `RatioOxygen`, `RatioCarbonDioxide`, `RatioNitrogen`, `RatioPollutant`, `RatioMethane`, `RatioNitrousOxide`, `RatioHydrogen`, `RatioWater`, `RatioPollutedWater`, `RatioHydrazine`, `RatioLiquidAlcohol`, `RatioHelium`, `RatioSilanol`, `RatioHydrochloricAcid`, `RatioOzone`, `RatioLiquidOzone` — no single generic "Ratio" field for composition, resolving requirements-doc checklist item 8 and fixing a real bug in Chip C's earlier skeleton; direct fetch blocked by Cloudflare, figure set built from consistent independent search snippets)
 
 ## Storms & structural
 - Community Wiki, "Storm" — https://stationeers-wiki.com/Storm
@@ -68,6 +83,13 @@ CREDITS/SOURCES file without hunting back through chat history.
   (dedicated Power Controller + swappable battery as the community-standard workaround)
 - Steam Community, "logic transmitters with ic chip tutorials?" — https://steamcommunity.com/app/544550/discussions/0/669472753009635911/
   (multi-chip coordination via shared device state / Logic Transmitter pattern)
+
+## In-game confirmations by project owner (not web sources)
+- **Large Powered Vent power draw: 500W** — confirmed directly in-game, 2026-08-04. Resolves requirements-doc checklist item 9, which no web source had published.
+- **IC10 line-length limit — both 52 and 90 are correct, for different things.** 52 characters is the in-game editor's *typing* limit (a UI constraint); 90 characters is the actual execution/storage limit — pasting a line up to 90 chars works even though typing past 52 by hand is blocked. Resolves checklist item 10 and explains why community sources split down the middle on this figure.
+- **Hysteresis gap: 3% confirmed as a reasonable starting value** — matches the 90%/93% and 10%/13% bands already used in Chip A.
+- **Chamber footprint: 1–2 grid volumes for the chamber, +1 grid spillover for pressure tanks/cycle-air hardware** — planning figure for checklist item 7.
+- **Deep Idle cycle-latency target: under 0.25ms** from wake trigger to Transformer/Portal responsiveness — a design target for checklist item 4, not yet a measured result; still needs an in-game stopwatch check once built.
 
 ---
 

@@ -280,48 +280,103 @@ isolated Power Controller rather than running off the main grid):
 ## In-Game Verification Checklist
 
 Everything below is flagged elsewhere in this doc individually — collected
-here in one place so nothing gets missed before writing real code:
+here in one place so nothing gets missed before writing real code. Status
+as of the 2026-08-04 research pass — see `SOURCES.md` for the specific
+URLs behind each **Resolved** item; items marked **Still open** genuinely
+need your own in-game check, not more research, since they're
+build-specific or blocked behind a Cloudflare wall no fetch tool got past.
 
-1. **Standard Door wattage** — only Blast Door's 25W/tick is confirmed.
-   Check a Composite/Glass Door's actual idle and cycling draw via its
-   in-game tooltip or Stationpedia entry.
-2. **Exact LogicType name for Power Controller charge** — commonly
-   referenced as `Charge` in community scripts; confirm against the
-   in-game Logic Reader "VAR" list for your version before committing to
-   a variable name.
-3. **Whether 90%/10% thresholds should be absolute or relative** —
-   depends on which battery is in the dedicated Power Controller; check
-   whether a `Ratio`/percentage-style LogicType exists, or whether the
-   script needs to hardcode the known battery's max capacity.
-4. **Cycle latency from Deep Idle Mode** — how long a door takes to
-   become responsive when powered on-demand from fully off, versus an
-   always-powered door's instant response. Test before committing Deep
-   Idle Mode as State 2's default rather than an optional deeper mode.
+1. **Standard Door wattage — Resolved (partial).** Composite Door
+   confirmed at **10W/tick**. Glass Door specifically still unconfirmed —
+   check its tooltip if your build uses one; likely the same order of
+   magnitude as Composite, not confirmed identical.
+2. **Exact LogicType name for Power Controller charge — Resolved, and it
+   changes Chip A.** `Charge` (Joules, absolute) and `Maximum` (Joules,
+   battery capacity) are the confirmed pair — seen both in a community
+   wiki-derived LogicType reference and in a real working Power
+   Controller IC10 script. **No dedicated `Ratio`/`ChargeRatio` field was
+   found on the Power Controller itself** (a plain `Ratio` LogicType does
+   exist, but confirmed sources only show it read directly off a
+   standalone Battery device, not through a Power Controller). The real
+   script computes percentage manually: `div r0 charge max`. **Action
+   needed:** Chip A's current `l r1 PC Ratio` (see prototype doc) should
+   change to reading `Charge` and `Maximum` separately and dividing —
+   flagged as a prototype-code fix below, not just a doc note. Still
+   worth one in-game double check with a Logic Reader on your specific
+   Power Controller in case your version does expose `Ratio` directly —
+   but design against Charge/Maximum as the safer default.
+3. **Absolute vs relative threshold — Resolved by item 2.** Since no
+   confirmed direct ratio field exists on the Power Controller, the
+   script computes a relative ratio itself (`Charge / Maximum × 100`)
+   rather than hardcoding an absolute joule threshold tied to one
+   specific battery. This makes the 90%/10% thresholds portable across
+   any battery size without editing the script.
+4. **Cycle latency from Deep Idle Mode — Target set, measurement still
+   pending.** Design target: **under 0.25ms** from wake trigger (Button
+   E/I/C press) to the Transformer/Portal being responsive. This is a
+   requirement to build and test against, not yet a measured result —
+   still needs an in-game stopwatch check against your specific
+   Transformer + Portal combination before Deep Idle Mode is locked in
+   as State 2's default.
 5. **Exact LogicType names for Lock/Open and vent/pipe evacuation
-   controls** — needed for State 3's close→evacuate→unlock sequence;
-   confirm against the Logic Reader VAR list, not assumed from memory.
-6. **Hysteresis gap size** — the 3-point gap used above (90%/93%,
-   10%/13%) is a starting guess; observe actual Charge fluctuation
-   tick-to-tick in-game and adjust if it's too tight (flapping) or too
-   loose (sluggish recovery).
-7. **Chamber footprint** — confirm the Power Controller kit fits inside
-   the chamber alongside both Portals, the signal Light, and Button C
-   without making the space awkward to actually use.
-8. **Gas Sensor LogicType names** — pressure, temperature, and gas
-   composition ratios needed for the Propped-Open match check; confirm
-   exact field names against the Logic Reader VAR list, same caveat as
-   the other LogicTypes above.
-9. **Actual Powered/Large Powered Vent wattage** — confirmed as "slightly
-   higher" than standard Active Vent's 100W and confirmed 2×/4× pressure
-   throughput, but exact watt figure wasn't found in available sources.
-   Needed to size the dedicated battery correctly if using one of these
-   instead of a standard Active Vent (see the vent/battery warning above).
-10. **IC10 line-length limit — sources conflict.** One reference says
-    128 lines × 90 characters; another (more actively maintained) says
-    128 lines × 52 characters. These can't both be current. Check your
-    actual in-game editor's line-length cutoff before writing real code
-    against either figure — the prototype code was kept conservative
-    (short lines) specifically to be safe under whichever is correct.
+   controls — Resolved.** `Lock` confirmed real: a plain bit, 0 =
+   unlocked, 1 = locked, set the same way as any other LogicType write.
+   `Open` confirmed for door state. For vent control, a real airlock
+   script example confirms `On` (power the vent) and `Mode` (0 = outward
+   /depressurize, 1 = inward/pressurize) as the pair driving
+   evacuation/pressurization — worth adopting these names directly in
+   Chip B's stubbed sequences instead of guessing new ones.
+6. **Hysteresis gap size — Resolved (starting value confirmed).** 3% of
+   capacity is confirmed as a reasonable starting gap — matches the
+   existing 90%/93% and 10%/13% bands already in Chip A exactly, so no
+   code change needed here. Still worth watching real Charge jitter
+   under load once built and tightening/loosening if it flaps or lags.
+7. **Chamber footprint — Resolved (planning figure).** Budget **1–2
+   grid volumes** for the chamber itself, plus **at least 1 more grid of
+   spillover** for the hardware that doesn't fit inside the chamber
+   proper — pressure tanks for cycle air specifically. Note this sits
+   alongside the earlier requirement that the Power Controller itself
+   must be *inside* the chamber (for battery-swap access) — plan the
+   1–2 grid interior with that constraint in mind, not just doors +
+   buttons + light.
+8. **Gas Sensor LogicType names — Resolved, and it surfaces a Chip C
+   bug.** Confirmed real fields: `Pressure`, `Temperature`, and
+   per-gas ratios `RatioOxygen`, `RatioCarbonDioxide`, `RatioNitrogen`,
+   `RatioPollutant`, `RatioMethane`, `RatioNitrousOxide`,
+   `RatioHydrogen`, `RatioWater`, `RatioPollutedWater`, `RatioHydrazine`,
+   `RatioLiquidAlcohol`, `RatioHelium`, `RatioSilanol`,
+   `RatioHydrochloricAcid`, `RatioOzone`, `RatioLiquidOzone` — **there is
+   no single generic `Ratio` field for "gas composition"** the way Chip
+   C's current skeleton reads it (`l r4 SensExt Ratio`). That line is
+   wrong as written — composition matching needs separate reads per
+   relevant gas (at minimum Oxygen, Pollutant, and Methane/NOx per the
+   tolerance list already in the prototype doc), each compared against
+   its own tolerance. Flagged as a prototype-code fix below.
+9. **Actual Powered/Large Powered Vent wattage — Resolved (in-game
+   confirmed).** Standard Active Vent: **100W** (matches the earlier
+   wiki figure). **Large Powered Vent: 500W**, confirmed directly
+   in-game — resolves the "genuinely not published anywhere" gap
+   research couldn't close. The plain (non-Large) Powered Vent's exact
+   figure still wasn't separately checked; if your build uses that
+   variant specifically rather than Large, spot-check its Stationpedia
+   entry too — don't assume it's a linear half of 500W without
+   confirming, since the throughput scaling (2×/4×) isn't necessarily
+   the same ratio as the power scaling.
+10. **IC10 line-length limit — Fully resolved, both figures were
+    correct at once.** The two numbers weren't actually in conflict —
+    they measure different things. **52 characters is the in-game
+    editor's typing limit** — a UI constraint on what you can enter by
+    hand. **90 characters is the real, underlying execution/storage
+    limit** — you can paste a longer line (up to 90 chars) directly into
+    the editor and the game accepts and runs it correctly, even though
+    typing that far by hand is blocked. This is exactly why community
+    sources split down the middle: GitHub repos optimized for
+    manually-typed code cite 52 for compatibility, while wiki/technical
+    docs cite 90 as the true limit. **Practical takeaway:** the
+    prototype code's conservative short lines remain a reasonable
+    default (easiest to type/edit directly in-game), but there's no
+    correctness reason to keep lines under 52 chars if you're
+    copy-pasting rather than hand-typing — 90 is the real ceiling.
 
 ## Current Door Logic — Walkthrough
 
@@ -535,16 +590,19 @@ cycle essentially doesn't happen with standard components.
 **⚠️ Warning — avoid this specific combination:** a **Powered Vent or
 Large Powered Vent paired with a Small Battery** in the dedicated Power
 Controller. Powered Vents pump 2× the pressure per tick of a standard
-Active Vent (Large Powered Vent: 4×), with confirmed "slightly higher
-energy consumption" — and critically, **Powered Vents have no internal
-pressure limiter**, so they'll keep drawing hard for as long as they're
-told to run, unlike a standard Active Vent's more self-limiting
-behavior. Pairing that draw profile with a Small Battery's limited
-capacity is exactly the combination that could deplete Charge enough
-mid-cycle to cross a Power Tier boundary while a door's open. Standard
-Active Vent + any reasonably-sized battery: not a real risk. Powered/
-Large Powered Vent + Small Battery: avoid, or size the battery up to
-match.
+Active Vent (Large Powered Vent: 4×) — and the draw isn't just
+"slightly higher" as earlier phrased, it's confirmed **5× the standard
+Active Vent's draw**: **Large Powered Vent = 500W vs. Active Vent's
+100W** (checklist item 9, confirmed in-game). Critically, **Powered
+Vents have no internal pressure limiter**, so they'll keep drawing hard
+for as long as they're told to run, unlike a standard Active Vent's more
+self-limiting behavior. Pairing a confirmed 500W continuous draw with a
+Small Battery's limited capacity is exactly the combination that could
+deplete Charge enough mid-cycle to cross a Power Tier boundary while a
+door's open — this is now a concrete, sized risk, not a vague one.
+Standard Active Vent + any reasonably-sized battery: not a real risk.
+Powered/Large Powered Vent + Small Battery: avoid, or size the battery
+up to comfortably cover 500W for a full cycle's duration.
 
 **Net effect:** this removes the need for the complex mid-cycle-interrupt
 logic that would otherwise be required — constrain the component
@@ -571,7 +629,9 @@ discussion "logic transmitters with ic chip tutorials?" and the IC10
 LogicType model described in the Community Wiki "IC10" page and
 XGamingServer's guide. Stalled pressurization/depressurization phases
 and the "Cancel Pressurize" button confirmed via Community Wiki "Guide
-(Airlock) Atmosphere to Atmosphere" page. Active Vent (100W) and Powered
-Vent/Large Powered Vent (2×/4× pressure throughput, "slightly higher"
-consumption, no internal pressure limiter) power draw confirmed via
-Community Wiki "Active Vent" and "Powered Vent" pages.
+(Airlock) Atmosphere to Atmosphere" page. Active Vent (100W, wiki-
+confirmed) and Large Powered Vent (2×/4× pressure throughput vs.
+standard/Active, no internal pressure limiter per Community Wiki "Active
+Vent"/"Powered Vent" pages; **500W draw confirmed directly in-game by
+the project owner**, 2026-08-04 — resolves what web research alone
+could not find published anywhere).

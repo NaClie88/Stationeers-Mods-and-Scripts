@@ -145,8 +145,8 @@ harmlessly stays at its default value if Chip C was never built.
 # Chip A: Power Monitor & Tier Broadcaster
 # Reads dedicated Power Controller, computes Tier with hysteresis
 # Broadcasts Tier (0=Normal,1=Low,2=Crit) via shared Light's Setting
-# TODO verify: exact charge LogicType (tried Ratio here - CONFIRM in-game,
-#   some devices use Charge or ChargeRatio instead - see checklist item 2)
+# Charge/Maximum confirmed real (checklist item 2) - no direct Ratio
+# field confirmed on Power Controller itself, so compute it here
 
 alias PC d0
 alias SigLight d1
@@ -154,7 +154,9 @@ alias SigLight d1
 move r0 0        # r0 = current Tier, start Normal
 
 loop:
-l r1 PC Ratio
+l r1 PC Charge
+l r2 PC Maximum
+div r1 r1 r2
 mul r1 r1 100
 
 beq r0 0 fromNorm
@@ -168,7 +170,7 @@ j stay
 
 fromLow:
 bge r1 93 up
-blt r1 11 down
+ble r1 10 down
 j stay
 up:
 move r0 0
@@ -178,7 +180,7 @@ move r0 2
 j stay
 
 fromCrit:
-bgt r1 12 riseCrit
+bgt r1 13 riseCrit
 j stay
 riseCrit:
 move r0 1
@@ -192,6 +194,24 @@ j loop
 Roughly 35 lines. Well under either line-count limit; the constraint
 here is characters-per-line, which this stays conservative on.
 
+**Dry-run finding (2026-08-04, caught by actually executing this code in
+`stationeering/stationeers-ic`, a real JS IC10 emulator, not just reading
+it):** the two lines above were originally `blt r1 11 down` and
+`bgt r1 12 riseCrit`. Both are now fixed — the originals silently
+narrowed the documented hysteresis band by a full percentage point on
+each side. `blt r1 11` trips Critical at any Charge *below 11%*, not at
+the documented "≤10%" — so a Charge sitting at 10.5% would already be
+forcing an unnecessary emergency evacuation a full point early. Symmetrically,
+`bgt r1 12` let the script climb back out of Critical at just above 12%,
+a point below the documented "> 13%" recovery threshold — shrinking the
+Low↔Critical hysteresis gap from the intended 3 points down to 1–2,
+increasing flapping risk right at the edge of the state that's supposed
+to be safest. Running the corrected thresholds through the same
+tick-by-tick trace (100→91→90→89, 92.9→93→94, 12→11→10→9,
+10→12→13→14) now reproduces the requirements doc's hysteresis table
+exactly. The Normal↔Low band (`bgt r1 90` / `bge r1 93`) was already
+correct — only the Low↔Critical band had the bug.
+
 ---
 
 ## Chip B — Door / Vent / Button Controller
@@ -200,7 +220,10 @@ here is characters-per-line, which this stays conservative on.
 # Chip B: Core airlock state machine
 # Reads Tier from Chip A via SigLight.Setting
 # Owns both Portals, their Transformers, Vents, Buttons E/I/C
-# TODO verify: Lock/Open LogicType names, Transformer On/Off name
+# Lock (0/1) and Open confirmed real door LogicTypes (checklist item 5).
+# Vent evacuate/pressurize sequence: On + Mode (0=out,1=in) confirmed.
+# TODO still open: Transformer's own On/Off LogicType name - not yet
+# checked against a source, may differ from a Portal's plain "On".
 
 alias SigLight d0
 alias DoorExt d1
@@ -235,7 +258,10 @@ j endLoop
 normalCycle:
 # (standard evacuate/pressurize/open sequence goes here -
 #  omitted for length, same shape as Community Wiki's
-#  "Custom Airlock IC10" reference script)
+#  "Custom Airlock IC10" reference script. Confirmed pattern:
+#  s Vent Mode 0 / s Vent On 1 to depressurize outward,
+#  s Vent Mode 1 / s Vent On 1 to pressurize inward, s Vent On 0
+#  once target Pressure is reached - see checklist item 5)
 j endLoop
 
 # --- Tier 1: Low Power - Deep Idle, wake on E/I/C ---
@@ -268,7 +294,7 @@ lb r8 PropFlagHash Activate 0
 bnez r8 endLoop        # C held - skip evacuation this loop, re-check next
 s DoorExt Open 0
 s DoorInt Open 0
-# (vent evacuation sequence goes here)
+# (vent evacuation: s Vent Mode 0, s Vent On 1 - see normalCycle above)
 s DoorExt Lock 0
 s DoorInt Lock 0
 s XfmrExt On 0
@@ -299,45 +325,95 @@ exact aliases you haven't built yet.
 
 ```
 # Chip C: OPTIONAL. Only build this if you installed both Gas Sensors.
-# Broadcasts match/mismatch via a named batch flag Chip B reads.
+# Broadcasts match/mismatch via a type-hash batch flag Chip B reads
+# with its own "lb" call - both chips address by type-hash only, no
+# device name/Labeller needed, so they always agree on what they're
+# reading/writing (see dry-run finding below for why this matters).
 # If this chip doesn't exist, Chip B's batch reads of the same flag
 # simply return nothing - no error, Propped-Open just never triggers.
+# No single "Ratio" field exists for composition (checklist item 8) -
+# check Oxygen (breathable) plus Pollutant/Methane (hazard) per-gas.
 
 alias SensExt d0
 alias SensInt d1
-alias FlagDevice d2   # any device Chip B also batch-addresses by name
+
+define PropFlagHash -1234567   # must match Chip B's constant exactly -
+                                 # each chip defines its own copy, see
+                                 # dry-run finding below for why
 
 loop:
 l r0 SensExt Pressure
 l r1 SensInt Pressure
 l r2 SensExt Temperature
 l r3 SensInt Temperature
-l r4 SensExt Ratio      # gas composition - TODO confirm exact LogicType
-l r5 SensInt Ratio
 
-move r6 0                # r6 = match flag, default 0 (no match)
+move r6 0             # r6 = match flag, default 0 (no match)
 sub r7 r0 r1
 abs r7 r7
-bgt r7 2 noMatch          # pressure tolerance placeholder - TUNE THIS
+bgt r7 0.1 noMatch     # pressure tol ~0.1 (Custom Airlock V2)
 sub r7 r2 r3
 abs r7 r7
-bgt r7 2 noMatch          # temperature tolerance placeholder - TUNE THIS
+bgt r7 0.02 noMatch    # temperature tol ~0.02
+
+l r4 SensExt RatioOxygen
+l r5 SensInt RatioOxygen
 sub r7 r4 r5
 abs r7 r7
-bgt r7 2 noMatch          # composition tolerance placeholder - TUNE THIS
+bgt r7 0.005 noMatch   # trace-gas tol ~0.005
+
+l r4 SensExt RatioPollutant
+l r5 SensInt RatioPollutant
+sub r7 r4 r5
+abs r7 r7
+bgt r7 0.005 noMatch
+
+l r4 SensExt RatioMethane
+l r5 SensInt RatioMethane
+sub r7 r4 r5
+abs r7 r7
+bgt r7 0.005 noMatch
 move r6 1
 
 noMatch:
-sbn FlagDevice PropFlagHash Setting r6
+sb PropFlagHash Setting r6
 yield
 j loop
 ```
 
-Tolerance values (`2` used as a placeholder three times above) were
-guesses at the time this was written. **Now superseded** — Custom
-Airlock V2's real, live-used values are: pressure ratio ~0.1,
-temperature ~0.02, trace gases (volatiles/methane, pollutant, NOx)
-~0.005. Replace the `2` placeholders with these before testing.
+Tolerance values (`2` used as a placeholder three times in earlier
+drafts) were guesses at the time this was written. **Now applied above**
+— Custom Airlock V2's real, live-used values: pressure ratio ~0.1,
+temperature ~0.02, trace gases (methane, pollutant) ~0.005. The
+composition check itself was also rewritten in this pass — the earlier
+skeleton read a single generic `Ratio` field per sensor, which doesn't
+exist; there's no one field for "gas composition," only per-gas
+`RatioX` fields, so the match check now compares Oxygen, Pollutant, and
+Methane individually (NOx omitted here for line budget; add a fourth
+`RatioNitrousOxide` block the same shape if you want the full set Custom
+Airlock V2 checks).
+
+**Dry-run finding (2026-08-04):** the flag write was originally
+`sbn FlagDevice PropFlagHash Setting r6`, with `FlagDevice` aliased to
+`d2` — a wired pin. `sbn`'s real signature is
+`sbn prefabHash nameHash LogicType value` (confirmed via community
+source): every argument before the value is a hash constant, not a
+device pin, so passing a pin alias there was a real type mismatch, not
+just an unresolved placeholder. It also didn't match how Chip B reads
+the same flag — `lb r5 PropFlagHash Setting 0` batches by type-hash
+alone, no name segregation — so even a correctly-formed `sbn` call would
+have been writing to a narrower audience (one specifically-named device)
+than Chip B was reading from (every device of that type-hash on the
+network). Fixed by switching Chip C to `sb PropFlagHash Setting r6`
+— plain type-hash batch write, the exact counterpart to Chip B's `lb`
+type-hash batch read, so both chips now provably agree on what they're
+touching. This also means Chip C no longer needs the `FlagDevice` alias
+or a device physically wired to its `d2` pin for this purpose — removed.
+Verified by loading both chips into `stationeering/stationeers-ic` (a
+real IC10 emulator) and confirming zero program errors, versus the
+original `sbn` line failing to parse there at all (`UNKNOWN_INSTRUCTION`
+— that specific emulator predates `sbn` being added to the game, per
+independent confirmation the instruction itself is real; the type
+mismatch above is the actual bug, not the instruction's existence).
 
 ---
 
@@ -365,11 +441,17 @@ confirmed `brdns` instruction instead of pure batch addressing for
 optional hardware (see "Validated against real production code" above —
 this is a genuine improvement worth making, not yet done).
 
-**Still unconfirmed (not resolved by the Custom Airlock V2 find):** the
-Power Controller `Charge`/`Ratio` field name specifically (Custom
-Airlock V2 doesn't monitor a Power Controller at all, so it doesn't help
-here), and the Charge trend/hysteresis-band approach this design's Chip
-A is built around, which has no equivalent in the reference script.
+**Resolved in the 2026-08-04 research pass (not from Custom Airlock V2,
+which doesn't monitor a Power Controller at all):** the Power
+Controller's charge field name — `Charge` and `Maximum` (Joules) are the
+confirmed pair, no direct `Ratio` field confirmed on the Power
+Controller itself, so Chip A now computes the ratio manually
+(`Charge / Maximum`) instead of reading a `Ratio` field that may not
+exist. See requirements doc checklist item 2 for sourcing. **Still
+genuinely unconfirmed:** the Charge trend/hysteresis-band approach this
+design's Chip A is built around has no equivalent in any reference
+script found, so the 90%/93%/10%/13% band values remain this design's
+own starting guess, not externally validated.
 
 **Not written at all:** Chip A/B's handling of Button I specifically
 (shown as a comment/TODO in Chip B rather than guessed), and the full
