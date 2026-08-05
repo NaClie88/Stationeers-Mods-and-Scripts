@@ -20,20 +20,33 @@ this project already holds itself to for IC10 LogicTypes.
 ## Two possible build paths
 
 1. **Unity asset path** — `StationeersModding/StationeersUnityModdingTemplate`.
-   Needed if the card gets its own custom 3D model/icon. Requires Unity
-   2022.3.62f3 (must match the game's editor version) plus a Unity
-   export plugin (`stationeers.modding.exporter`). Heavier setup, more
-   failure points before anything is visible.
+   Needed only if the card needs its own custom 3D model/icon. Requires
+   Unity 2022.3.62f3 (must match the game's editor version) plus a
+   Unity export plugin (`stationeers.modding.exporter`). Heavier setup,
+   more failure points before anything is visible.
 2. **BepInEx/Harmony patch path** — `StationeersModding/ExamplePatchMod`.
-   No Unity. Visual Studio + three DLL references that already exist
-   once BepInEx is installed. This is the recommended starting path —
-   see "Milestone 1" below.
+   No Unity, no Unity Editor version to match. Visual Studio (or VS
+   Code + the "Build Tools for Visual Studio" package, which is a much
+   lighter install than the full IDE — the template is a classic
+   .NET Framework project, so either works) + three DLL references
+   that already exist once BepInEx is installed.
 
-**Open question, not yet resolved:** whether a genuinely new craftable
-item (distinct from the vanilla Advanced Airlock Circuitboard, not just
-a Harmony-patched *behavior* on top of it) is achievable through path 2
-alone, or requires path 1's Unity asset pipeline. Answering this is
-Milestone 1.5.
+**Confirmed by project owner (2026-08-05, in-game observation, same
+trust level this project already gives that source category — see
+`SOURCES.md`'s "In-game confirmations by project owner" section):**
+every Console Circuitboard card in-game shares one visual model —
+only the name, recipe, and functionality differ between e.g.
+`Circuitboard (Airlock)` and `Circuitboard (Advanced Airlock)`. That
+makes path 2 the clear choice: this mod doesn't need any new art, only
+a new prefab entry that points at a model the game already has,
+config'd with a different name/recipe/behavior — exactly the kind of
+thing Harmony (or `LaunchPadBooster`'s prefab registration API) should
+be able to do without touching Unity at all.
+
+**Still open, narrower now:** *how* to register that new prefab entry
+— clone an existing Circuitboard's prefab data at startup vs. some
+other registration hook. Answering this is Milestone 1.5. Unity stays
+the fallback only if 1.5 turns up a hard blocker, not the default plan.
 
 ## Milestones
 
@@ -65,8 +78,11 @@ in a free decompiler — dnSpy or ILSpy, either works. Find:
   which Circuitboard is inserted and delegates to it — this is the
   actual "plug and play" mechanism we need to hook.
 - How/where new items get registered into the game's prefab/recipe
-  database at startup — this answers the Milestone 1 open question
-  above (whether a real new item needs Unity or not).
+  database at startup, and specifically whether an existing
+  Circuitboard's prefab entry (model, mesh reference, icon) can be
+  cloned under a new internal name via code — this is what makes or
+  breaks the "no Unity needed" plan above, now that a new model isn't
+  required.
 
 **Report back what you find** — class names, method signatures,
 whatever's visible — so the next step is real code, not a guess. I

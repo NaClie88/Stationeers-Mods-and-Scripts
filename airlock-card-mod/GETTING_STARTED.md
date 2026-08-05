@@ -31,11 +31,22 @@ pipeline works. Check each item; most of these you may already have.
   exists (this one ships with the game itself, should already be
   there regardless of BepInEx).
 
-## 3. Install Visual Studio
+## 3. Install a build toolchain — Visual Studio, or VS Code
 
-- Visual Studio Community (free) is enough. During install, check the
-  **".NET desktop development"** workload — the template targets
+Two equally valid options — pick one:
+
+- **Visual Studio Community** (free, full IDE). During install, check
+  the **".NET desktop development"** workload — the template targets
   .NET Framework 4.7.2, and that workload is what provides it.
+- **VS Code + "Build Tools for Visual Studio."** The template is a
+  classic (non-SDK-style) .NET Framework project, so VS Code's C#
+  extension alone isn't quite enough — you also need MSBuild and the
+  .NET Framework 4.7.2 targeting pack, which "Build Tools for Visual
+  Studio" provides without installing the full IDE. Once installed,
+  building is `msbuild AirlockCardMod.sln` from a VS Code terminal (or
+  the Developer Command Prompt it installs). This is the lighter-weight
+  option if you'd rather stay in one editor for both the mod code and
+  everything else in this repo.
 
 ## 4. Get the template
 
