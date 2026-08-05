@@ -160,7 +160,7 @@ doc via Watcher's own Charge monitoring) and is what people
 actually use to gate a circuit on/off via logic.
 
 This surfaced alongside a bigger restructuring, not just a device swap
-— see `ic10_airlock_prototype_code.md`'s "Watcher/Cycle split" section
+— see `ic10_airlock_code_notes.md`'s "Watcher/Cycle split" section
 for the full reasoning. Short version: rather than each Portal getting
 its own independent switching device, both Portals, the Vent, and the
 door/vent-controller chip itself now share **one** switchable zone,
@@ -305,10 +305,11 @@ build-specific or blocked behind a Cloudflare wall no fetch tool got past.
    directly off a standalone Battery device, not through a Power
    Controller). The real script computes percentage manually:
    `div r0 charge max`. Watcher's `l r1 Battery Ratio` (an early draft's
-   assumption — see prototype doc) was changed to reading `Charge` and
-   `Maximum` separately and dividing, not just a doc note. Still worth
-   one in-game double check with a Logic Reader on your specific Power
-   Controller in case your version does expose `Ratio` directly — but
+   assumption — see `ic10_airlock_code_notes.md`) was changed to reading
+   `Charge` and `Maximum` separately and dividing, not just a doc note.
+   Still worth one in-game double check with a Logic Reader on your
+   specific Power Controller in case your version does expose `Ratio`
+   directly — but
    design against Charge/Maximum as the safer default.
 3. **Absolute vs relative threshold — Resolved by item 2.** Since no
    confirmed direct ratio field exists on the Power Controller, the
@@ -401,7 +402,7 @@ Putting the pieces above together, here's how the airlock actually
 behaves end to end, state by state.
 
 **Hardware in place:** two IC10s (Watcher and Cycle, each in its own IC
-Housing, see prototype doc for the split) — no airlock circuitboard in
+Housing, see ic10_airlock_code_notes.md for the split) — no airlock circuitboard in
 the loop. Watcher stays powered continuously; Cycle is powered only
 when Watcher's Power Controller-based zone gate is on, and owns both
 Portals and the Active Vent directly. A dedicated, isolated Power

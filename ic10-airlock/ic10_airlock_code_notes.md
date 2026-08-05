@@ -1,4 +1,10 @@
-# IC10 Airlock — Prototype Code & Chip Count
+# IC10 Airlock — Code Notes
+
+Design rationale, corrections, and dry-run verification for the scripts
+in `ic10_airlock_scripts.md` — that's the file to open in-game and
+paste from. This one's for *why* it looks the way it does: what got
+fixed, what got restructured, and what's still unverified. For hardware
+and wiring, see `ic10_airlock_setup_guide.md`.
 
 ## Correction: I was wrong — Workshop does have close matches
 
@@ -82,13 +88,13 @@ conflict: 52 characters is the in-game editor's *typing* limit (a UI
 constraint), 90 characters is the real execution/storage limit — a
 pasted line up to 90 chars works fine even though the editor won't let
 you type past 52 by hand. Confirmed directly in-game by the project
-owner. Code below stays reasonably short per line as a matter of
-in-editor readability, not because it has to.
+owner. The scripts stay reasonably short per line as a matter of
+in-editor readability, not because they have to.
 
 **2. Stack is persistent — a confirmed, real gotcha.** Values pushed to
 an IC10's stack survive script reloads and restarts. Community reports
 describe scripts breaking after game updates specifically because of
-stale stack garbage from before. **The code below avoids the stack
+stale stack garbage from before. **All three scripts avoid the stack
 entirely** — registers and device I/O only — specifically to sidestep
 this whole class of bug rather than remembering to clear it correctly
 every time.
@@ -206,8 +212,8 @@ whichever chip owns them.
 
 ## Watcher — Power Tier, Buttons, and the Cycle-zone gate
 
-Always powered. 85 of 128 lines as formatted below, comfortable margin
-remaining.
+Always powered. Full code in `ic10_airlock_scripts.md` — 85 of 128
+lines as formatted there, comfortable margin remaining.
 
 **Pins:** `d0` dedicated Power Controller, `d1` shared Light, `d2`
 Cycle-zone gate (a Power Controller, not a Transformer — see above),
@@ -218,97 +224,9 @@ structure hash, found from a single search result rather than
 cross-confirmed — treat it as a strong lead, not a certainty, and
 double-check it against your own Stationpedia entry. Same caveat for
 the exact LogicType that gates a Power Controller's own output
-(assumed `On` below, matching every other powered device confirmed in
-this project, but not independently verified — flagged for an in-game
-Logic Reader check).
-
-```
-# Watcher chip: Power Tier monitor + Button reader + zone-gate control.
-# Always powered - never gated off, unlike the Cycle chip below.
-# Owns: dedicated Power Controller, shared Light, Cycle-zone power gate,
-# Logic Transmitter (broadcasts live E/I/C button state to Cycle chip).
-
-alias Battery d0
-alias Light d1
-alias Gate d2
-alias Transmitter d3
-
-define BtnHash -1591419276
-define BtnEName HASH("AirlockBtnE")
-define BtnIName HASH("AirlockBtnI")
-define BtnCName HASH("AirlockBtnC")
-define WakeHold 20
-
-move r0 0
-move r7 0
-
-loop:
-l r1 Battery Charge
-l r2 Battery Maximum
-div r1 r1 r2
-mul r1 r1 100
-
-beq r0 0 fromNorm
-beq r0 1 fromLow
-j fromCrit
-
-fromNorm:
-bgt r1 90 stay
-move r0 1
-j stay
-
-fromLow:
-bge r1 93 up
-ble r1 10 down
-j stay
-up:
-move r0 0
-j stay
-down:
-move r0 2
-j stay
-
-fromCrit:
-bgt r1 13 riseCrit
-j stay
-riseCrit:
-move r0 1
-
-stay:
-s Light Setting r0
-
-lbn r3 BtnHash BtnEName Activate 0
-lbn r4 BtnHash BtnIName Activate 0
-lbn r5 BtnHash BtnCName Activate 0
-s Transmitter Channel1 r5
-s Transmitter Channel2 r3
-s Transmitter Channel3 r4
-
-move r6 0
-beq r0 0 forceHold
-beq r0 2 forceHold
-bnez r3 forceHold
-bnez r4 forceHold
-bnez r5 forceHold
-j checkHold
-forceHold:
-move r6 1
-checkHold:
-bnez r6 doHold
-bgtz r7 stillHeld
-s Gate On 0
-j endLoop
-stillHeld:
-sub r7 r7 1
-j gateOn
-doHold:
-move r7 WakeHold
-gateOn:
-s Gate On 1
-endLoop:
-yield
-j loop
-```
+(assumed `On`, matching every other powered device confirmed in this
+project, but not independently verified — flagged for an in-game Logic
+Reader check).
 
 The hysteresis thresholds (`bgt r1 90`, `ble r1 10`, `bge r1 93`,
 `bgt r1 13`) are unchanged from the original Chip A design — those were
@@ -339,8 +257,8 @@ as long as Tier stays 2.
 
 ## Cycle — Doors, Vent, chamber sensor
 
-Powered only when Watcher's zone gate is on. 114 of 128 lines as
-formatted below.
+Powered only when Watcher's zone gate is on. Full code in
+`ic10_airlock_scripts.md` — 114 of 128 lines as formatted there.
 
 **Pins:** `d0` shared Light (read-only here — cross-circuit data wiring
 to a device on Watcher's always-on power circuit, the same pattern the
@@ -348,123 +266,6 @@ original 3-chip design already relied on for Chip A/B sharing this same
 Light), `d1`/`d2` exterior/interior Portal, `d3` Vent, `d4` Logic
 Receiver, `d5` a **dedicated Gas Sensor physically inside the chamber**
 (new hardware — see "Bonus" note above for why).
-
-```
-# Cycle chip: owns Doors, Vent, chamber Gas Sensor. Powered only when
-# Watcher's zone gate is on - not running otherwise, no separate Deep
-# Idle logic needed here, Watcher already handles that upstream.
-
-alias Light d0
-alias DoorExt d1
-alias DoorInt d2
-alias Vent d3
-alias Receiver d4
-alias ChamberSensor d5
-
-define PropFlagHash -1234567
-define TargetInt 100
-define TargetExt 2
-
-move r10 0
-move r11 0
-move r13 0
-
-loop:
-l r0 Light Setting
-beq r0 2 tierCrit
-beq r0 0 checkProp
-j cycleCheck
-
-checkProp:
-lb r5 PropFlagHash Setting 0
-beqz r5 cycleCheck
-s DoorExt Open 1
-s DoorInt Open 1
-j endLoop
-
-cycleCheck:
-bgtz r11 doorTimer
-bnez r13 continueCycle
-l r14 DoorExt Open
-l r15 DoorInt Open
-bgtz r14 endLoop
-bgtz r15 endLoop
-l r6 Receiver Channel2
-l r7 Receiver Channel3
-bnez r6 reqExt
-bnez r7 reqInt
-j endLoop
-
-reqExt:
-beq r10 0 openExt
-move r13 1
-j endLoop
-openExt:
-s DoorExt Open 1
-move r11 10
-j endLoop
-
-reqInt:
-beq r10 1 openInt
-move r13 2
-j endLoop
-openInt:
-s DoorInt Open 1
-move r11 10
-j endLoop
-
-continueCycle:
-beq r13 1 evacuate
-j pressurize
-
-evacuate:
-s Vent Mode 0
-s Vent On 1
-l r12 ChamberSensor Pressure
-bgt r12 TargetExt endLoop
-s Vent On 0
-move r10 0
-move r13 0
-s DoorExt Open 1
-move r11 10
-j endLoop
-
-pressurize:
-s Vent Mode 1
-s Vent On 1
-l r12 ChamberSensor Pressure
-blt r12 TargetInt endLoop
-s Vent On 0
-move r10 1
-move r13 0
-s DoorInt Open 1
-move r11 10
-j endLoop
-
-doorTimer:
-sub r11 r11 1
-bgtz r11 endLoop
-s DoorExt Open 0
-s DoorInt Open 0
-j endLoop
-
-tierCrit:
-l r8 Receiver Channel1
-bnez r8 endLoop
-s DoorExt Open 0
-s DoorInt Open 0
-s Vent Mode 0
-s Vent On 1
-l r12 ChamberSensor Pressure
-bgt r12 TargetExt endLoop
-s Vent On 0
-s DoorExt Lock 0
-s DoorInt Lock 0
-
-endLoop:
-yield
-j loop
-```
 
 **What changed from the old Chip B besides the Receiver swap:** the
 Propped-Open check (`checkProp`) now only runs when Tier is Normal,
@@ -508,71 +309,8 @@ specified).
 ## Gas Sensor / Propped-Open Monitor (optional)
 
 Unchanged by the Watcher/Cycle restructuring — this chip never touched
-Transformers or Buttons, so nothing about the split affected it. Kept
-here for completeness; see prior verification below.
-
-```
-# Gas Sensor chip: OPTIONAL. Only build this if you installed both
-# Gas Sensors. Broadcasts match/mismatch via a type-hash batch flag
-# the Cycle chip reads with its own "lb" call - both chips address by
-# type-hash only, no device name/Labeller needed, so they always agree
-# on what they're reading/writing.
-# If this chip doesn't exist, Cycle's batch reads of the same flag
-# simply return nothing - no error, Propped-Open just never triggers.
-# No single "Ratio" field exists for composition - check Oxygen
-# (breathable) plus Pollutant/Methane/NOx (hazard) per-gas instead.
-
-alias SensExt d0
-alias SensInt d1
-
-define PropFlagHash -1234567   # must match the Cycle chip's constant
-                                 # exactly - each chip defines its own
-                                 # copy, they don't share a symbol table
-
-loop:
-l r0 SensExt Pressure
-l r1 SensInt Pressure
-l r2 SensExt Temperature
-l r3 SensInt Temperature
-
-move r6 0             # r6 = match flag, default 0 (no match)
-sub r7 r0 r1
-abs r7 r7
-bgt r7 0.1 noMatch     # pressure tol ~0.1 (Custom Airlock V2)
-sub r7 r2 r3
-abs r7 r7
-bgt r7 0.02 noMatch    # temperature tol ~0.02
-
-l r4 SensExt RatioOxygen
-l r5 SensInt RatioOxygen
-sub r7 r4 r5
-abs r7 r7
-bgt r7 0.005 noMatch   # trace-gas tol ~0.005
-
-l r4 SensExt RatioPollutant
-l r5 SensInt RatioPollutant
-sub r7 r4 r5
-abs r7 r7
-bgt r7 0.005 noMatch
-
-l r4 SensExt RatioMethane
-l r5 SensInt RatioMethane
-sub r7 r4 r5
-abs r7 r7
-bgt r7 0.005 noMatch
-
-l r4 SensExt RatioNitrousOxide
-l r5 SensInt RatioNitrousOxide
-sub r7 r4 r5
-abs r7 r7
-bgt r7 0.005 noMatch
-move r6 1
-
-noMatch:
-sb PropFlagHash Setting r6
-yield
-j loop
-```
+Transformers or Buttons, so nothing about the split affected it. Full
+code in `ic10_airlock_scripts.md`; verification below.
 
 Tolerance values are Custom Airlock V2's real, live-used figures:
 pressure ratio ~0.1, temperature ~0.02, trace gases (methane,

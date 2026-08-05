@@ -1,7 +1,7 @@
 # Sources — IC10 Fail-Safe Airlock Design
 
 Every non-obvious claim in `ic10_failsafe_airlock_requirements.md` and
-`ic10_airlock_prototype_code.md` traces back to one of these. Organized
+`ic10_airlock_code_notes.md` traces back to one of these. Organized
 by topic so you can drop the relevant subset into a GitHub repo's
 CREDITS/SOURCES file without hunting back through chat history.
 
