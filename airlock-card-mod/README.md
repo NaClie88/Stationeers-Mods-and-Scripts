@@ -241,8 +241,8 @@ tree and start with `AdvancedAirlockControl`.
 
 ### Milestone 2 — patch the existing card in place
 
-**First cut written 2026-08-05. `AdvancedAirlockFailsafePatch`
-CONFIRMED working in-game; `DoorOpenPatch` not yet exercised.**
+**First cut written 2026-08-05. Both Harmony patches CONFIRMED working
+in-game after fixing two wrong-target guesses caught by testing.**
 `FailsafeController` is now wired into the real vanilla
 `AdvancedAirlockControl` class via two Harmony patches, both under
 `airlock-card-mod/AirlockCardMod/Patches/`:
@@ -274,8 +274,11 @@ CONFIRMED working in-game; `DoorOpenPatch` not yet exercised.**
   (`OnServer.Interact` → `Interactable.Interact` → `Interactable.State`'s
   setter → `Thing.OnInteractableStateChanged`) and corrected the patch
   to target `OnInteractableStateChanged` instead — see `PATCH_PLAN.md`'s
-  "Where `OnDoorOpened` attaches" for the full trace. Rebuilt against
-  the corrected target; not yet re-verified in-game.
+  "Where `OnDoorOpened` attaches" for the full trace. **Retested clean**:
+  fired on the first door opened, and once the airlock controller was
+  registered, correctly resolved a second door open through the full
+  pipeline (`OnDoorOpened fired, side=Interior`) — `DoorSide` resolution
+  against `ExteriorAirlock`/`InteriorAirlock` works as designed.
 
 **Deliberately still a no-op behaviorally**, by design, not by
 accident: `AdvancedAirlockControlHost.cs` implements `IAirlockHost`

@@ -436,5 +436,15 @@ quarter-second target) instead of the placeholder `1`, and
 `DoorOpenPatch.cs`'s first version (targeting `Thing.IsOpen`'s setter)
 was tested in-game and never fired — see "Where `OnDoorOpened`
 attaches" above for the full trace and the corrected target
-(`Thing.OnInteractableStateChanged`). Rebuilt against the corrected
-target; **not yet re-verified in-game.**
+(`Thing.OnInteractableStateChanged`). **Confirmed working in-game,
+2026-08-05**: the broad diagnostic fired on the first door opened
+(`OnInteractableStateChanged Open fired for a Door (Outside Door)`),
+and once `AdvancedAirlockFailsafePatch` had registered the airlock
+controller, a second door open resolved correctly through the full
+pipeline (`OnDoorOpened fired, side=Interior`) — `DoorSide` resolution
+against `ExteriorAirlock`/`InteriorAirlock` works as designed, no
+exceptions. Both Milestone 2 patches are now confirmed working
+end to end; the two temporary broad diagnostics
+(`loggedAnyDoorOpen`/the `OnThreadUpdate` "DIAGNOSTIC" equivalent
+concept) can be removed as cleanup whenever convenient, they've served
+their purpose.
