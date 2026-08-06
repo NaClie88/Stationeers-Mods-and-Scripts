@@ -122,19 +122,37 @@ patched into vanilla's evacuate method — this test exercised vanilla's
 naturally-stalled cycle, not a mod-triggered call, which doesn't exist
 as running code yet.
 
-### Milestone 1 — prove the toolchain (no real logic yet)
+### Milestone 1 — CONFIRMED: the toolchain works end to end (no real logic yet)
 
-Get the **stock, unmodified** `ExamplePatchMod` template building and
-loading in-game. Its `BepInEx.cs` already does everything needed for
-this: a `[BepInPlugin]`-decorated class that calls `harmony.PatchAll()`
-in `Awake()` and logs "Patch succeeded." Its `Patches/ExamplePatchClass.cs`
-is intentionally empty — don't add anything to it yet. Success
-criterion: you see the plugin's log line in the BepInEx console/log
-when the game loads. See `GETTING_STARTED.md` for the exact checklist.
+**Done, 2026-08-05.** Renamed the `ExamplePatchMod` template to
+`AirlockCardMod` (namespace, assembly, plugin GUID, file names — see
+`airlock-card-mod/AirlockCardMod/`), pointed its DLL references at the
+real local Stationeers install, and built it with a freshly installed
+VS 2022 Build Tools (`.NET desktop build tools` workload) — clean
+build, 0 errors, first try. Installed into `BepInEx/plugins/` and
+launched: BepInEx loaded it (`Loading [AirlockCardMod 1.0]`) and
+`Awake()` ran Harmony's `PatchAll()` without throwing.
 
-This deliberately tests nothing about airlocks, Circuitboards, or game
-internals — only "does my build → install → load pipeline work at
-all." Get this working before anything else.
+One wrinkle worth recording: the success line didn't show up in
+`BepInEx/LogOutput.log` at first, which looked like a possible
+failure. Root cause was `BepInEx.cfg`'s `[Logging.Disk]
+WriteUnityLog = false` — it excludes plain `Debug.Log` calls (what the
+template's `Log()` helper uses) from the disk log specifically. Unity's
+own separate `Player.log`
+(`%USERPROFILE%\AppData\LocalLow\Rocketwerkz\rocketstation\Player.log`)
+isn't subject to that filter and had the line:
+`[AirlockCardMod]: Patch succeeded`. Worth checking that file first if
+a future plugin's log line ever seems to be missing from
+`LogOutput.log` — it may just be this setting, not a real failure.
+
+Also confirmed: the in-game Workshop browser never lists BepInEx
+plugins (it only shows Steam Workshop content) — not seeing
+`AirlockCardMod` there is expected, not a sign anything's wrong.
+
+This milestone deliberately tested nothing about airlocks,
+Circuitboards, or game internals — only "does my build → install →
+load pipeline work at all." It does. See `GETTING_STARTED.md` for the
+checklist that was followed.
 
 **Strategy change (this session):** rather than build a new item from
 scratch, patch *extra* behavior onto the existing vanilla Advanced
