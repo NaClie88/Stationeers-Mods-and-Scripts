@@ -1,0 +1,45 @@
+using Assets.Scripts.Objects;
+using Assets.Scripts.Objects.Structures;
+using HarmonyLib;
+
+namespace AirlockCardMod.Patches
+{
+    // Milestone 2: fires FailsafeController.OnDoorOpened for whichever
+    // door just opened, regardless of trigger (native door button,
+    // Console UI, or this mod's own future ForceEvacuate/
+    // HoldBothDoorsOpen calls). See PATCH_PLAN.md's "Where OnDoorOpened
+    // attaches" -- Thing.IsOpen's property setter is the single
+    // confirmed point every one of those paths funnels through.
+    [HarmonyPatch(typeof(Thing), nameof(Thing.IsOpen), MethodType.Setter)]
+    internal static class DoorOpenPatch
+    {
+        // Captures the value before this specific assignment, so the
+        // Postfix can edge-detect false -> true instead of firing on
+        // every redundant same-value write (the setter runs on every
+        // assignment -- see PATCH_PLAN.md's "one real wrinkle").
+        private static void Prefix(Thing __instance, out bool __state)
+        {
+            __state = __instance.IsOpen;
+        }
+
+        private static void Postfix(Thing __instance, bool value, bool __state)
+        {
+            if (!value || __state) return;
+            if (!(__instance is Door door)) return;
+
+            foreach (var controller in AdvancedAirlockFailsafePatch.KnownControllers)
+            {
+                if (!(bool)controller) continue; // Unity-destroyed check
+
+                DoorSide? side = null;
+                if (door == controller.ExteriorAirlock) side = DoorSide.Exterior;
+                else if (door == controller.InteriorAirlock) side = DoorSide.Interior;
+
+                if (side.HasValue)
+                {
+                    AdvancedAirlockFailsafePatch.GetOrCreateController(controller).OnDoorOpened(side.Value);
+                }
+            }
+        }
+    }
+}

@@ -58,8 +58,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AirlockCardMod.cs" />
-    <Compile Include="Patches\ExamplePatchClass.cs" />
+    <Compile Include="AdvancedAirlockControlHost.cs" />
+    <Compile Include="Patches\AdvancedAirlockFailsafePatch.cs" />
+    <Compile Include="Patches\DoorOpenPatch.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="..\src\FailsafeController.cs" Link="FailsafeController.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

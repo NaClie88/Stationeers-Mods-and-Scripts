@@ -241,14 +241,50 @@ tree and start with `AdvancedAirlockControl`.
 
 ### Milestone 2 — patch the existing card in place
 
-Wire `FailsafeController` into the real vanilla class via a Harmony
-`Postfix` patch (shape sketched in `PATCH_PLAN.md`, not written yet —
-it needs Milestone 1.5's real names to mean anything). Test this
-**as a patch on the vanilla `Circuitboard (Advanced Airlock)` item
-itself** — every one a player builds gets the new fail-safe behavior,
-nothing separate yet. This is deliberately the fastest path to seeing
-the whole design work end-to-end in-game, at the cost of changing
-vanilla's own item while testing.
+**First cut written 2026-08-05, builds clean, not yet verified
+in-game.** `FailsafeController` is now wired into the real vanilla
+`AdvancedAirlockControl` class via two Harmony patches, both under
+`airlock-card-mod/AirlockCardMod/Patches/`:
+
+- `AdvancedAirlockFailsafePatch.cs` — `Postfix` on `OnThreadUpdate()`.
+  Creates one `FailsafeController` per circuit instance (a
+  `ConditionalWeakTable`, the standard Harmony pattern for attaching
+  new per-instance state to an existing class), calls `UpdateTier()` +
+  `ApplyTierEffects()` every call (no throttling yet — see below),
+  and logs once on first attachment. Also does the empirical
+  `OnThreadUpdate()` call-rate measurement `PATCH_PLAN.md` flagged as
+  impossible via static decompilation — logs the average interval
+  over the first 20 calls on one instance, so `TicksPerCheck` can
+  finally be set from a real number instead of a guess.
+- `DoorOpenPatch.cs` — `Postfix` on `Thing.IsOpen`'s setter (see
+  `PATCH_PLAN.md`'s "Where `OnDoorOpened` attaches"), edge-detected
+  (false→true only) via a `Prefix`-captured `__state`, resolves which
+  door via `KnownControllers` and calls `OnDoorOpened(side)`.
+
+**Deliberately still a no-op behaviorally**, by design, not by
+accident: `AdvancedAirlockControlHost.cs` implements `IAirlockHost`
+with every optional member at its documented safe default (see each
+member's own doc comment in `src/FailsafeController.cs`) — no
+dedicated battery, buttons, downstream APC, presence sensors, or
+temperature sensor wired to anything real yet, none of those have a
+confirmed vanilla hook. `DedicatedBatteryChargeRatio` hardcoded to
+`100` means Tier can never leave `Normal`, so `ApplyTierEffects()`
+only ever calls `SetWarningIndicator(Normal)` and
+`SetDownstreamPower(true)` — both currently silent no-ops on the host
+side. **The point of this first cut is proving the two Harmony
+attachments themselves run cleanly in-game** — actually firing every
+tick, not crashing, not interfering with vanilla's own cycling —
+before spending effort wiring real sensors/buttons on top. Testing
+this needs a save with an Advanced Airlock Circuitboard actually
+built and installed (`OnThreadUpdate()` only runs on existing
+instances); watch the BepInEx log for `Failsafe layer attached,
+Tier=Normal` and the `OnThreadUpdate avg interval` line.
+
+Patched directly onto the vanilla `AdvancedAirlockControl` class
+itself, not a separate item yet — every Advanced Airlock Circuitboard
+a player has already built gets this. Deliberately the fastest path
+to proving the whole attachment works end-to-end, at the cost of
+changing vanilla's own class while testing.
 
 ### Milestone 3 — fork into its own item
 
