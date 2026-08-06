@@ -92,6 +92,24 @@ rather than presented as uniformly finished.
 - Fill in the resource-cost database enough to actually run the
   generator end-to-end
 
+## Backlog — separate future mod, revisit at the end of airlock development
+
+**A generic IC10-to-Console UI bridge card.** Raw IC10 circuits have no
+screen — only networked Buttons/LEDs (confirmed via
+`logic-network-reference`: Console/Motherboard UI runs through a
+completely separate `ButtonCommands` dispatch system that IC10's
+`GetLogicValue`/`SetLogicValue` mechanism can't reach at all — see
+`logic-network-reference/devices/motherboards.md`). The idea (project
+owner, 2026-08-06): a new Circuitboard, in the spirit of the vanilla
+Computer/Programming Motherboard's own code-editing screen, but where
+the code you write just maps out a button/page UI and exposes/reads
+logic values to and from the network — giving *any* IC10 build a real
+Console screen, not just this airlock. A separate mod from
+`airlock-mod-card`, its own scope (a UI-description protocol, a
+rendering layer, a way to get player input back into IC10 registers) —
+explicitly not something to fold into the current airlock work. Revisit
+once the IC10 scripts and `airlock-mod-card` both ship.
+
 ## License
 
 Not yet set. Add one before publishing if you want to be explicit about
