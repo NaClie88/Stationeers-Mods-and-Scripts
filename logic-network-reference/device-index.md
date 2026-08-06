@@ -41,13 +41,16 @@ name) is accurate regardless.
    *names* it exposes — a starting point for "does this device even
    have a Charge field," not a description of what each one means.
 2. For anything actually load-bearing (a script, a mod, a wiki edit),
-   verify against `devices/*.md` if that device has an entry there
-   (decompiled ground truth), or decompile it yourself following
-   `README.md`'s methodology section — don't trust this table's
-   presence/absence of a LogicType as final, and never trust what a
-   LogicType *means* from this table alone (only `devices/*.md` or
-   your own decompilation should be treated as sourcing a *meaning*,
-   not just a name).
+   check [`ground-truth-database.md`](ground-truth-database.md) first
+   (120 classes, decompiled, covers most devices with any non-trivial
+   LogicType behavior) or `devices/*.md` if that device has a
+   hand-written entry there (deeper explanation, not just raw
+   expressions), or decompile it yourself following `README.md`'s
+   methodology section — don't trust this table's presence/absence of
+   a LogicType as final, and never trust what a LogicType *means* from
+   this table alone (only `ground-truth-database.md`, `devices/*.md`,
+   or your own decompilation should be treated as sourcing a
+   *meaning*, not just a name).
 3. `(none listed)` means the source had no `logicDescriptions` entries
    for that device — could mean genuinely no LogicTypes, or could mean
    the source data just didn't cover it. Not yet distinguished.

@@ -41,8 +41,23 @@ incrementally.
   answer on its own (see that file's own header for why, and a
   concrete example of this exact source getting a device wrong). Start
   here to find what a device is called and roughly what it might
-  expose; move to `devices/*.md` or decompile it yourself before
-  relying on anything it says.
+  expose; move to `ground-truth-database.md`/`devices/*.md` or
+  decompile it yourself before relying on anything it says.
+- **[`ground-truth-database.md`](ground-truth-database.md)** — the
+  broad-but-verified middle layer: **every one of the 120 classes in
+  the whole game that overrides `GetLogicValue`/`SetLogicValue`/
+  `CanLogicRead`/`CanLogicWrite`** beyond `base-behavior.md`'s shared
+  set, generated programmatically by scanning the full decompiled
+  source (not hand-written, not community-sourced — real decompiled
+  expressions, short fragments only, kept faithful to what the code
+  actually does). Cross-checked against the hand-written
+  `devices/power-controller.md` entry and found byte-for-byte
+  identical, so the automated extraction is trustworthy, not just
+  fast. If a class isn't in this file, it only exposes
+  `base-behavior.md`'s shared set — confirmed, not a gap (verified for
+  `Door` specifically). See that file's own header for known rough
+  edges (occasional cosmetic leftovers, a few methods found but not
+  fully parsed).
 - **[`base-behavior.md`](base-behavior.md)** — read this first. Most
   devices in the game share one common implementation
   (`DynamicThing.CanLogicRead`/`GetLogicValue`/`CanLogicWrite`/
@@ -109,8 +124,26 @@ that specific device — confirmed, not guessed. Adding a new
   circuit card) **don't** use this LogicType system at all — a
   different, separate mechanism entirely.
 
-Everything else is unexplored — start anywhere useful. Devices already
-touched by the IC10 airlock build or the mod branch (Gas Sensor,
-Powered Vent, Logic Transmitter, WallLight/LED, Battery/BatteryCell)
-are natural next targets since this project already has an interest in
-getting them precisely right.
+`ground-truth-database.md` now covers another 117 classes beyond these
+three hand-written entries (120 total, including these), programmatically —
+worth browsing there before starting a new hand-written `devices/*.md`
+entry, since the raw data may already answer the question.
+
+## Known open question — Logic Transmitter's `Setting` field
+
+`LogicTransmitter` (confirmed, working, in-game — this project's IC10
+side depends on it directly, see `ic10-airlock/watcher.ic10`) **does**
+override `CanLogicRead`/`CanLogicWrite`, but `ground-truth-database.md`'s
+extraction found zero case-arms inside either — meaning those
+overrides use `if`/boolean logic rather than a `switch`, the same
+limitation flagged for `AreaPowerControl.CanLogicRead` in
+`devices/power-controller.md`. Its base class, `LogicInputBase`,
+doesn't override any of the four methods at all — so wherever
+`Setting`'s actual read/write logic lives, this pass didn't find it.
+Given this project's track record of wrong assumptions about exactly
+this device (see "Why this exists" above — the Logic Receiver/numbered-
+channel correction), this is worth a real follow-up pass: decompile
+`LogicTransmitter.cs` and `LogicInputBase.cs` by hand (`ilspycmd --type`)
+and trace where `Setting` is actually handled, the same way
+`devices/power-controller.md`'s `CanLogicRead` note did for Power
+Controller.
