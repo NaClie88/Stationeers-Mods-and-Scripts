@@ -39,19 +39,28 @@ liquid). Two reference points per gas below: the freezing point, and
 where the curve sits at the chart's own maximum plotted pressure (this
 varies by gas — not every diagram uses the same 6000 kPa ceiling).
 
-| Gas | Freezing point | Chart max pressure | Temperature at chart max pressure | Notes |
-|---|---|---|---|---|
-| Hydrazine | ~274 K (~1°C) | 6000 kPa | ~520 K | |
-| Sodium Chloride | ~600 K | 500 kPa | ~2500 K (curve still rising at chart's right edge) | Note the much lower 500 kPa chart ceiling vs. the 6000 kPa used for most other gases. |
-| Carbon Dioxide | ~217 K (~-56°C) | 6000 kPa | ~270 K | |
-| Hydrochloric Acid | ~248 K (~-25°C) | 1000 kPa | ~430 K | Chart ceiling is 1000 kPa, not 6000. |
-| Hydrogen | ~14 K | 6000 kPa | ~70 K | |
-| Methane | ~83 K | 6000 kPa | ~195 K | |
-| Water | ~273 K (0°C) | 6000 kPa | ~640 K | Freezing point lines up exactly with real-world 273.15 K — good sanity check that these charts read consistently. |
-| Silanol | ~165 K | 6000 kPa | ~820 K | |
-| Nitrogen | ~41 K | 6000 kPa | ~190 K (~-83°C) | Matches the placeholder figure the script originally shipped with (6000 kPa / -83.2°C) almost exactly — good independent confirmation that the original web-search figure happened to be right. |
-| Oxygen | ~55 K | 6000 kPa | ~160 K | |
-| Pollutant | ~175 K | 6000 kPa | ~430 K | **Different shape from every other gas here** — the shaded liquid region has a floor around ~1800 kPa even at its coldest; below that pressure, Pollutant apparently won't condense at any temperature on this chart. Worth double-checking in-game before relying on a low-pressure Pollutant separation stage. |
+**Index column** is the gas-selector dial value used by
+`two-chamber-system/`'s paired scripts (`separator_ac_driver.ic10`'s
+`lookupTemp` and `separator_sequencer.ic10`'s `lookupPressure`) — set
+a Logic Dial to a gas's index to target it. Keep this column in sync
+with both scripts' lookup tables if this reference table ever changes.
+
+| Index | Gas | Freezing point | Chart max pressure | Temperature at chart max pressure | Notes |
+|---|---|---|---|---|---|
+| 0 | Hydrazine | ~274 K (~1°C) | 6000 kPa | ~520 K | |
+| 1 | Sodium Chloride | ~600 K | 500 kPa | ~2500 K (curve still rising at chart's right edge) | Note the much lower 500 kPa chart ceiling vs. the 6000 kPa used for most other gases. |
+| 2 | Carbon Dioxide | ~217 K (~-56°C) | 6000 kPa | ~270 K | |
+| 3 | Hydrochloric Acid | ~248 K (~-25°C) | 1000 kPa | ~430 K | Chart ceiling is 1000 kPa, not 6000. |
+| 4 | Hydrogen | ~14 K | 6000 kPa | ~70 K | |
+| 5 | Methane | ~83 K | 6000 kPa | ~195 K | |
+| 6 | Water | ~273 K (0°C) | 6000 kPa | ~640 K | Freezing point lines up exactly with real-world 273.15 K — good sanity check that these charts read consistently. |
+| 7 | Silanol | ~165 K | 6000 kPa | ~820 K | |
+| 8 | Nitrogen | ~41 K | 6000 kPa | ~190 K (~-83°C) | Matches the placeholder figure the script originally shipped with (6000 kPa / -83.2°C) almost exactly — good independent confirmation that the original web-search figure happened to be right. |
+| 9 | Oxygen | ~55 K | 6000 kPa | ~160 K | |
+| 10 | Pollutant | ~175 K | 6000 kPa | ~430 K | **Different shape from every other gas here** — the shaded liquid region has a floor around ~1800 kPa even at its coldest; below that pressure, Pollutant apparently won't condense at any temperature on this chart. Worth double-checking in-game before relying on a low-pressure Pollutant separation stage. |
+
+**Helium has no index and no row** — see the "cannot be liquefied"
+warning above. Never assign it one.
 
 ## What this doesn't give you yet
 
@@ -66,8 +75,17 @@ these two references.
 
 ## Using this table
 
-`phase_separator.ic10` currently only wires up a single stage
-(Nitrogen, matching what's now confirmed real data rather than a
-guess). See `phase_separator_notes.md` for how to point the script at
-a different gas, and for the multi-stage extension path now that real
-data exists to drive it.
+Two different scripts use this data, for two different hardware
+setups:
+
+- **`phase_separator.ic10`** (this folder) — a simpler, single-chamber
+  design using a generic Active Vent for pressure and monitoring
+  temperature only (you supply your own passive/active cooling).
+  Currently hardcoded to Nitrogen; see `phase_separator_notes.md` for
+  swapping to a different gas.
+- **`two-chamber-system/`** — the real Condensation/Evaporation
+  Chamber pair setup, with a dial to pick the active gas live rather
+  than editing constants. See `two-chamber-system/two_chamber_notes.md`
+  for the full system. This is the one to use if you have (or are
+  building) the dedicated Chamber pair; `phase_separator.ic10` is for
+  a simpler single-tank build.

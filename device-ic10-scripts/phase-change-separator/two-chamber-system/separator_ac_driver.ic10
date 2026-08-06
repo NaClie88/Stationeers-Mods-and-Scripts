@@ -1,0 +1,110 @@
+# Phase Change Separator -- Chip A: heat-exchange-loop AC driver.
+# Variant of ../../air-conditioner/ac_thermostat.ic10's PID core --
+# reads a GAS INDEX from the shared dial (not a raw temperature),
+# looks up that gas's target temp from ../condensation_reference.md.
+# Pairs with separator_sequencer.ic10 (Chip B); see two_chamber_notes.md.
+# Also fine standalone as a dial-selected-target AC driver generally.
+# Runs on the AC's own onboard slot, wired into the heat-exchange
+# loop between the two Chambers. Wire the shared selector dial to d0.
+
+alias Self db
+alias Dial d0
+
+define FUDGEK 1.5
+
+alias PreviousError r15
+alias GasIndex r14
+alias Target r13
+alias ReturnValue r12
+
+init:
+s Self Mode 0
+move PreviousError 0
+
+loop:
+yield
+l GasIndex Dial Setting
+jal lookupTemp
+move Target ReturnValue
+l r0 Self TemperatureOutput
+sub r2 Target FUDGEK
+add r3 Target FUDGEK
+slt r4 r0 r2
+sgt r5 r0 r3
+or r6 r4 r5
+s Self Mode r6
+beqz r6 loop
+l r1 Self Setting
+push r0
+push Target
+push PreviousError
+push r1
+jal scaleSetting
+pop PreviousError
+pop r1
+s Self Setting r1
+j loop
+
+scaleSetting:
+# stack args: current, target, prev error, prev setting
+# returns via stack: new setting, new error
+pop r3
+pop r2
+pop r1
+pop r0
+sub r4 r1 r0
+mul r5 r4 0.1
+mul r6 r2 0.1
+sub r7 r4 r2
+mul r7 r7 0.1
+add r5 r5 r6
+add r5 r5 r7
+add r5 r5 r3
+push r5
+push r4
+j ra
+
+lookupTemp:
+# GasIndex -> target K, see ../condensation_reference.md's index table
+beq GasIndex 0 t0
+beq GasIndex 1 t1
+beq GasIndex 2 t2
+beq GasIndex 3 t3
+beq GasIndex 4 t4
+beq GasIndex 5 t5
+beq GasIndex 6 t6
+beq GasIndex 7 t7
+beq GasIndex 8 t8
+beq GasIndex 9 t9
+move ReturnValue 430
+j ra
+t0:
+move ReturnValue 520
+j ra
+t1:
+move ReturnValue 2500
+j ra
+t2:
+move ReturnValue 270
+j ra
+t3:
+move ReturnValue 430
+j ra
+t4:
+move ReturnValue 70
+j ra
+t5:
+move ReturnValue 195
+j ra
+t6:
+move ReturnValue 640
+j ra
+t7:
+move ReturnValue 820
+j ra
+t8:
+move ReturnValue 189.95
+j ra
+t9:
+move ReturnValue 160
+j ra

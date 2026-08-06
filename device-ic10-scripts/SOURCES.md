@@ -61,9 +61,13 @@ hasn't been properly logged yet.
 
 ## Phase Change Separator
 
-**Original design for this project** — the automation framework
-(`phase-change-separator/phase_separator.ic10`) is not adapted from
-any external source, so it has no `original/` file.
+**Original design for this project, both variants** — neither
+`phase_separator.ic10` (single-chamber) nor `two-chamber-system/`'s
+paired scripts are adapted from any external source, so none have an
+`original/` file. `two-chamber-system/`'s hardware design (which
+devices, how they connect) is based directly on the project owner's
+own proven manual process, described 2026-08-06/07 — not from any
+written source.
 
 - **Project owner's own Stationpedia screenshots, 11 gases, provided
   2026-08-06** — the primary source for
@@ -77,6 +81,27 @@ any external source, so it has no `original/` file.
   figure turned out to match the real chart almost exactly, a good
   independent confirmation, but is no longer the operative source —
   the screenshots are.
+- **Project owner, 2026-08-06:** Helium cannot be liquefied in-game at
+  all, under any pressure/temperature. No index assigned in
+  `condensation_reference.md`; never build a stage/dial position for
+  it.
+- Search-aggregated result, device identification for
+  `two-chamber-system/`'s hardware (Community Wiki, cross-referencing
+  several device pages, 2026-08-07): **Condensation Chamber** /
+  **Evaporation Chamber** (the phase-change devices themselves, three
+  ports each: input, output, and a second input for heat exchange
+  between the pair — confirmed by the project owner as how they
+  controlled temperature with an external AC), **Condensation Valve**
+  (one-way liquid-from-gas-pipe-to-liquid-pipe, minimal pressure
+  effect), **Purge Valve** (removes pressurant gas/evaporated liquid
+  from a liquid pipe back to the gas side — confirmed by the project
+  owner as the device they actually used, over a second candidate,
+  Liquid Volume Pump, that was considered and ruled out). The wiki
+  also flags a real operational risk with Purge Valve: used too
+  aggressively, it can trigger unwanted re-evaporation that leaks
+  through and re-condenses, risking flooded/burst pipes — reflected in
+  `two-chamber-system/separator_sequencer.ic10`'s conservative,
+  infrequent purge timing.
 - Community Wiki, "Phase Change Mechanics" —
   https://stationeers-wiki.com/Phase_Change_Mechanics — still **not
   retrieved**, 403's on fetch (Cloudflare bot-protection). No longer

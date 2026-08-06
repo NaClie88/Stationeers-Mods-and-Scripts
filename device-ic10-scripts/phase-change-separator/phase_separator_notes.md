@@ -1,4 +1,4 @@
-# Phase Change Separator — Design Notes & Setup Guide
+# Phase Change Separator (Single-Chamber Variant) — Design Notes & Setup Guide
 
 **Original design for this project, not adapted from an external
 source.** Requested as "even more functionality" beyond the
@@ -8,6 +8,15 @@ Valve), driven by an external IC Housing, same general category as
 `airlock-ic10-scripts/`, not a single device's onboard slot. This
 folder's scope has broadened to cover both — see the root
 `device-ic10-scripts/README.md`.
+
+**This is the simpler of two variants.** It assumes a single generic
+chamber, a plain Active Vent for pressure, and passive/monitored-only
+temperature (you supply your own cooling). If you have (or want to
+build) a real Condensation/Evaporation Chamber pair with an Air
+Conditioner on the heat-exchange loop — the setup the project owner
+actually runs by hand — see `two-chamber-system/` instead; it also
+adds live dial-based gas selection instead of editing constants. Both
+variants share `condensation_reference.md`'s data.
 
 ## The pressure/temperature data — now confirmed, not a placeholder
 

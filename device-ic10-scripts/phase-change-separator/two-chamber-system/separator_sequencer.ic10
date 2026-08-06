@@ -1,0 +1,98 @@
+# Phase Change Separator -- Chip B: pressure + valve sequencer.
+# Pairs with separator_ac_driver.ic10 (Chip A), which handles the
+# heat-exchange loop's temperature -- this chip only manages chamber
+# pressure and the liquid-side valves. See two_chamber_notes.md for
+# the full two-chip system and hardware layout. Independently useful
+# too: pressure top-up plus periodic drain/purge is a reasonable
+# pattern even with a passively-cooled setup and no Chip A at all.
+#
+# Runs in a separate IC Housing -- the AC's onboard slot only has two
+# free pins, nowhere near enough for this device set.
+
+alias Sensor d0
+alias SourcePump d1
+alias CondValve d2
+alias PurgeValve d3
+alias Dial d4
+
+define PressureTolerance 50
+define DrainInterval 100
+define DrainHoldTicks 20
+define PurgeInterval 400
+define PurgeHoldTicks 10
+
+alias GasIndex r14
+alias TargetPressure r13
+alias DrainCountdown r12
+alias DrainHold r11
+alias PurgeCountdown r10
+alias PurgeHold r9
+alias ReturnValue r8
+
+init:
+s SourcePump On 0
+s CondValve On 0
+s PurgeValve On 0
+move DrainCountdown DrainInterval
+move DrainHold 0
+move PurgeCountdown PurgeInterval
+move PurgeHold 0
+
+loop:
+yield
+l GasIndex Dial Setting
+jal lookupPressure
+move TargetPressure ReturnValue
+l r0 Sensor Pressure
+sub r1 r0 TargetPressure
+abs r1 r1
+bgt r1 PressureTolerance outOfTolerance
+s SourcePump On 0
+j drainStep
+outOfTolerance:
+sgt r2 r0 TargetPressure
+bnez r2 drainStep   # too high: no down-pressure device exists, do nothing
+s SourcePump On 1   # too low: top up from the source tank
+
+drainStep:
+bgtz DrainHold drainHolding
+sub DrainCountdown DrainCountdown 1
+bgtz DrainCountdown purgeStep
+s CondValve On 1
+move DrainHold DrainHoldTicks
+move DrainCountdown DrainInterval
+j purgeStep
+drainHolding:
+sub DrainHold DrainHold 1
+bgtz DrainHold purgeStep
+s CondValve On 0
+
+purgeStep:
+bgtz PurgeHold purgeHolding
+sub PurgeCountdown PurgeCountdown 1
+bgtz PurgeCountdown loop
+s PurgeValve On 1
+move PurgeHold PurgeHoldTicks
+move PurgeCountdown PurgeInterval
+j loop
+purgeHolding:
+sub PurgeHold PurgeHold 1
+bgtz PurgeHold loop
+s PurgeValve On 0
+j loop
+
+lookupPressure:
+# GasIndex -> target kPa, see ../condensation_reference.md's index
+# table. 9 of 11 gases share 6000 kPa (the chart ceiling most used) --
+# only Sodium Chloride (1) and Hydrochloric Acid (3) differ, so those
+# are the only two branches, not one per gas.
+move ReturnValue 6000
+beq GasIndex 1 p1
+beq GasIndex 3 p3
+j ra
+p1:
+move ReturnValue 500
+j ra
+p3:
+move ReturnValue 1000
+j ra
