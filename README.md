@@ -92,9 +92,10 @@ matching entry here, it hasn't been properly sourced yet.
 
 This is a monorepo for multiple independent Stationeers projects, not
 one thing — currently the IC10 airlock scripts and the shared
-`logic-network-reference`, with a C# Harmony mod (`airlock-card-mod`,
-currently on its own `airlock-mod-card` branch, not yet merged) and a
-planned Console-UI-bridge mod to follow. **Each mod is self-contained
+`logic-network-reference`, with two C# Harmony mods in progress on
+their own branches, not yet merged: `airlock-card-mod` (branch
+`airlock-mod-card`) and `console-UI-mod` (branch `console-ui-mod`).
+**Each mod is self-contained
 in its own top-level folder** — own project file, own dependencies —
 specifically so Steam Workshop packaging is just "zip that one
 folder," independent of everything else here. Shared reference
@@ -125,23 +126,22 @@ rather than presented as uniformly finished.
 - Fill in the resource-cost database enough to actually run the
   generator end-to-end
 
-## Backlog — separate future mod, revisit at the end of airlock development
+## In progress: `console-UI-mod`
 
-**A generic IC10-to-Console UI bridge card.** Raw IC10 circuits have no
-screen — only networked Buttons/LEDs (confirmed via
-`logic-network-reference`: Console/Motherboard UI runs through a
-completely separate `ButtonCommands` dispatch system that IC10's
-`GetLogicValue`/`SetLogicValue` mechanism can't reach at all — see
-`logic-network-reference/devices/motherboards.md`). The idea (project
-owner, 2026-08-06): a new Circuitboard, in the spirit of the vanilla
-Computer/Programming Motherboard's own code-editing screen, but where
-the code you write just maps out a button/page UI and exposes/reads
-logic values to and from the network — giving *any* IC10 build a real
-Console screen, not just this airlock. A separate mod from
-`airlock-mod-card`, its own scope (a UI-description protocol, a
-rendering layer, a way to get player input back into IC10 registers) —
-explicitly not something to fold into the current airlock work. Revisit
-once the IC10 scripts and `airlock-mod-card` both ship.
+Started 2026-08-06 (originally logged below as a backlog idea to
+revisit later, but begun early since the project owner has spare time
+before in-game testing access on the other branches). See that
+branch's `console-UI-mod/README.md` for the plan — a generic
+IC10-to-Console UI bridge card, since raw IC10 circuits have no screen
+at all (confirmed via `logic-network-reference`: Console/Motherboard UI
+runs through a completely separate `ButtonCommands` dispatch system
+that IC10's `GetLogicValue`/`SetLogicValue` mechanism can't reach —
+see `logic-network-reference/devices/motherboards.md`). A separate mod
+from `airlock-card-mod`, its own scope (a UI-description protocol, a
+rendering layer, a way to get player input back into IC10 registers).
+Design not yet decided — currently just the problem statement and open
+questions, same process `airlock-card-mod` went through before any
+code got written.
 
 ## License
 
