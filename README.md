@@ -95,8 +95,8 @@ one thing — currently the IC10 airlock scripts and the shared
 `logic-network-reference`, with two C# Harmony mods in progress on
 their own branches, not yet merged: `airlock-card-mod` (branch
 `airlock-mod-card`) and `console-UI-mod` (branch `console-ui-mod`).
-**Each mod is self-contained
-in its own top-level folder** — own project file, own dependencies —
+**Each mod is self-contained in its own top-level folder** — own
+project file, own dependencies —
 specifically so Steam Workshop packaging is just "zip that one
 folder," independent of everything else here. Shared reference
 material like `logic-network-reference` is the payoff of keeping
@@ -106,6 +106,17 @@ these together instead of splitting into separate repos per mod.
 per-mod releases use a `<mod>-vX.Y` prefix (e.g. `airlock-card-v1.0`)
 rather than plain semver tags, to keep each mod's version history
 distinguishable in one shared tag list.
+
+**Compatibility layering (project owner, 2026-08-06):** every mod here
+must work fully standalone against vanilla first — no mod is allowed
+to require another mod to function. Only after that does cross-mod
+interoperability (with other mods in this repo, or external ones like
+Re-Volt) get built, and when it does, that compatibility code and its
+reference material live in a subfolder inside the mod that depends on
+it — never assumed by that mod's core functionality, and never
+scattered elsewhere. Steam Workshop packaging of a mod's base folder
+stays clean and dependency-free regardless of how much compatibility
+work exists underneath it.
 
 ## Status
 
