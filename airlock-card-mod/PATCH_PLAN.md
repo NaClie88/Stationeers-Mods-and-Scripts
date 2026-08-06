@@ -362,35 +362,56 @@ meaningfully change that fast, so throttling `UpdateTier()` the same
 way as `ApplyTierEffects()` should be safe. Worth a sanity check once
 this is actually running, not just assumed.
 
-## Once these are known
+## Written (2026-08-05) — and a real Harmony gotcha hit and fixed in-game
 
-Real names are now confirmed (see the top of this doc and "Where the
-Harmony patch itself attaches"). Write a class like:
+`airlock-card-mod/AirlockCardMod/Patches/AdvancedAirlockFailsafePatch.cs`
+exists now. First version patched `typeof(AdvancedAirlockControl)`
+directly, matching the naive reading of "the class name is
+`AdvancedAirlockControl`" — it built clean but threw in-game:
+
+```
+HarmonyLib.HarmonyException: Patching exception in method null --->
+System.ArgumentException: Undefined target method for patch method
+static void AirlockCardMod.Patches.AdvancedAirlockFailsafePatch::Postfix(...)
+```
+
+**Root cause, confirmed:** `AdvancedAirlockControl` never overrides
+`OnThreadUpdate()` itself — it inherits `AirlockControlBase`'s
+override untouched (this was already noted earlier in this doc, just
+not connected to what it means for the `[HarmonyPatch]` attribute
+specifically). Harmony's `AccessTools.Method(typeof(X), "Name")`
+only finds a method if `X` (or something `X` overrides itself)
+actually has a compiled IL body for that name — an inherited-but-not-
+overridden virtual method has no such body on the more specific type,
+so the lookup returns nothing to patch.
+
+**Fix:** patch `typeof(AirlockControlBase)` instead (the type that
+actually declares the method), and filter to `AdvancedAirlockControl`
+manually inside the `Postfix` body:
 
 ```csharp
-[HarmonyPatch(typeof(AdvancedAirlockControl), nameof(AdvancedAirlockControl.OnThreadUpdate))]
+[HarmonyPatch(typeof(AirlockControlBase), nameof(AirlockControlBase.OnThreadUpdate))]
 internal static class AdvancedAirlockFailsafePatch
 {
-    // one FailsafeController per circuit instance -- a
-    // ConditionalWeakTable keyed on the patched instance is the usual
-    // Harmony pattern for "attach new per-instance state to an
-    // existing class," but confirm this project's chosen approach
-    // once real types are known. Combine with the throttling counter
-    // above -- both belong in this same Postfix.
-    private static void Postfix(AdvancedAirlockControl __instance)
+    private static void Postfix(AirlockControlBase __instance)
     {
-        var controller = GetOrCreateController(__instance);
-        controller.UpdateTier();
-        controller.ApplyTierEffects();
+        if (!(__instance is AdvancedAirlockControl advanced)) return;
+        // ... GetOrCreateController(advanced), UpdateTier(), ApplyTierEffects()
     }
 }
 ```
 
-This file still doesn't exist yet — deliberately. The remaining
-unknowns before it's safe to write for real: `OnThreadUpdate()`'s
-actual call frequency/thread (needed to set `TicksPerCheck` and
-recalibrate `WakeHoldTicks`), and the still-open "Where `OnDoorOpened`
-attaches" and "Cross-network visibility" questions above.
-`FailsafeController.cs` is the part safe to write now; this shell is
-Milestone 2's actual first task, and most of its inputs are no longer
-guesses.
+**General rule worth remembering for every future patch on this
+project, not just this one method**: `[HarmonyPatch(typeof(X), ...)]`
+needs `X` to be the type that *actually declares* the compiled method
+body — for any virtual method that `AdvancedAirlockControl` inherits
+without overriding, that means patching the declaring base type and
+doing the `is AdvancedAirlockControl` type check by hand, exactly like
+this fix. Doesn't matter for methods `AdvancedAirlockControl` *does*
+override itself (e.g. `SetFlag`, `ButtonCycleAirlock`,
+`RefreshScreen`) — only for inherited-as-is ones like this.
+
+Fix built clean and reinstalled (2026-08-05); **not yet re-verified
+in-game** — waiting on a retest to confirm Harmony patches apply
+without exception this time. See `README.md`'s Milestone 2 section
+for the log lines that would confirm it.

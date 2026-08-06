@@ -11,7 +11,21 @@ namespace AirlockCardMod.Patches
     // patch itself attaches" for why OnThreadUpdate is the correct
     // target (UpdateEachFrame stops running whenever the Console isn't
     // on-screen, which would silently break monitoring).
-    [HarmonyPatch(typeof(AdvancedAirlockControl), nameof(AdvancedAirlockControl.OnThreadUpdate))]
+    //
+    // Patched on AirlockControlBase, not AdvancedAirlockControl, even
+    // though only AdvancedAirlockControl instances are meant to be
+    // affected: AdvancedAirlockControl never overrides OnThreadUpdate
+    // itself, it just inherits AirlockControlBase's override, so
+    // Harmony has no compiled method body to attach to on the more
+    // specific type (confirmed in-game, 2026-08-05: "Undefined target
+    // method" HarmonyException when patched against
+    // AdvancedAirlockControl directly). Filtered to AdvancedAirlockControl
+    // only inside Postfix instead -- see the `is` check below. This
+    // means the plain (non-Advanced) AirlockControl class's instances
+    // also invoke this Postfix, since it doesn't override
+    // OnThreadUpdate either; the type check is load-bearing, not
+    // decorative.
+    [HarmonyPatch(typeof(AirlockControlBase), nameof(AirlockControlBase.OnThreadUpdate))]
     internal static class AdvancedAirlockFailsafePatch
     {
         private static readonly ConditionalWeakTable<AdvancedAirlockControl, FailsafeController> Controllers =
@@ -51,14 +65,16 @@ namespace AirlockCardMod.Patches
             return created;
         }
 
-        private static void Postfix(AdvancedAirlockControl __instance)
+        private static void Postfix(AirlockControlBase __instance)
         {
-            MeasureCallRateOnce(__instance);
+            if (!(__instance is AdvancedAirlockControl advanced)) return;
+
+            MeasureCallRateOnce(advanced);
 
             if (++ticksSinceLastCheck < TicksPerCheck) return;
             ticksSinceLastCheck = 0;
 
-            var controller = GetOrCreateController(__instance);
+            var controller = GetOrCreateController(advanced);
             controller.UpdateTier();
             controller.ApplyTierEffects();
 
