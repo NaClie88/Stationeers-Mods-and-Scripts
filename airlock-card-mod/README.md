@@ -104,20 +104,23 @@ tweaking the vanilla one's costs. Report back the real `PrefabName` and
 whatever structure you find — same as Milestone 1.5 below, this turns
 a guess into a fact.
 
-### Milestone 0.5 — test whether vanilla's Skip button already solves the trapped-player problem (no installs, in-game only)
+### Milestone 0.5 — CONFIRMED: vanilla's Skip button already solves the trapped-player problem (no installs, in-game only)
 
-Also needs nothing beyond the base game. See `GAP_ANALYSIS.md`'s
-"Reusing vanilla's Skip instead of custom Button C hardware" section
-for the full reasoning — short version: the traditional layout for
-this build already puts the Console *inside* the chamber (confirmed
-2026-08-05, corrects an earlier assumption in this doc that it sat
-outside), so someone trapped inside already has direct UI access with
-nothing extra to build. Stall a Pressurize/Evacuate phase on purpose
-and confirm Skip cancels it from the Console that's already there. If
-it does, this project's Button C hardware (from the original IC10
-design) is likely unnecessary for the mod-card version entirely — the
-override comes free from vanilla's own layout. Worth doing before or
-alongside Milestone 0, same "no installs needed" category.
+**Done, 2026-08-05.** Project owner ran the test in-game: stalled a
+Pressurize/Evacuate phase on purpose on a vanilla Advanced Airlock,
+traditional layout, and confirmed Skip cancels it from the Console
+that's already inside the chamber. It works — reachable and
+functional from inside, no extra hardware needed. See
+`GAP_ANALYSIS.md`'s "Reusing vanilla's Skip instead of custom Button C
+hardware" section for the full reasoning and what this does and
+doesn't confirm — short version: this project's Button C hardware
+(from the original IC10 design) is likely unnecessary for the
+mod-card version entirely, the override comes free from vanilla's own
+layout. Still open (Milestone 1.5 territory): whether the mod's own
+`ForceEvacuate()` carries the same Skip affordance once it's actually
+patched into vanilla's evacuate method — this test exercised vanilla's
+naturally-stalled cycle, not a mod-triggered call, which doesn't exist
+as running code yet.
 
 ### Milestone 1 — prove the toolchain (no real logic yet)
 

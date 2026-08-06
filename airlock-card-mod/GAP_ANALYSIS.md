@@ -206,6 +206,21 @@ downgraded to a fallback. `ButtonCHeld` can stay on `IAirlockHost` for
 anyone who wants a physical button anyway, but the setup guide for this
 build wouldn't need to recommend building one.
 
+**CONFIRMED (2026-08-05, project owner, in-game).** Ran exactly the
+three steps above: vanilla Advanced Airlock, traditional layout,
+deliberately stalled a phase, and used the Console's Skip from inside
+the chamber. It works — reachable and functional from inside, no extra
+hardware. This confirms point 2 above (reachability) outright.
+
+**What this does *not* yet confirm, still Milestone 1.5 territory:**
+point 1 — whether `ForceEvacuate()` actually calling into vanilla's own
+evacuate method (once that method is identified) carries the same Skip
+affordance into the mod's Critical-tier forced evacuation specifically.
+This test exercised vanilla's own naturally-stalled cycle, not a
+mod-triggered `ForceEvacuate()` call, which doesn't exist as running
+code yet. Strong supporting evidence the mechanism generalizes, not a
+substitute for testing the real patched path once it exists.
+
 ## Power architecture
 
 **Two Power Controllers, not one — this build adds a second one beyond

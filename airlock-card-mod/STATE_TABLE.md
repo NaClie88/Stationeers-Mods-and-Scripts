@@ -124,9 +124,11 @@ above.
 What actually resolves the ambiguity: this code path is now expected to
 be the **fallback**, not the primary mechanism. Since the Console sits
 inside the chamber by default (`GAP_ANALYSIS.md`, "Reusing vanilla's
-Skip instead of custom Button C hardware"), a trapped player likely
-never needs `ButtonCHeld` at all — they use vanilla's own Skip button
-at the Console that's already there, and (pending Milestone 1.5)
+Skip instead of custom Button C hardware" — **reachability confirmed
+in-game 2026-08-05**), a trapped player likely never needs
+`ButtonCHeld` at all — they use vanilla's own Skip button at the
+Console that's already there, and (pending Milestone 1.5, since this
+part hasn't been tested against the real patched path yet)
 `ForceEvacuate()` calling into vanilla's own evacuate method means that
 Skip affordance comes along for free, no `ButtonCHeld` check in the
 loop at that point. `ButtonCHeld` remains on `IAirlockHost` purely for
@@ -193,9 +195,10 @@ skip behavior be," and that's now answered.
   coded, unchanged from the original IC10 design. What resolved the
   ambiguity was recognizing this path is now the *fallback*: with the
   Console inside the chamber by default, vanilla's own Skip button
-  likely covers the trapped-player case without `ButtonCHeld` ever
-  entering into it — see `GAP_ANALYSIS.md`'s "Reusing vanilla's Skip
-  instead of custom Button C hardware."
+  covers the trapped-player case (reachability confirmed in-game
+  2026-08-05) without `ButtonCHeld` ever entering into it — see
+  `GAP_ANALYSIS.md`'s "Reusing vanilla's Skip instead of custom Button
+  C hardware."
 - **2026-08-05:** Added `AllowPowerDownWhilePropped` — opt-in,
   off by default, lets Deep Idle engage even with a genuine atmosphere
   match, provided all three Gas Sensors are wired to the always-on
