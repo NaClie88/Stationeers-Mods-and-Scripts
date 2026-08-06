@@ -154,12 +154,18 @@ extends `Motherboard`. The older non-Advanced airlock is a sibling,
   as a new field. **Must be wired from the APC's power-source side**
   (project owner, 2026-08-05: an APC only exposes its logic there, not
   on its downstream/output side) — don't look for a control hook on
-  the network the APC creates downstream of itself. **Check first
-  whether "Area Power Controller" and "Power Controller" are the same
-  device** (a wiki redirect suggests they might be) — if so, this is
-  the exact same device and `On`-field question already flagged
-  unconfirmed for `ic10-airlock/watcher.ic10`'s own zone gate, not new
-  unknowns.
+  the network the APC creates downstream of itself. "Area Power
+  Controller" and "Power Controller" are confirmed the same device
+  (`AreaPowerControl`, `logic-network-reference`'s `devices/
+  power-controller.md`), so this was the exact same `On`-field question
+  flagged for `ic10-airlock/watcher.ic10`'s own zone gate — **now
+  resolved there too** (2026-08-06, project owner's direct design
+  knowledge: the Power Controller's explicit purpose is a battery
+  buffer/charge circuit for everything downstream plus a power cutoff
+  switch). `On` is confirmed as the field to write here as well once
+  the actual APC reference/field wiring below gets built — this item
+  was never about *which* LogicType, only about finding the reference
+  to write it against.
 - **`HasDownstreamController`** — presence check paired with the above:
   does a controllable APC actually exist on the source-side network at
   all. Same shape as `HasWakeButtons`'s presence check — likely "is the
