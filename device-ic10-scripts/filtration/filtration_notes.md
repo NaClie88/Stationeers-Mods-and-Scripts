@@ -59,14 +59,15 @@ filter instead of letting it sit unnoticed. Worth knowing before you
 rely on this, since "one good filter, one dead filter" reads as a
 total stop, not a partial one.
 
-## A feature considered and *not* added
+## A feature considered and *not* added — now confirmed why
 
 An externally-adjustable `PRESSURE_TARGET` (the same pattern used for
 the Air Conditioner's optional target-temperature dial on `d0`) would
-be a reasonable complementary feature. **Not added here** — this
-device's onboard slot is only confirmed to expose two optional pins
-(`d0`/`d1`, both already used for Light/Alarm above), and whether a
-third pin exists for this device the way `d0` was available on the
-Air Conditioner isn't confirmed. Adding a pin the hardware might not
-actually have would be worse than not adding the feature — flagging
-this for an in-game check before building it, rather than guessing.
+be a reasonable complementary feature, but there's nowhere to wire it.
+**Confirmed 2026-08-06** (Community Wiki, cross-referencing multiple
+independent discussions): the Filtration unit's onboard slot exposes
+exactly two pins, `d0` and `d1` — both already spoken for by the
+Light/Alarm outputs above. Unlike the Air Conditioner (which had a
+free `d0` to use for this), there's no room left on this device for
+an external setpoint source without giving up the light or the alarm.
+Not a guess anymore — genuinely not possible as designed.

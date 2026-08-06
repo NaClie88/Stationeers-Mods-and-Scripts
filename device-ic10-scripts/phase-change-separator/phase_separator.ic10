@@ -1,0 +1,66 @@
+# Phase Change Separator -- single-stage, table-driven condensation
+# controller. NEW SCRIPT for this project (not adapted from an
+# external source) -- see phase_separator_notes.md for the full design
+# rationale, hardware layout, and -- importantly -- why the pressure/
+# temperature values below are placeholders, not verified game data.
+
+alias Sensor d0
+alias Vent d1
+alias Drain d2
+
+define TargetPressure 6000
+define TargetTemp 189.95
+define PressureTolerance 50
+define TempTolerance 1
+define SettleTicks 20
+define DrainTicks 40
+
+alias StableCount r10
+alias DrainCount r11
+
+init:
+move StableCount 0
+move DrainCount 0
+s Vent Mode 0
+s Vent On 0
+s Drain On 0
+
+loop:
+yield
+bgtz DrainCount draining
+l r0 Sensor Pressure
+l r1 Sensor Temperature
+sub r2 r0 TargetPressure
+abs r2 r2
+bgt r2 PressureTolerance adjustPressure
+s Vent On 0
+j checkTemp
+adjustPressure:
+move StableCount 0
+sgt r3 r0 TargetPressure
+beqz r3 pressureLow
+s Vent Mode 0
+s Vent On 1
+j loop
+pressureLow:
+s Vent Mode 1
+s Vent On 1
+j loop
+checkTemp:
+sub r2 r1 TargetTemp
+abs r2 r2
+bgt r2 TempTolerance notStable
+add StableCount StableCount 1
+blt StableCount SettleTicks loop
+s Drain On 1
+move DrainCount DrainTicks
+j loop
+notStable:
+move StableCount 0
+j loop
+draining:
+sub DrainCount DrainCount 1
+bgtz DrainCount loop
+s Drain On 0
+move StableCount 0
+j loop

@@ -1,9 +1,11 @@
 # Device IC10 Scripts
 
-Curated IC10 scripts for devices that host their **own onboard IC chip
-slot** — Air Conditioner, Filtration, and similar — as opposed to
-`airlock-ic10-scripts/`, which is a freestanding multi-chip design
-wired to separate IC Housings. One subfolder per device.
+Curated IC10 scripts for useful automation beyond the airlock design —
+started with devices that host their **own onboard IC chip slot** (Air
+Conditioner, Filtration), broadened to general multi-device automation
+systems too (phase change separation), as long as it's a genuinely
+useful script with a real setup guide and honest sourcing. One
+subfolder per device or system.
 
 ## Not everything here was written by this project
 
@@ -30,6 +32,7 @@ survey. Confirmed so far:
 | Filtration Liquid | `ThingStructureFiltrationLiquid` | Not started |
 | Portable Air Conditioner | `ThingDynamicAirConditioner` | Not started |
 | Rocket Gas Filtration | `ThingStructureRocketFiltrationGas` | Not started |
+| Phase Change Separator (multi-device system, not a single device) | n/a | **Framework done, data unverified** — see `phase-change-separator/`. Original design for this project; ships with a placeholder pressure/temperature table that needs your own Stationpedia check before real use. |
 
 **Separately, a distinct category worth its own pass later:**
 fabrication automation. Autolathe, Electronics Printer, Hydraulic Pipe
@@ -48,7 +51,8 @@ Each device gets its own subfolder:
 - `<script>_notes.md` — setup guide (hardware, wiring, constants to
   adjust) plus any bug fixes or added features versus the cited
   source, if applicable.
-- `original/<source-filename>` — a pristine, unmodified copy of
+- `original/<source-filename>` — **only present when the script is
+  adapted from an external source.** A pristine, unmodified copy of
   whatever was pulled from the cited source, kept as a permanent
   diff/citation reference. **Set read-only at the filesystem level
   (`chmod 444`) as a safety net against accidental edits** — but that

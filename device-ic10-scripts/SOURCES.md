@@ -35,11 +35,11 @@ hasn't been properly logged yet.
   occupied slot is bad, even if the other is fine) turned out to be a
   deliberate, defensible design choice, documented rather than
   changed. **Feature considered, not added**: an externally-adjustable
-  `PRESSURE_TARGET` (mirroring the AC's dial pattern) — held back
-  because this device's onboard slot is only confirmed to expose two
-  optional pins, both already used for the Light/Alarm outputs; adding
-  a pin the hardware might not have would be worse than not adding the
-  feature. See the notes file for the reasoning.
+  `PRESSURE_TARGET` (mirroring the AC's dial pattern) — confirmed
+  not possible as designed, not just held back on suspicion: this
+  device's onboard slot exposes exactly two pins, `d0`/`d1`, both
+  already used for the Light/Alarm outputs. No room for a third
+  input the way the AC had a free `d0`. See the notes file.
 - CowsAreEvil is a credible source for this project generally (see the
   root `SOURCES.md`'s Custom Airlock V2 citation) — a "Cow's Internal
   Filtration Controller" is referenced secondhand in a Steam Community
@@ -58,6 +58,29 @@ hasn't been properly logged yet.
 - Steam Workshop, "Filtration Pilot (OnBoard)" —
   https://steamcommunity.com/sharedfiles/filedetails/?id=2978782048
   — same fetch block, same "not currently needed" status.
+
+## Phase Change Separator
+
+**Original design for this project** — the automation framework
+(`phase-change-separator/phase_separator.ic10`) is not adapted from
+any external source, so it has no `original/` file. The one piece of
+game data it depends on — a gas's condensation pressure/temperature —
+could not be reliably sourced:
+
+- Community Wiki, "Phase Change Mechanics" —
+  https://stationeers-wiki.com/Phase_Change_Mechanics — **not
+  retrieved**, 403's on fetch (Cloudflare bot-protection).
+- Stationeering (Substack), "Thermal Conditioning & Gas Separation
+  Guide" — https://stationeering.substack.com/p/atmos-2-thermal-separation
+  — **not retrieved**, also 403's.
+- Search-aggregated result, Nitrogen condensation point: ~6000 kPa /
+  -83.2°C (189.95 K). **Not independently confirmed** — this is the
+  one number used as the script's placeholder, and it should be
+  treated as a starting guess, not a fact, until checked against a
+  real in-game Stationpedia phase diagram. See
+  `phase-change-separator/phase_separator_notes.md` for the full
+  caveat and why an unverified table wasn't shipped as if it were
+  real data.
 
 ## Fabrication automation (researched, not yet built)
 
