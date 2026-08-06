@@ -546,6 +546,16 @@ the Gas Sensor chip's match/mismatch branching.
 - Whether `brdns` should replace pure batch addressing for the optional
   Gas Sensors — a real improvement per Custom Airlock V2, not yet made.
 
+**Roadmap to 1.0 (agreed with project owner, 2026-08-06):** step 1,
+next session — close out the Charge/Ratio bug, `BtnHash`, and the
+Color enum above using the `logic-network-reference` branch's
+`ilspycmd` decompilation toolchain (the same approach that already
+resolved the Charge/Ratio question and the Logic Transmitter `Setting`
+mechanism there), for a genuinely no-known-issues IC10-only 1.0. Steps
+2-3 (real mod hardware wiring, then a full rename) continue on
+`airlock-mod-card` — see that branch's `README.md` for the full
+sequence.
+
 **Resolved in-game (2026-08-04):** a standard Light — and separately,
 the "battery backup" Light variant — have no `Setting` LogicType at
 all, confirmed by the project owner's own in-game Logic panel
