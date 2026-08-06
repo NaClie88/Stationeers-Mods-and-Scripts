@@ -288,8 +288,9 @@ confirms this matches their own understanding, so treating it as likely
 true from here on — still worth a Stationpedia glance during Milestone
 1.5 to fully close it out, but not blocking. If it holds, this
 architecture isn't new territory at all: it's the same device (and the
-same already-flagged-unconfirmed `On` LogicType) as the zone gate in
-`ic10-airlock/watcher.ic10`, just wired the same way again.
+same `On` LogicType — resolved 2026-08-06, see `PATCH_PLAN.md`) as the
+zone gate in `airlock-ic10-scripts/watcher.ic10`, just wired the same
+way again.
 
 ## Cross-network visibility for the downstream side
 
@@ -349,9 +350,9 @@ designed and documented:
   `PARTS_DELTA.md` for the full case (network-bridging per its own
   commit description, no manual pairing, fewer parts). Since this
   branch is vanilla-first and doesn't assume Re-Volt (see `README.md`),
-  this would be the same kind of optional overlay the `ic10-airlock/`
-  build already has — a `mods/revolt/` variant on top of the vanilla
-  baseline, not a replacement for it.
+  this would be the same kind of optional overlay the
+  `airlock-ic10-scripts/` build already has — a `mods/revolt/` variant
+  on top of the vanilla baseline, not a replacement for it.
 
 ## Graceful degradation
 
@@ -438,7 +439,7 @@ Confirmed usable, but not the default, and not part of the
 safety-critical wake path — same reasoning this project already
 reached once, for the IC10 build's own "Optional afterthought: APC
 motion-sensor automation" section
-(`ic10-airlock/ic10_airlock_setup_guide.md`): Buttons are confirmed to
+(`airlock-ic10-scripts/ic10_airlock_setup_guide.md`): Buttons are confirmed to
 cost nothing to monitor even fully unpowered (`SOURCES.md`), but a
 Motion/Presence Sensor's own idle power draw was never confirmed the
 same way. That's still true here. A presence sensor **must** sit on
@@ -600,6 +601,6 @@ still Milestone 1.5's job — this doc fixes *what* needs to attach,
   phase and the "Cancel Pressurize" button, confirmed by name (search
   snippet). Already cited in this project's `SOURCES.md` for the IC10
   side, re-cited here for the mod-card side.
-- `ic10-airlock/ic10_failsafe_airlock_requirements.md`,
+- `airlock-ic10-scripts/ic10_failsafe_airlock_requirements.md`,
   `ic10_airlock_setup_guide.md`, `ic10_airlock_code_notes.md` — this
   project's own design and its already-documented known gaps.

@@ -158,7 +158,7 @@ extends `Motherboard`. The older non-Advanced airlock is a sibling,
   Controller" and "Power Controller" are confirmed the same device
   (`AreaPowerControl`, `logic-network-reference`'s `devices/
   power-controller.md`), so this was the exact same `On`-field question
-  flagged for `ic10-airlock/watcher.ic10`'s own zone gate — **now
+  flagged for `airlock-ic10-scripts/watcher.ic10`'s own zone gate — **now
   resolved there too** (2026-08-06, project owner's direct design
   knowledge: the Power Controller's explicit purpose is a battery
   buffer/charge circuit for everything downstream plus a power cutoff

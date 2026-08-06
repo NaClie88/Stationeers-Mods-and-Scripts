@@ -1,7 +1,7 @@
 # Airlock Card Mod — Plan
 
 Goal: a plug-and-play Circuitboard ("card") for the Console device that
-replicates what `ic10-airlock/` does with 2–3 IC10 chips, as a single
+replicates what `airlock-ic10-scripts/` does with 2–3 IC10 chips, as a single
 hardcoded item — same idea as the vanilla `Circuitboard (Airlock)` and
 `Circuitboard (Advanced Airlock)`, which are hardcoded logic, not IC10
 scripts, inside the base game.
@@ -325,16 +325,18 @@ requirements doc's verification checklist.
 Two separate 1.0s: the IC10-only path (no mod required, `main`) and
 this mod. Agreed order, next session onward:
 
-1. **Close out IC10 loose ends first, on `main`.** See
-   `ic10-airlock/ic10_airlock_code_notes.md`'s "Genuinely still open"
-   list — `BtnHash`, the LED Color enum, and the Power Controller
-   Charge/Ratio bug found via this branch's decompilation work. Goal:
-   a genuinely no-known-issues IC10-only 1.0. The
-   `logic-network-reference` branch's `ilspycmd` toolchain can very
-   likely resolve most of this directly, the same way it already
-   resolved the Charge/Ratio question and the Logic Transmitter
-   `Setting` mechanism — probably without needing the project owner
-   in-game at all.
+1. **Close out IC10 loose ends first, on `main`.** Status as of
+   2026-08-06: the Charge/Ratio bug, `brdns`/stall-handling gaps,
+   Propped-Open exit ordering, and the Power Controller output-gating
+   question are all resolved now (`logic-network-reference` has been
+   merged into `main`, and the folder itself renamed to
+   `airlock-ic10-scripts/`). What's left, per
+   `airlock-ic10-scripts/ic10_airlock_code_notes.md`'s "Genuinely still
+   open" list: `BtnHash`, the LED Color enum, and an in-game test of
+   the real wireless Transmitter/Receiver link — all three need the
+   project owner at the keyboard in-game (or re-running `ilspycmd` for
+   the first two), not further research from this branch. Goal: a
+   genuinely no-known-issues IC10-only 1.0.
 2. **Then real hardware wiring, back on this branch.** Wire
    `AdvancedAirlockControlHost` to an actual dedicated battery/Power
    Controller reference — the first step past Milestone 2's
@@ -400,6 +402,6 @@ this mod. Agreed order, next session onward:
   data is loaded; not yet confirmed whether this covers adding a
   genuinely new item vs. only configuring existing ones. Worth
   revisiting once Milestone 1.5 is done.
-- `ic10-airlock/ic10_failsafe_airlock_requirements.md`,
+- `airlock-ic10-scripts/ic10_failsafe_airlock_requirements.md`,
   `ic10_airlock_code_notes.md`, `watcher.ic10`, `cycle.ic10` — the
   design being ported.

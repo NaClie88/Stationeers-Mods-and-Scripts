@@ -8,7 +8,7 @@ namespace AirlockCardMod.Patches
 {
     // TEMPORARY, 2026-08-06 -- not part of the mod's real design.
     // One-shot research dump for the IC10 loose-ends pass (see
-    // ic10-airlock/ic10_airlock_code_notes.md's "still open" list on
+    // airlock-ic10-scripts/ic10_airlock_code_notes.md's "still open" list on
     // main): BtnHash (the Logic Switch/Button PrefabHash) and the LED
     // Color enum values are both Unity Inspector-serialized runtime
     // data, not present in the compiled IL (same category as

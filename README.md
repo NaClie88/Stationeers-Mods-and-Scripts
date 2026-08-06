@@ -21,7 +21,7 @@ stands on its own.
   environment-specific priority shifts per world, high-pressure
   structural guidance, and more.
 
-### `ic10-airlock/`
+### `airlock-ic10-scripts/`
 - `ic10_failsafe_airlock_requirements.md` — full requirements spec for a
   custom IC10-scripted airlock: staged power-failure response with
   hysteresis, a 3-button system (including a chamber-interior button for

@@ -1,4 +1,4 @@
-// Fail-safe extension logic, ported from ic10-airlock/watcher.ic10 +
+// Fail-safe extension logic, ported from airlock-ic10-scripts/watcher.ic10 +
 // cycle.ic10's Tier/Button-C/Propped-Open/Deep-Idle behavior.
 // Deliberately has ZERO Stationeers/Unity/BepInEx dependencies -- this
 // class is meant to be attached to the real vanilla Advanced Airlock
