@@ -123,27 +123,24 @@ that specific device — confirmed, not guessed. Adding a new
   Motherboards (the Advanced Airlock Circuitboard, and every other
   circuit card) **don't** use this LogicType system at all — a
   different, separate mechanism entirely.
+- [`logic-transmitter.md`](devices/logic-transmitter.md) — `LogicTransmitter`.
+  Confirms the project's existing Active/Passive and dial-pairing
+  understanding was right, and surfaces one real new fact: a Passive
+  unit ("Receiver") needs its **own** power to relay anything at all,
+  regardless of whether its paired Active unit is broadcasting fine.
 
-`ground-truth-database.md` now covers another 117 classes beyond these
-three hand-written entries (120 total, including these), programmatically —
+`ground-truth-database.md` now covers another 116 classes beyond these
+four hand-written entries (120 total, including these), programmatically —
 worth browsing there before starting a new hand-written `devices/*.md`
 entry, since the raw data may already answer the question.
 
-## Known open question — Logic Transmitter's `Setting` field
+## Resolved — Logic Transmitter's `Setting` field
 
-`LogicTransmitter` (confirmed, working, in-game — this project's IC10
-side depends on it directly, see `ic10-airlock/watcher.ic10`) **does**
-override `CanLogicRead`/`CanLogicWrite`, but `ground-truth-database.md`'s
-extraction found zero case-arms inside either — meaning those
-overrides use `if`/boolean logic rather than a `switch`, the same
-limitation flagged for `AreaPowerControl.CanLogicRead` in
-`devices/power-controller.md`. Its base class, `LogicInputBase`,
-doesn't override any of the four methods at all — so wherever
-`Setting`'s actual read/write logic lives, this pass didn't find it.
-Given this project's track record of wrong assumptions about exactly
-this device (see "Why this exists" above — the Logic Receiver/numbered-
-channel correction), this is worth a real follow-up pass: decompile
-`LogicTransmitter.cs` and `LogicInputBase.cs` by hand (`ilspycmd --type`)
-and trace where `Setting` is actually handled, the same way
-`devices/power-controller.md`'s `CanLogicRead` note did for Power
-Controller.
+Was flagged as an open question (`ground-truth-database.md`'s automated
+extraction found the method overrides but zero case-arms, since they
+use `if`/early-return logic rather than a `switch`). Hand-decompiled
+and resolved — see [`devices/logic-transmitter.md`](devices/logic-transmitter.md)
+for the full mechanism (a real overridden `Setting` property, Active
+mode reading/writing a local field, Passive mode forwarding live to
+whatever `CurrentDevice` it's paired to) and the new power-dependency
+finding above.
