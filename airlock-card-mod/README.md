@@ -144,10 +144,27 @@ isn't subject to that filter and had the line:
 `[AirlockCardMod]: Patch succeeded`. Worth checking that file first if
 a future plugin's log line ever seems to be missing from
 `LogOutput.log` — it may just be this setting, not a real failure.
+(The display name shown in that log line changed to `Salty's Advanced
+Airlock` shortly after this test, same day — see below; the project
+folder/namespace/GUID are still `AirlockCardMod` internally.)
 
 Also confirmed: the in-game Workshop browser never lists BepInEx
-plugins (it only shows Steam Workshop content) — not seeing
-`AirlockCardMod` there is expected, not a sign anything's wrong.
+plugins (it only shows Steam Workshop content) — not seeing the plugin
+there is expected, not a sign anything's wrong.
+
+**Display name updated, same day.** The plugin's player-visible name
+(`pluginName` in `AirlockCardMod.cs`, plus `AssemblyTitle`/
+`AssemblyProduct` in `Properties/AssemblyInfo.cs`) is now
+**"Salty's Advanced Airlock"** — rebuilt and reinstalled, confirmed
+via a fresh log line the same way as above. Everything else (the
+project folder, `.csproj`/`.sln` file names, C# namespace/class name,
+plugin GUID, git branch name) intentionally stays `AirlockCardMod` for
+now — project owner's call, to avoid re-triggering the same file-lock
+churn seen renaming the template folder earlier while still mid-
+development. **Planned before a 1.0 publish to GitHub/Steam
+Workshop:** a full rename sweep — folder, namespace, GUID, and every
+doc reference — so nothing internal-facing still says `AirlockCardMod`
+by release.
 
 This milestone deliberately tested nothing about airlocks,
 Circuitboards, or game internals — only "does my build → install →

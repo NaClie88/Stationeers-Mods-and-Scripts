@@ -90,7 +90,10 @@ hardcoded (`D:\SteamLibrary\steamapps\common\Stationeers\...`) —
   not appearing, check `doorstop_config.ini` for an `enabled=true`
   console setting, or check `BepInEx/LogOutput.log` after the game
   closes instead.
-- Look for a line like `[AirlockCardMod]: Patch succeeded`. That's the
+- Look for a line like `[Salty's Advanced Airlock]: Patch succeeded`
+  (the BepInEx plugin's `Loading [...]` line still shows the internal
+  project name, `AirlockCardMod` — only this second line, the plugin's
+  own log message, uses the display name). That's the
   whole test — if it's there, the entire pipeline works: Visual Studio
   built it correctly, the references were right, BepInEx found and
   loaded it, and Harmony initialized without error.

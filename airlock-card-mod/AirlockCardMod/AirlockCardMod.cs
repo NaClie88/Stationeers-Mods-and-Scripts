@@ -9,7 +9,7 @@ namespace AirlockCardMod
     public class AirlockCardMod : BepInEx.BaseUnityPlugin
     {
         public const string pluginGuid = "com.username.AirlockCardMod";
-        public const string pluginName = "AirlockCardMod";
+        public const string pluginName = "Salty's Advanced Airlock";
         public const string pluginVersion = "1.0";
         public static void Log(string line)
         {

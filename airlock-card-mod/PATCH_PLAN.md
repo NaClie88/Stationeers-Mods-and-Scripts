@@ -203,19 +203,40 @@ which run entirely through vanilla's own untouched code (project owner,
 wrap around the parts it directly controls — see the correction at the
 top of `GAP_ANALYSIS.md`).
 
-That means Milestone 1.5 needs to find a **second** attachment point
-beyond the per-tick update method: whatever vanilla method actually
-opens a door (or fires when one opens), so a Harmony patch can call
-`FailsafeController.OnDoorOpened(side)` from there too. Two sub-questions
-worth resolving together, since the answer to one probably answers the
-other:
+**CONFIRMED (2026-08-05, decompiled `Assets.Scripts.Objects.Thing`
+directly).** There is one single, shared attachment point, and it
+answers both sub-questions at once:
 
-1. Is there one shared "open this door" method both the native button
-   and the Console UI already funnel through, or do they take genuinely
-   separate code paths that would each need their own patch?
-2. Does that method (or whatever's closest to it) already know *which*
-   door — Exterior or Interior — so `DoorSide` can be passed through
-   correctly, or does the adapter need to infer that some other way?
+1. **One shared method — yes.** `IsOpen` isn't a Door-specific field,
+   it's a `virtual bool` property declared on the root `Thing` class
+   itself (every door, and anything else with an open state, inherits
+   it). The **setter** is where a physical state change actually
+   happens: `set { if (HasOpenState) { if (BaseAnimator) SetIntegerSafe(...)
+   else InteractOpen.State = ...; _isOpen = value; } }`. Every code
+   path this project cares about — `AdvancedAirlockControl` calling
+   `OnServer.Interact(door.InteractOpen, 1)` for its own automated
+   cycling, the Console UI, and (near-certainly, same shared
+   `Interactable`/`OnServer.Interact` dispatch pattern used everywhere
+   else in this codebase for Vents/Lights/Speakers) the door's own
+   native physical button — all funnel through this one setter. A
+   Harmony `Postfix` on `Thing.IsOpen`'s setter, typed `Door __instance`,
+   `bool value`, fires for every door-open event regardless of what
+   triggered it.
+2. **Which door — yes, trivially.** `__instance` in that Postfix *is*
+   the specific `Door` object. `AdvancedAirlockControl` already holds
+   `ExteriorAirlock`/`InteriorAirlock` references, so the adapter just
+   compares `__instance == controller.ExteriorAirlock` vs.
+   `== controller.InteriorAirlock` to resolve `DoorSide` — no
+   inference needed.
+
+**One real wrinkle to design around:** the setter runs on *every*
+assignment, including redundant same-value writes (e.g. something
+setting `IsOpen = true` on a door that's already open) — so
+`OnDoorOpened` shouldn't fire blindly on every Postfix call. Either
+check `value && !wasOpenBefore` (a `Prefix` capturing the old value,
+compared in the `Postfix`), or let `FailsafeController.OnDoorOpened`
+itself be idempotent/cheap enough that redundant calls are harmless —
+worth deciding explicitly in Milestone 2 rather than assuming either.
 
 ## Cross-network visibility — the question that decides if a bridge is needed at all
 
@@ -299,10 +320,28 @@ private static void Postfix(AdvancedAirlockControl __instance)
 }
 ```
 
-**`TicksPerCheck` needs Stationeers' actual simulation tick rate to set
-correctly** — not found/confirmed anywhere in this project yet. Once
-known, pick `TicksPerCheck` so `TicksPerCheck / tick_rate` ≈ the target
-delay (a quarter second, per the request above).
+**`TicksPerCheck` needs Stationeers' actual `OnThreadUpdate()` call
+rate to set correctly — traced as far as static decompilation can go,
+and it turns out to be a dead end there, not just "not found yet."**
+`OnThreadUpdate()` runs on a dedicated background thread owned by
+`OcclusionManager : ThreadedManager`. `ThreadedManager`'s loop is
+`while (running) { ThreadedWork(); Thread.Sleep(TickSpeed); }`, where
+`TickSpeed` is a **public field defaulting to `1` (ms) in code, but
+serialized per-instance in Unity scene/prefab data** — the kind of
+value the Unity Editor sets on a component instance, which lives
+outside `Assembly-CSharp.dll` entirely and isn't visible to a C#
+decompiler. (`OcclusionManager` also declares `SERVER_TICK_MS = 100`/
+`CLIENT_TICK_MS = 1000`/`ALL_TICK_MS = 1000` constants that looked
+promising by name, but grepping the full decompiled source turns up
+zero usages anywhere — dead/vestigial constants, not the real answer;
+worth flagging so a future pass doesn't reuse them by mistake.)
+**Recommended path once Milestone 2's patch exists**: log a timestamp
+delta on the first several real Postfix calls in-game and measure the
+actual interval directly, rather than continuing to chase this
+statically — it's a five-minute empirical check against something
+static analysis genuinely cannot answer. Once known, pick
+`TicksPerCheck` so `TicksPerCheck / tick_rate` ≈ the target delay (a
+quarter second, per the request above).
 
 **This has a real knock-on effect that has to be handled, not just a
 detail:** `FailsafeController`'s `WakeHoldTicks` constant (currently
