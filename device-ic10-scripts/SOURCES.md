@@ -111,6 +111,16 @@ written source.
 - Stationeering (Substack), "Thermal Conditioning & Gas Separation
   Guide" — https://stationeering.substack.com/p/atmos-2-thermal-separation
   — same status, not retrieved, not currently blocking anything.
+- GitHub, Trante02/Stationeers-IC10-Code, `LED_Display_Docs.md` —
+  https://github.com/Trante02/Stationeers-IC10-Code/blob/main/2026/Reference/LED_Display_Docs.md
+  (2026-08-07) — confirms the **LED Display** device used for
+  `two-chamber-system/separator_sequencer.ic10`'s optional `d5`
+  readout: writable `Mode`/`Setting`/`On`/`Color`, `Mode 0` a plain
+  raw-number display (what this project uses). Also documents `Mode 10`,
+  "string display via ASCII packing" — a real in-game device doing the
+  character-code-streaming technique considered and rejected for
+  `console-UI-mod`; not used here, but confirms it's a real, working
+  approach elsewhere in this game if ever needed.
 
 ## Fabrication automation (researched, not yet built)
 

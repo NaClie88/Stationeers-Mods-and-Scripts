@@ -50,8 +50,9 @@ useful, documented here as a set.
   the index table. Skip it entirely and edit each script's
   `DefaultGasIndex` instead if you'd rather not build one — see
   "Switching target gas" below for the tradeoff.
-- **Optional: a display showing the current selection.** Not built
-  yet — see "Display, not yet built" below.
+- **Optional: an LED Display** (`d5` on Chip B) — shows the current
+  `GasIndex` as a plain number, so you can see what's actively
+  selected without cracking open the script. See "Display" below.
 
 **Pin map:**
 
@@ -65,7 +66,7 @@ useful, documented here as a set.
 | B | `d2` | Condensation Valve |
 | B | `d3` | Purge Valve |
 | B | `d4` | Dial (optional) |
-| B | `d5` | free |
+| B | `d5` | LED Display (optional) |
 
 ## How it works
 
@@ -141,16 +142,32 @@ logic needed for this simpler case — it's a genuinely different,
 much lighter use of hardware already built, not a variant worth its
 own script.
 
-## Display, not yet built
+## Display
 
-Would be genuinely nice — a readout showing which gas is currently
-selected. **Correction (2026-08-07): there is a free pin for this** —
-Chip B only uses 5 of its 6 pins (`d5` is free, see the pin map
-above); an LED or Diode there could show a color/number keyed to
-`GasIndex`. Not built yet regardless — speculative hardware additions
-before they're actually wanted is exactly the kind of complexity this
-project tries to avoid — but the pin exists whenever it's wanted, no
-rewiring of anything else required.
+**Built 2026-08-07**, on `d5` (Chip B's last free pin). Uses a real
+device — **LED Display** — that shows an actual number, not just a
+color: writable `Mode` (display format), `Setting` (the value shown),
+`On`, `Color`. `Mode 0` is a plain raw-number display, which is what
+this uses — no need to map gas indices to a limited palette of LED
+colors the way the Watcher chip's Tier LED does, since this device
+just shows the number directly. `On`/`Mode 0` are set once at init;
+`Setting` gets written to `GasIndex` every tick, so the display always
+reflects whichever source (dial or `DefaultGasIndex`) is currently
+active. Optional, same `brdns` graceful-degradation pattern as
+everything else here — no display wired, nothing breaks.
+
+Cross-reference the number shown against `../condensation_reference.md`'s
+index table to know which gas it means — this device doesn't show
+gas names, just the index.
+
+**Worth knowing, not used here:** the LED Display also has a `Mode 10`
+— "string display via ASCII packing," i.e. a real in-game device that
+does exactly the character-code-streaming idea considered and rejected
+for `console-UI-mod` (see that project's design notes). Not used in
+this script since a plain number the player looks up is simpler and
+sufficient, but confirms that approach is a real, working technique in
+this game if a future script ever needs actual text on a physical
+display.
 
 ## Known limitations
 
@@ -160,6 +177,5 @@ rewiring of anything else required.
   no need for the script to guess).
 - **No stall handling**, same category of gap as `phase_separator.ic10`
   and other scripts in this repo.
-- **No display yet** — see above.
 - **Two-point reference data** — see `../condensation_reference.md`'s
   own caveat; these are chart-gridline readings, not exact curves.

@@ -32,7 +32,7 @@ survey. Confirmed so far:
 | Filtration Liquid | `ThingStructureFiltrationLiquid` | Not started |
 | Portable Air Conditioner | `ThingDynamicAirConditioner` | Not started |
 | Rocket Gas Filtration | `ThingStructureRocketFiltrationGas` | Not started |
-| Phase Change Separator (multi-device system, not a single device) | n/a | **Two variants done** — see `phase-change-separator/`. Real Stationpedia-derived data backs 11 gases (`condensation_reference.md`). A single-chamber/Active-Vent variant (`phase_separator.ic10`) and the real two-chip Condensation/Evaporation Chamber system (`two-chamber-system/`, dial-selected target gas, AC-driven heat exchange) matching the project owner's own proven manual build. Precooling (skimming easy condensate before full separation) documented as a pattern reusing the existing Air Conditioner script, no new code needed. |
+| Phase Change Separator (multi-device system, not a single device) | n/a | **Two variants done** — see `phase-change-separator/`. Real Stationpedia-derived data backs 11 gases (`condensation_reference.md`). A single-chamber/Active-Vent variant (`phase_separator.ic10`) and the real two-chip Condensation/Evaporation Chamber system (`two-chamber-system/`, dial-selected target gas, AC-driven heat exchange, optional LED Display readout) matching the project owner's own proven manual build. Precooling (skimming easy condensate before full separation) documented as a pattern reusing the existing Air Conditioner script, no new code needed. |
 
 **Separately, a distinct category worth its own pass later:**
 fabrication automation. Autolathe, Electronics Printer, Hydraulic Pipe
