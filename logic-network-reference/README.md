@@ -34,6 +34,15 @@ incrementally.
 
 ## Structure
 
+- **[`device-index.md`](device-index.md)** — the broad framework: every
+  vanilla device's name and the LogicType *names* it exposes, for all
+  499 devices in one table. **Community-sourced, unverified** — a
+  starting skeleton for "what should I go check," not a trustworthy
+  answer on its own (see that file's own header for why, and a
+  concrete example of this exact source getting a device wrong). Start
+  here to find what a device is called and roughly what it might
+  expose; move to `devices/*.md` or decompile it yourself before
+  relying on anything it says.
 - **[`base-behavior.md`](base-behavior.md)** — read this first. Most
   devices in the game share one common implementation
   (`DynamicThing.CanLogicRead`/`GetLogicValue`/`CanLogicWrite`/
@@ -53,6 +62,13 @@ incrementally.
   Controller" in-game — see that file for how this was confirmed).
 
 ## Methodology — how to add a device
+
+**Two layers, not one.** `device-index.md` (broad, unverified,
+community-sourced — see its own header for provenance/license notes)
+tells you a device *probably* exposes LogicType X by name. `devices/*.md`
+(narrow, decompiled, verified) tells you what X actually *means* for
+that specific device — confirmed, not guessed. Adding a new
+`devices/*.md` entry:
 
 1. Find the real class name: `ilspycmd --list c Assembly-CSharp.dll |
    grep -i "<search term>"` (see `airlock-card-mod/PATCH_PLAN.md` for
