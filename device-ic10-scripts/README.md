@@ -26,7 +26,7 @@ survey. Confirmed so far:
 | Device | Real class | Status |
 |---|---|---|
 | Air Conditioner | `ThingStructureAirConditioner` | Done — see `air-conditioner/` |
-| Filtration | `ThingStructureFiltration` | Queued — a promising script ("The Ultimate Filtration IC10") found but not yet retrievable, see `SOURCES.md` |
+| Filtration | `ThingStructureFiltration` | Done — see `filtration/` |
 | Filtration Liquid | `ThingStructureFiltrationLiquid` | Not started |
 | Portable Air Conditioner | `ThingDynamicAirConditioner` | Not started |
 | Rocket Gas Filtration | `ThingStructureRocketFiltrationGas` | Not started |
@@ -42,7 +42,21 @@ this folder currently focuses on, not yet researched here.
 ## Structure
 
 Each device gets its own subfolder:
-- `<script>.ic10` — the actual script, ready to paste in-game.
+- `<script>.ic10` — the actual script, ready to paste in-game. This is
+  the maintained, working copy — fixes and complementary features
+  (clearly flagged as such, see below) land here.
 - `<script>_notes.md` — setup guide (hardware, wiring, constants to
   adjust) plus any bug fixes or added features versus the cited
   source, if applicable.
+- `original/<source-filename>` — a pristine, unmodified copy of
+  whatever was pulled from the cited source, kept as a permanent
+  diff/citation reference. **Set read-only at the filesystem level
+  (`chmod 444`) as a safety net against accidental edits** — but that
+  permission bit is local-only: git tracks the executable bit, not
+  read/write permissions, so a fresh clone won't come back read-only
+  automatically. The real, durable protection is this convention
+  itself: **never edit anything under `original/` in place.** If a
+  source needs a fix, edit the maintained copy one level up and
+  explain the change in that device's `_notes.md`, the same way
+  `air-conditioner/ac_thermostat_notes.md` documents its bug fix
+  against `air-conditioner/original/air-conditioner-controller.ic10`.

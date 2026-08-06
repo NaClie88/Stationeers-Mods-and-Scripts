@@ -41,7 +41,9 @@ around the target, rather than constantly cycling.
 
 ## The bug found in the original, and the fix
 
-Original (`jhillacre/stationeers-scripts`, see `../SOURCES.md`):
+Pristine copy of the source, unmodified, kept read-only:
+`original/air-conditioner-controller.ic10` (`jhillacre/
+stationeers-scripts`, see `../SOURCES.md`). The relevant lines:
 
 ```
 sub r2 TARGET FUDGEK

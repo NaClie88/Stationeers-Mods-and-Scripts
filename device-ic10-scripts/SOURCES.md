@@ -23,20 +23,41 @@ hasn't been properly logged yet.
 
 ## Filtration
 
+- GitHub, jhillacre/stationeers-scripts, `onboard-filtration.ic10` —
+  https://github.com/jhillacre/stationeers-scripts/blob/main/onboard-filtration.ic10
+  (same known-good repo used for Air Conditioner). Base for
+  `filtration/onboard_filtration.ic10` — dual filter-slot management
+  via the unit's onboard `db` self-reference, checked against every
+  filter type/size across 7 gas categories. **Unchanged from the
+  original** — traced the full slot-status logic (see
+  `filtration/filtration_notes.md`) and found no bug; a behavior that
+  initially looked suspicious (filtering stops entirely if either
+  occupied slot is bad, even if the other is fine) turned out to be a
+  deliberate, defensible design choice, documented rather than
+  changed. **Feature considered, not added**: an externally-adjustable
+  `PRESSURE_TARGET` (mirroring the AC's dial pattern) — held back
+  because this device's onboard slot is only confirmed to expose two
+  optional pins, both already used for the Light/Alarm outputs; adding
+  a pin the hardware might not have would be worse than not adding the
+  feature. See the notes file for the reasoning.
+- CowsAreEvil is a credible source for this project generally (see the
+  root `SOURCES.md`'s Custom Airlock V2 citation) — a "Cow's Internal
+  Filtration Controller" is referenced secondhand in a Steam Community
+  discussion, but their own Workshop profile page 403's on fetch, so
+  it hasn't been located/confirmed directly. Worth checking again if
+  the `jhillacre` script above turns out to need more than the design
+  notes already cover.
 - Steam Community discussion, "The Ultimate Filtration IC10" —
   https://steamcommunity.com/app/544550/discussions/0/797838226728518655/
   — a two-program solution (`FiltrationUnitConfig.ic10` +
-  `FiltrationUnitProcess.ic10`) designed to run on the Filtration
-  unit's own onboard chip slot with no external IC Housing needed.
-  **Not yet retrieved** — the page 403's on fetch (Cloudflare
-  bot-protection, the same recurring block this project has hit on
-  Steam Community/Workshop and wiki pages before). Queued for a manual
-  pull (copy/paste from the page directly, or via the project owner's
-  own browser session) rather than more automated-fetch attempts.
+  `FiltrationUnitProcess.ic10`), also onboard-chip-slot targeted.
+  **Not retrieved** — 403's on fetch, same Cloudflare block as the
+  CowsAreEvil profile above. Not currently needed since the
+  `jhillacre` script above covers this device already, but left here
+  in case it's worth a second implementation to compare against later.
 - Steam Workshop, "Filtration Pilot (OnBoard)" —
   https://steamcommunity.com/sharedfiles/filedetails/?id=2978782048
-  — also onboard-chip-slot targeted. Same fetch block as above, not
-  yet retrieved.
+  — same fetch block, same "not currently needed" status.
 
 ## Fabrication automation (researched, not yet built)
 
