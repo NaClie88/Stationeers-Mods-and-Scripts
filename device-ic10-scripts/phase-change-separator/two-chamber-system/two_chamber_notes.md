@@ -50,9 +50,9 @@ useful, documented here as a set.
   the index table. Skip it entirely and edit each script's
   `DefaultGasIndex` instead if you'd rather not build one — see
   "Switching target gas" below for the tradeoff.
-- **Optional: an LED Display** (`d5` on Chip B) — shows the current
-  `GasIndex` as a plain number, so you can see what's actively
-  selected without cracking open the script. See "Display" below.
+- **`d5` on Chip B is free.** A display readout was attempted here and
+  reverted — see "Display" below for why and what's still needed
+  before trying again.
 
 **Pin map:**
 
@@ -66,7 +66,7 @@ useful, documented here as a set.
 | B | `d2` | Condensation Valve |
 | B | `d3` | Purge Valve |
 | B | `d4` | Dial (optional) |
-| B | `d5` | LED Display (optional) |
+| B | `d5` | free |
 
 ## How it works
 
@@ -142,32 +142,50 @@ logic needed for this simpler case — it's a genuinely different,
 much lighter use of hardware already built, not a variant worth its
 own script.
 
-## Display
+## Display — attempted 2026-08-07, reverted, real status unconfirmed
 
-**Built 2026-08-07**, on `d5` (Chip B's last free pin). Uses a real
-device — **LED Display** — that shows an actual number, not just a
-color: writable `Mode` (display format), `Setting` (the value shown),
-`On`, `Color`. `Mode 0` is a plain raw-number display, which is what
-this uses — no need to map gas indices to a limited palette of LED
-colors the way the Watcher chip's Tier LED does, since this device
-just shows the number directly. `On`/`Mode 0` are set once at init;
-`Setting` gets written to `GasIndex` every tick, so the display always
-reflects whichever source (dial or `DefaultGasIndex`) is currently
-active. Optional, same `brdns` graceful-degradation pattern as
-everything else here — no display wired, nothing breaks.
+Built and then **reverted** — the hardware assumption behind it turned
+out to be wrong, or at least unconfirmed enough that it shouldn't ship.
 
-Cross-reference the number shown against `../condensation_reference.md`'s
-index table to know which gas it means — this device doesn't show
-gas names, just the index.
+What happened: added a readout using a device found via a community
+GitHub scripts repo, calling itself "LED Display," writable
+`Mode`/`Setting`/`On`/`Color`, `Mode 0` a plain raw-number display.
+That source itself hedged — "doesn't specify an official in-game
+name" — a flag that should have blocked shipping it, not just been
+noted in passing. Further digging found the real Community Wiki
+entries: **"Kit (Consoles) LED Display (Small/Medium/Large)."**
+"Kit (Consoles)" is the same naming pattern as other Console-*mounted*
+components — meaning this is very likely a card that slots into a
+Console structure, the same `ButtonCommands`/`Motherboard` system
+extensively established elsewhere in this repo (see
+`../../logic-network-reference/devices/motherboards.md`,
+`console-ui-mod`'s whole design problem) as **not reachable by a plain
+IC10 pin write at all**. The project owner independently confirmed
+seeing exactly this — a Console with a display card slotted in, not a
+freestanding LED — while unsure whether what it displayed was vanilla
+or modded content. Whichever it turns out to be, `s Display Setting
+GasIndex` the way this was written almost certainly wouldn't have
+worked as a standalone pin device the way a Light or Diode does.
 
-**Worth knowing, not used here:** the LED Display also has a `Mode 10`
-— "string display via ASCII packing," i.e. a real in-game device that
-does exactly the character-code-streaming idea considered and rejected
-for `console-UI-mod` (see that project's design notes). Not used in
-this script since a plain number the player looks up is simpler and
-sufficient, but confirms that approach is a real, working technique in
-this game if a future script ever needs actual text on a physical
-display.
+**Why not just swap to a Color-coded LED instead** (the Watcher chip's
+Tier-display approach, already confirmed via direct decompilation, not
+just a wiki summary): that mechanism is real, but this system needs to
+distinguish 11 gases, and this repo's own Color enum research
+(`../../airlock-ic10-scripts/watcher.ic10`) only ever confirmed 3
+values (green/yellow/red) — how many colors actually exist is still on
+that project's own "genuinely still open" list. Reaching for it here
+would repeat the exact mistake just corrected: shipping a hardware
+assumption that sounds plausible without confirming it first.
+
+**Status: genuinely unbuilt, not just deprioritized.** Two real paths,
+neither confirmed yet:
+1. A Color-coded LED, once the actual number of usable `Color` values
+   is confirmed in-game (would also resolve that open item for the
+   airlock scripts, not just this one).
+2. A true Console-mounted display, once `console-ui-mod` (or direct
+   research into the Kit (Consoles) LED Display card specifically)
+   confirms how to drive one from IC10 output.
+`d5` stays free on Chip B until one of these is actually confirmed.
 
 ## Known limitations
 
@@ -177,5 +195,7 @@ display.
   no need for the script to guess).
 - **No stall handling**, same category of gap as `phase_separator.ic10`
   and other scripts in this repo.
+- **No display** — attempted, reverted on a wrong hardware assumption,
+  see "Display" above.
 - **Two-point reference data** — see `../condensation_reference.md`'s
   own caveat; these are chart-gridline readings, not exact curves.

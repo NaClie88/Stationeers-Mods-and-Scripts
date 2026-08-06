@@ -14,7 +14,8 @@ alias SourcePump d1
 alias CondValve d2
 alias PurgeValve d3
 alias Dial d4
-alias Display d5
+# d5 free -- see two_chamber_notes.md's "Display" section for why the
+# LED Display readout that used to be here was reverted
 
 define PressureTolerance 50
 define DrainInterval 100
@@ -43,10 +44,6 @@ move DrainCountdown DrainInterval
 move DrainHold 0
 move PurgeCountdown PurgeInterval
 move PurgeHold 0
-brdns Display skipDisplayInit
-s Display Mode 0
-s Display On 1
-skipDisplayInit:
 
 loop:
 yield
@@ -56,9 +53,6 @@ j haveIndex
 noDial:
 move GasIndex DefaultGasIndex
 haveIndex:
-brdns Display skipDisplay
-s Display Setting GasIndex
-skipDisplay:
 jal lookupPressure
 move TargetPressure ReturnValue
 l r0 Sensor Pressure

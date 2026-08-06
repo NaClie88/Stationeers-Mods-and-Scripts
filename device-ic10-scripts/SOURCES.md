@@ -113,14 +113,25 @@ written source.
   — same status, not retrieved, not currently blocking anything.
 - GitHub, Trante02/Stationeers-IC10-Code, `LED_Display_Docs.md` —
   https://github.com/Trante02/Stationeers-IC10-Code/blob/main/2026/Reference/LED_Display_Docs.md
-  (2026-08-07) — confirms the **LED Display** device used for
-  `two-chamber-system/separator_sequencer.ic10`'s optional `d5`
-  readout: writable `Mode`/`Setting`/`On`/`Color`, `Mode 0` a plain
-  raw-number display (what this project uses). Also documents `Mode 10`,
-  "string display via ASCII packing" — a real in-game device doing the
-  character-code-streaming technique considered and rejected for
-  `console-UI-mod`; not used here, but confirms it's a real, working
-  approach elsewhere in this game if ever needed.
+  (2026-08-07). **SUPERSEDED, same day, by closer reading and the
+  project owner's own recollection** — this source itself admitted "doesn't
+  specify an official in-game name," a hedge that should have blocked
+  building on it, not just been noted. Follow-up search found the real
+  Community Wiki entries: "Kit (Consoles) LED Display
+  (Small/Medium/Large)" — the same naming pattern as other
+  Console-*mounted* components, meaning this is very likely a card
+  slotted into a Console (the `ButtonCommands`/`Motherboard` system,
+  not reachable by a plain IC10 pin write), not a freestanding pin
+  device the way this was originally built and cited. The project
+  owner independently confirmed seeing exactly this — a Console with a
+  display card slotted in — while unsure whether the displayed content
+  was vanilla or modded. The resulting `separator_sequencer.ic10`
+  Display code (writing `Setting`/`Mode` directly to a `d5`-wired
+  device) was reverted. Kept here, not deleted, as the correction
+  trail — see `two-chamber-system/two_chamber_notes.md`'s "Display"
+  section for the full account and what's actually needed before
+  trying again (a confirmed `Color` value count for a Diode-based
+  approach, or confirmed IC10-to-Console-card wiring).
 
 ## Fabrication automation (researched, not yet built)
 
