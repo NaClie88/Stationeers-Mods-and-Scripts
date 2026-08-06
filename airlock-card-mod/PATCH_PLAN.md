@@ -203,40 +203,50 @@ which run entirely through vanilla's own untouched code (project owner,
 wrap around the parts it directly controls — see the correction at the
 top of `GAP_ANALYSIS.md`).
 
-**CONFIRMED (2026-08-05, decompiled `Assets.Scripts.Objects.Thing`
-directly).** There is one single, shared attachment point, and it
-answers both sub-questions at once:
+**First answer (2026-08-05, static decompilation) was wrong — caught
+in-game, corrected the same day.** Originally concluded `Thing.IsOpen`'s
+property setter was the single shared attachment point (reasoning:
+it's where `SetIntegerSafe(...)`/`InteractOpen.State = ...` happen).
+Built, deployed, and tested against a door manually cycled at the
+airlock in-game — **it never fired**, not even a broad diagnostic
+logging any door's open transition regardless of controller match, no
+exception either. Static reading of the setter's own body was correct
+about *what it does*, just wrong about *whether anything in the real
+interaction flow ever calls it* — nothing does. `Thing.IsOpen`'s
+setter turned out to be an effectively dead code path in practice.
 
-1. **One shared method — yes.** `IsOpen` isn't a Door-specific field,
-   it's a `virtual bool` property declared on the root `Thing` class
-   itself (every door, and anything else with an open state, inherits
-   it). The **setter** is where a physical state change actually
-   happens: `set { if (HasOpenState) { if (BaseAnimator) SetIntegerSafe(...)
-   else InteractOpen.State = ...; _isOpen = value; } }`. Every code
-   path this project cares about — `AdvancedAirlockControl` calling
-   `OnServer.Interact(door.InteractOpen, 1)` for its own automated
-   cycling, the Console UI, and (near-certainly, same shared
-   `Interactable`/`OnServer.Interact` dispatch pattern used everywhere
-   else in this codebase for Vents/Lights/Speakers) the door's own
-   native physical button — all funnel through this one setter. A
-   Harmony `Postfix` on `Thing.IsOpen`'s setter, typed `Door __instance`,
-   `bool value`, fires for every door-open event regardless of what
-   triggered it.
-2. **Which door — yes, trivially.** `__instance` in that Postfix *is*
-   the specific `Door` object. `AdvancedAirlockControl` already holds
-   `ExteriorAirlock`/`InteriorAirlock` references, so the adapter just
-   compares `__instance == controller.ExteriorAirlock` vs.
-   `== controller.InteriorAirlock` to resolve `DoorSide` — no
-   inference needed.
+**Corrected, and confirmed by tracing the actual call chain**
+(`OnServer.Interact` → `Interactable.Interact` → `Interactable.State`'s
+setter → `Thing.OnInteractableStateChanged`): the real single
+attachment point is
+`Thing.OnInteractableStateChanged(Interactable interactable, int newState, int oldState)`.
+This is what actually drives the door's Animator
+(`SetIntegerSafe(interactable.PropertyId, newState)`), and it's called
+by `Interactable.State`'s setter — which is what `Interactable.Interact`
+calls, which is what `OnServer.Interact` calls, which is the method
+`AdvancedAirlockControl`'s own automated cycling uses
+(`OnServer.Interact(door.InteractOpen, 1)`) and, by the same shared
+dispatch, what player interaction uses too. Neither `Door` nor
+`Structure` overrides `OnInteractableStateChanged`, so (unlike
+`OnThreadUpdate`'s `AirlockControlBase` situation) patching `Thing`
+directly is safe here — no base-class indirection needed.
 
-**One real wrinkle to design around:** the setter runs on *every*
-assignment, including redundant same-value writes (e.g. something
-setting `IsOpen = true` on a door that's already open) — so
-`OnDoorOpened` shouldn't fire blindly on every Postfix call. Either
-check `value && !wasOpenBefore` (a `Prefix` capturing the old value,
-compared in the `Postfix`), or let `FailsafeController.OnDoorOpened`
-itself be idempotent/cheap enough that redundant calls are harmless —
-worth deciding explicitly in Milestone 2 rather than assuming either.
+Both sub-questions, answered by this corrected target:
+
+1. **One shared method — yes**, confirmed by tracing the call chain
+   rather than assumed from reading one method's body in isolation.
+2. **Which door — yes.** `newState`/`oldState` are already passed as
+   parameters (no `Prefix`/`__state` needed this time), and `__instance`
+   *is* the specific `Door`. Same `ExteriorAirlock`/`InteriorAirlock`
+   comparison as before resolves `DoorSide`.
+
+**Lesson for future patches on this project**: static decompilation
+correctly shows what a method's body does, but not necessarily whether
+anything actually calls it — verify a patch actually fires in-game
+before trusting a static reading, the same way `AdvancedAirlockFailsafePatch`
+needed an in-game retest to catch the `AirlockControlBase` issue.
+Two for two so far on "the naive/first-guess target compiles fine but
+turns out to be unreachable or wrong in practice."
 
 ## Cross-network visibility — the question that decides if a bridge is needed at all
 
@@ -423,10 +433,8 @@ quarter-second target) instead of the placeholder `1`, and
 `WakeHoldTicks`'s default of 20 equal in real time (~5.2s). See
 `README.md`'s Milestone 2 section for the full log lines.
 
-`DoorOpenPatch.cs` (the `Thing.IsOpen` setter patch) has **not yet
-been exercised in-game** — it's a separate patch from the one just
-confirmed above, and patches a much broader surface (every openable
-`Thing`, not just airlock doors), so it's worth confirming
-specifically before building more on top of it. A one-time diagnostic
-log (`OnDoorOpened fired, side=...`) was added so this is easy to
-confirm the next time an airlock door actually opens in-game.
+`DoorOpenPatch.cs`'s first version (targeting `Thing.IsOpen`'s setter)
+was tested in-game and never fired — see "Where `OnDoorOpened`
+attaches" above for the full trace and the corrected target
+(`Thing.OnInteractableStateChanged`). Rebuilt against the corrected
+target; **not yet re-verified in-game.**

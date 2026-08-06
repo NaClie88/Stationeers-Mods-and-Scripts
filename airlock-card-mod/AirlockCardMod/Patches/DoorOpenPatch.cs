@@ -7,52 +7,50 @@ namespace AirlockCardMod.Patches
     // Milestone 2: fires FailsafeController.OnDoorOpened for whichever
     // door just opened, regardless of trigger (native door button,
     // Console UI, or this mod's own future ForceEvacuate/
-    // HoldBothDoorsOpen calls). See PATCH_PLAN.md's "Where OnDoorOpened
-    // attaches" -- Thing.IsOpen's property setter is the single
-    // confirmed point every one of those paths funnels through.
-    [HarmonyPatch(typeof(Thing), nameof(Thing.IsOpen), MethodType.Setter)]
+    // HoldBothDoorsOpen calls).
+    //
+    // CORRECTED (2026-08-05, in-game): the original version of this
+    // patch targeted Thing.IsOpen's property setter, following
+    // PATCH_PLAN.md's static-decompilation read of that setter as the
+    // single shared attachment point. In-game testing showed it never
+    // fires at all -- not even a broad diagnostic logging any door
+    // open, with no exception either. Tracing OnServer.Interact (the
+    // method every door-open path in this codebase actually calls,
+    // confirmed both for AdvancedAirlockControl's own automated
+    // cycling and, by the same shared dispatch, native/Console player
+    // interaction) shows it resolves the matching Interactable and
+    // calls Interactable.Interact(state, ...), which sets
+    // Interactable.State -- and that setter calls
+    // Thing.OnInteractableStateChanged(interactable, newState,
+    // oldState), which is what actually drives the door's Animator
+    // (SetIntegerSafe(interactable.PropertyId, newState)).
+    // Thing.IsOpen's setter is a separate, effectively-unused code
+    // path in practice -- nothing in the real interaction flow calls
+    // it. OnInteractableStateChanged is the real single attachment
+    // point, confirmed neither Door nor Structure overrides it (so
+    // patching Thing directly is safe here, unlike OnThreadUpdate's
+    // AirlockControlBase situation).
+    [HarmonyPatch(typeof(Thing), nameof(Thing.OnInteractableStateChanged))]
     internal static class DoorOpenPatch
     {
-        // Not yet exercised in-game as of 2026-08-05 (unlike
-        // AdvancedAirlockFailsafePatch, confirmed working via its own
-        // "Failsafe layer attached" log line) -- this patches
-        // Thing.IsOpen's setter globally, every openable Thing in the
-        // entire game, not just airlock doors, so it's worth
-        // confirming separately that it applies cleanly and doesn't
-        // disturb ordinary door behavior before building anything real
-        // on top of it. Logged once so that's visible without needing
-        // a debugger attached.
         private static bool loggedFirstMatch;
 
-        // TEMP diagnostic (2026-08-05): the first in-game door-open
-        // test produced no "OnDoorOpened fired" line and no exception
-        // either -- ambiguous between "the Postfix never runs on a
-        // door open" (deeper problem, Thing.IsOpen's setter isn't
-        // actually the real path) and "it runs but this door isn't
-        // recognized as belonging to any tracked airlock" (smaller
-        // problem). Logs once for ANY Door whose IsOpen transitions to
-        // true, regardless of controller match, to tell those two
-        // apart. Remove once resolved.
+        // TEMP diagnostic (2026-08-05), same purpose as the one that
+        // caught the previous attachment point being wrong: confirm
+        // this new one actually fires before trusting it. Remove once
+        // confirmed.
         private static bool loggedAnyDoorOpen;
 
-        // Captures the value before this specific assignment, so the
-        // Postfix can edge-detect false -> true instead of firing on
-        // every redundant same-value write (the setter runs on every
-        // assignment -- see PATCH_PLAN.md's "one real wrinkle").
-        private static void Prefix(Thing __instance, out bool __state)
+        private static void Postfix(Thing __instance, Interactable interactable, int newState, int oldState)
         {
-            __state = __instance.IsOpen;
-        }
-
-        private static void Postfix(Thing __instance, bool value, bool __state)
-        {
-            if (!value || __state) return;
+            if (interactable.Action != InteractableType.Open) return;
+            if (newState != 1 || oldState == 1) return; // edge-detect closed -> open only
             if (!(__instance is Door door)) return;
 
             if (!loggedAnyDoorOpen)
             {
                 loggedAnyDoorOpen = true;
-                UnityEngine.Debug.Log("[Salty's Advanced Airlock]: DIAGNOSTIC -- Thing.IsOpen setter fired for a Door ("
+                UnityEngine.Debug.Log("[Salty's Advanced Airlock]: DIAGNOSTIC -- OnInteractableStateChanged Open fired for a Door ("
                     + door.DisplayName + "), KnownControllers.Count=" + AdvancedAirlockFailsafePatch.KnownControllers.Count);
             }
 

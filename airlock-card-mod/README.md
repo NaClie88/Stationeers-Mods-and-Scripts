@@ -268,15 +268,14 @@ CONFIRMED working in-game; `DoorOpenPatch` not yet exercised.**
   **~17.2ms average per call** on this machine — so `TicksPerCheck` is
   now `15` (~258ms, matching the quarter-second target) instead of a
   placeholder `1`.
-- `DoorOpenPatch.cs` — `Postfix` on `Thing.IsOpen`'s setter (see
-  `PATCH_PLAN.md`'s "Where `OnDoorOpened` attaches"), edge-detected
-  (false→true only) via a `Prefix`-captured `__state`, resolves which
-  door via `KnownControllers` and calls `OnDoorOpened(side)`. This
-  patches every openable `Thing` in the game, not just airlock doors,
-  so it's worth confirming separately rather than assuming the same
-  clean result as the tick patch above — a one-time diagnostic log
-  (`OnDoorOpened fired, side=...`) was added; not yet triggered by an
-  actual door-open in-game.
+- `DoorOpenPatch.cs` — first version targeted `Thing.IsOpen`'s setter;
+  tested in-game (manual door cycling at the airlock) and **never
+  fired**, no exception either. Traced the real call chain
+  (`OnServer.Interact` → `Interactable.Interact` → `Interactable.State`'s
+  setter → `Thing.OnInteractableStateChanged`) and corrected the patch
+  to target `OnInteractableStateChanged` instead — see `PATCH_PLAN.md`'s
+  "Where `OnDoorOpened` attaches" for the full trace. Rebuilt against
+  the corrected target; not yet re-verified in-game.
 
 **Deliberately still a no-op behaviorally**, by design, not by
 accident: `AdvancedAirlockControlHost.cs` implements `IAirlockHost`
