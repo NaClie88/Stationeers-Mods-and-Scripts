@@ -61,6 +61,7 @@
     <Compile Include="AdvancedAirlockControlHost.cs" />
     <Compile Include="Patches\AdvancedAirlockFailsafePatch.cs" />
     <Compile Include="Patches\DoorOpenPatch.cs" />
+    <Compile Include="Patches\TempResearchDump.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="..\src\FailsafeController.cs" Link="FailsafeController.cs" />
   </ItemGroup>
