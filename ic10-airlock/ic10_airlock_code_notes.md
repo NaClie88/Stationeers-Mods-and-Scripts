@@ -413,9 +413,13 @@ from 103 to 112 — comfortable margin remains.
 ## Cycle — Doors, Vent, chamber sensor
 
 Powered only when Watcher's zone gate is on. Full code in
-`cycle.ic10` — 122 of 128 lines as formatted there — **tighter than
-before** (was 115), see the unpack-sequence note below for why, and
-keep this in mind before adding anything further to this chip.
+`cycle.ic10` — **126 of 128 lines as of 2026-08-06** (Button C cancel
+support and Propped-Open exit-ordering pushed it from 122 to 147
+unformatted, then trimmed back down by cutting blank lines and folding
+wrapped comments onto their code lines — no logic changed, only
+formatting). **Only 2 lines of headroom left** — check the actual line
+count before adding anything further to this chip, this budget is
+tight now.
 
 **Pins:** `d1`/`d2` exterior/interior Portal, `d3` Vent, `d4` Logic
 Transmitter (Passive mode — "Receiver" is this project's alias name for
@@ -556,21 +560,30 @@ the Gas Sensor chip's match/mismatch branching.
   manual pairing step in-game (adjusting the Passive unit's dial to the
   Active unit's name) — not scripted, easy to forget, worth calling out
   clearly in the setup guide.
-- Propped-Open's mid-mismatch exit ordering — unchanged gap from before
-  this restructuring.
+
+**Propped-Open's mid-mismatch exit ordering — resolved 2026-08-06.**
+`checkProp` now tracks whether it was holding both doors open last tick
+(`r2`); when the match flag drops while `r2` was set, it closes the
+non-preferred door and leaves the last-completed side open (`r10`: 0 =
+Exterior, 1 = Interior) for its normal 10-tick grace window before
+`doorTimer` closes it too — same reasoning as the mod's
+`CloseNonPreferredDoor()`, reusing `r10` instead of adding new state
+for it. `r2` specifically distinguishes "match just broke while
+propped" from "ordinary single-door cycle in progress with the flag
+happening to read 0" — without it, this logic would misfire during
+completely normal cycling.
 
 **Roadmap to 1.0 (agreed with project owner, 2026-08-06):** step 1 —
-the Charge/Ratio bug is now fixed, and the `brdns`/stall-handling gaps
-above are closed too. What's left for step 1: `BtnHash` and the Color
-enum, both needing the `logic-network-reference` branch's `ilspycmd`
-decompilation toolchain against a real `Assembly-CSharp.dll` (the same
-approach that already resolved the Charge/Ratio question and the Logic
-Transmitter `Setting` mechanism there) — that toolchain isn't available
-in every environment working on this repo, so this step is blocked on
-whichever session has the actual game install. Once those two are
-closed, plus a decision on Propped-Open's mid-mismatch exit ordering
-(the one remaining functional gap, not just an unconfirmed constant),
-that's a genuinely no-known-issues IC10-only 1.0. Steps 2-3 (real mod
+the Charge/Ratio bug is now fixed, and the `brdns`/stall-handling/
+exit-ordering gaps above are all closed too. All that's left for step
+1: `BtnHash` and the Color enum, both needing the
+`logic-network-reference` branch's `ilspycmd` decompilation toolchain
+against a real `Assembly-CSharp.dll` (the same approach that already
+resolved the Charge/Ratio question and the Logic Transmitter `Setting`
+mechanism there) — that toolchain isn't available in every environment
+working on this repo, so this step is blocked on whichever session has
+the actual game install. Once those two are closed, that's a genuinely
+no-known-issues IC10-only 1.0. Steps 2-3 (real mod
 hardware wiring, then a full rename) continue on `airlock-mod-card` —
 see that branch's `README.md` for the full sequence.
 

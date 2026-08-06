@@ -100,7 +100,9 @@ notes only, not part of the item name.
   Watcher only — it's a player-facing warning now, not an inter-chip
   signal (that moved to the Transmitter/Receiver).
 - **Button C: inside the chamber**, not at either portal — it's the
-  wake/override for someone already caught inside.
+  wake/override for someone already caught inside, the hold-off for a
+  Critical evacuation, and (held during a normal Evacuate/Pressurize
+  phase) the cancel for a stuck cycle.
 - **Button E / Button I: outside the chamber**, one per side, wherever
   makes sense for approach traffic.
 - **Both Logic Transmitters: no placement constraint beyond being
@@ -339,15 +341,12 @@ Test incrementally, not everything at once:
 
 Carried over from `ic10_airlock_code_notes.md`, not fixed yet:
 
-- **No stall-timeout.** If a Pressurize/Evacuate phase can't reach
-  target (not enough gas, target unreachable), Cycle will sit
-  re-checking pressure forever rather than giving up. The requirements
-  doc's "Stalled" phase and the game's own "Cancel Pressurize" button
-  aren't handled in script.
-- **Propped-Open mid-mismatch exit ordering isn't specified** — if
-  you're using the Gas Sensor chip and a mismatch develops while both
-  doors are propped open, which door closes first isn't decided in the
-  code.
+- **No automatic stall detection.** If a Pressurize/Evacuate phase
+  can't reach target (not enough gas, target unreachable), Cycle sits
+  re-checking pressure until you intervene — same as vanilla, which
+  doesn't auto-detect stalls either. Hold Button C during the phase to
+  cancel it early (matches vanilla's own Cancel Pressurize button); no
+  automatic timeout or retry exists on either side.
 - **The zone-gate LogicType, `BtnHash`, and the LED `Color` values are
   all unconfirmed** — see step 7. Verify early; they're load-bearing
   for the whole build.
