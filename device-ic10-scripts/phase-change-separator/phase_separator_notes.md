@@ -85,7 +85,10 @@ filter-hash list) indexed by a stage counter, and advance the counter
 after each successful drain cycle instead of looping back to the same
 stage forever. Ordering stages highest-condensation-point-first
 (Sodium Chloride, Silanol, Hydrazine... down to Hydrogen last) would
-match the real-world logic of the technique. Not yet built — worth
+match the real-world logic of the technique. **Never include a stage
+for Helium or any other gas confirmed unable to liquefy in-game** —
+see `condensation_reference.md`'s warning; such a stage would wait
+forever for a condition that can't occur. Not yet built — worth
 confirming you want the full cascading version before it's built,
 since it's a real jump in complexity from the single-stage script.
 

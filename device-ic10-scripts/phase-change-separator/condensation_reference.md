@@ -10,6 +10,26 @@ as accurate to the nearest gridline division, not to the decimal —
 good enough to pick a real operating point, worth a live in-game
 Logic Reader check if you need tighter precision than that.
 
+**Gases that cannot be liquefied in-game at all — do not build a stage
+for these, regardless of what a future chart might suggest:**
+- **Helium** — confirmed by the project owner (2026-08-06): cannot be
+  liquefied in this game's simulation, full stop, no pressure/
+  temperature combination works. A stage targeting Helium would wait
+  forever for a phase change that structurally can't happen. If more
+  gases turn out to share this property, add them to this list before
+  they cause the same silent hang.
+
+**Wiki coverage gap, separate from the above:** several gases don't
+have a published phase diagram on the Community Wiki yet, independent
+of whether they can actually be liquefied in-game. That's a wiki
+completeness gap, not evidence a gas can't condense — don't treat "no
+wiki chart found" as equivalent to "can't be liquefied" the way
+Helium genuinely can't. In-game Stationpedia (or the project owner's
+own screenshots, as with the 11 gases below) is the actual authority;
+the wiki search hitting a dead end just means look elsewhere, the same
+lesson this project has already learned repeatedly with Cloudflare-
+blocked wiki fetches.
+
 Each gas's diagram plots a **freezing point** (a fixed temperature,
 independent of pressure — the hard lower bound where the gas solidifies
 instead of condensing) and a **P-T curve** (the condensation boundary —
