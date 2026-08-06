@@ -13,6 +13,17 @@ namespace AirlockCardMod.Patches
     [HarmonyPatch(typeof(Thing), nameof(Thing.IsOpen), MethodType.Setter)]
     internal static class DoorOpenPatch
     {
+        // Not yet exercised in-game as of 2026-08-05 (unlike
+        // AdvancedAirlockFailsafePatch, confirmed working via its own
+        // "Failsafe layer attached" log line) -- this patches
+        // Thing.IsOpen's setter globally, every openable Thing in the
+        // entire game, not just airlock doors, so it's worth
+        // confirming separately that it applies cleanly and doesn't
+        // disturb ordinary door behavior before building anything real
+        // on top of it. Logged once so that's visible without needing
+        // a debugger attached.
+        private static bool loggedFirstMatch;
+
         // Captures the value before this specific assignment, so the
         // Postfix can edge-detect false -> true instead of firing on
         // every redundant same-value write (the setter runs on every
@@ -38,6 +49,12 @@ namespace AirlockCardMod.Patches
                 if (side.HasValue)
                 {
                     AdvancedAirlockFailsafePatch.GetOrCreateController(controller).OnDoorOpened(side.Value);
+
+                    if (!loggedFirstMatch)
+                    {
+                        loggedFirstMatch = true;
+                        UnityEngine.Debug.Log("[Salty's Advanced Airlock]: OnDoorOpened fired, side=" + side.Value);
+                    }
                 }
             }
         }

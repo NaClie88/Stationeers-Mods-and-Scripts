@@ -241,8 +241,9 @@ tree and start with `AdvancedAirlockControl`.
 
 ### Milestone 2 — patch the existing card in place
 
-**First cut written 2026-08-05, builds clean, not yet verified
-in-game.** `FailsafeController` is now wired into the real vanilla
+**First cut written 2026-08-05. `AdvancedAirlockFailsafePatch`
+CONFIRMED working in-game; `DoorOpenPatch` not yet exercised.**
+`FailsafeController` is now wired into the real vanilla
 `AdvancedAirlockControl` class via two Harmony patches, both under
 `airlock-card-mod/AirlockCardMod/Patches/`:
 
@@ -250,16 +251,32 @@ in-game.** `FailsafeController` is now wired into the real vanilla
   Creates one `FailsafeController` per circuit instance (a
   `ConditionalWeakTable`, the standard Harmony pattern for attaching
   new per-instance state to an existing class), calls `UpdateTier()` +
-  `ApplyTierEffects()` every call (no throttling yet — see below),
-  and logs once on first attachment. Also does the empirical
-  `OnThreadUpdate()` call-rate measurement `PATCH_PLAN.md` flagged as
-  impossible via static decompilation — logs the average interval
-  over the first 20 calls on one instance, so `TicksPerCheck` can
-  finally be set from a real number instead of a guess.
+  `ApplyTierEffects()` every `TicksPerCheck` calls (15, calibrated
+  below), and logs once on first attachment. **Hit a real bug on
+  first test**: patching `typeof(AdvancedAirlockControl)` directly
+  threw `HarmonyException: Undefined target method` — that class
+  never overrides `OnThreadUpdate` itself, it just inherits
+  `AirlockControlBase`'s override, so Harmony had no compiled method
+  body on the more specific type to attach to. Fixed by patching
+  `AirlockControlBase` and filtering to `AdvancedAirlockControl`
+  manually inside the `Postfix` (see `PATCH_PLAN.md` for the general
+  rule this establishes for any future patch on an inherited-but-not-
+  overridden method). **Retested clean**: `Patch succeeded`,
+  `Failsafe layer attached, Tier=Normal`, no exceptions. Also
+  delivered the real `OnThreadUpdate` call-rate measurement
+  `PATCH_PLAN.md` flagged as unrecoverable via static decompilation —
+  **~17.2ms average per call** on this machine — so `TicksPerCheck` is
+  now `15` (~258ms, matching the quarter-second target) instead of a
+  placeholder `1`.
 - `DoorOpenPatch.cs` — `Postfix` on `Thing.IsOpen`'s setter (see
   `PATCH_PLAN.md`'s "Where `OnDoorOpened` attaches"), edge-detected
   (false→true only) via a `Prefix`-captured `__state`, resolves which
-  door via `KnownControllers` and calls `OnDoorOpened(side)`.
+  door via `KnownControllers` and calls `OnDoorOpened(side)`. This
+  patches every openable `Thing` in the game, not just airlock doors,
+  so it's worth confirming separately rather than assuming the same
+  clean result as the tick patch above — a one-time diagnostic log
+  (`OnDoorOpened fired, side=...`) was added; not yet triggered by an
+  actual door-open in-game.
 
 **Deliberately still a no-op behaviorally**, by design, not by
 accident: `AdvancedAirlockControlHost.cs` implements `IAirlockHost`

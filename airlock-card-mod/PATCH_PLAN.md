@@ -411,7 +411,22 @@ this fix. Doesn't matter for methods `AdvancedAirlockControl` *does*
 override itself (e.g. `SetFlag`, `ButtonCycleAirlock`,
 `RefreshScreen`) — only for inherited-as-is ones like this.
 
-Fix built clean and reinstalled (2026-08-05); **not yet re-verified
-in-game** — waiting on a retest to confirm Harmony patches apply
-without exception this time. See `README.md`'s Milestone 2 section
-for the log lines that would confirm it.
+**Confirmed working in-game, 2026-08-05.** Retest showed `Patch
+succeeded` (no `HarmonyException` this time) and `Failsafe layer
+attached, Tier=Normal` — the `Postfix` fires cleanly on real
+`AdvancedAirlockControl` instances. Also delivered the real
+`OnThreadUpdate` call-rate measurement this fix was blocked behind:
+**~17.2ms average per call** on this machine (close to a 60fps frame
+interval) — `TicksPerCheck` is now set to `15` (~258ms, matching the
+quarter-second target) instead of the placeholder `1`, and
+`AdvancedAirlockFailsafePatch.cs` documents what that makes
+`WakeHoldTicks`'s default of 20 equal in real time (~5.2s). See
+`README.md`'s Milestone 2 section for the full log lines.
+
+`DoorOpenPatch.cs` (the `Thing.IsOpen` setter patch) has **not yet
+been exercised in-game** — it's a separate patch from the one just
+confirmed above, and patches a much broader surface (every openable
+`Thing`, not just airlock doors), so it's worth confirming
+specifically before building more on top of it. A one-time diagnostic
+log (`OnDoorOpened fired, side=...`) was added so this is easy to
+confirm the next time an airlock door actually opens in-game.

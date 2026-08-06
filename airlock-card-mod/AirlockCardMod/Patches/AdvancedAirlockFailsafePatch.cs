@@ -38,15 +38,25 @@ namespace AirlockCardMod.Patches
         // not pruned eagerly here.
         internal static readonly List<AdvancedAirlockControl> KnownControllers = new List<AdvancedAirlockControl>();
 
-        // TicksPerCheck deliberately left at 1 (no throttling) for this
-        // first cut -- PATCH_PLAN.md flags OnThreadUpdate's real call
-        // rate as unrecoverable via static decompilation (it's a Unity
-        // Inspector-serialized value, not in the compiled IL). The
-        // block below measures it empirically the first time this
-        // actually runs in-game; once that number is known, come back
-        // and set TicksPerCheck (and recalibrate FailsafeController's
-        // WakeHoldTicks to match) rather than guessing.
-        private const int TicksPerCheck = 1;
+        // Measured in-game (2026-08-05, MeasureCallRateOnce below):
+        // OnThreadUpdate averages ~17.2ms/call on this machine (close
+        // to a 60fps frame interval). 15 * 17.2ms ~= 258ms, close
+        // enough to the "a quarter-second response delay is
+        // unnoticeable" target from PATCH_PLAN.md. Not a guess anymore
+        // -- see PATCH_PLAN.md for why this couldn't be gotten any
+        // other way (TickSpeed is Unity Inspector-serialized data, not
+        // in the compiled IL).
+        //
+        // Knock-on effect, per PATCH_PLAN.md: FailsafeController's
+        // WakeHoldTicks (default 20, unchanged here) now represents
+        // 20 * 15 * ~17.2ms =~ 5.2 real-world seconds of held-open
+        // downstream power after the last qualifying event -- a
+        // reasonable-sounding hold, but still not scientifically
+        // matched to anything IC10-side (that build's own per-tick
+        // cadence was never confirmed either, per
+        // ic10_airlock_setup_guide.md). Worth an explicit in-game feel
+        // check once Deep Idle is actually wired to something real.
+        private const int TicksPerCheck = 15;
 
         private static int ticksSinceLastCheck;
         private static bool loggedAttachment;
