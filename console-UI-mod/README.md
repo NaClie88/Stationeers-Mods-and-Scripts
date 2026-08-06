@@ -69,14 +69,8 @@ are each single-purpose and fairly minimal on one screen, not deep
 multi-page menus.
 
 **Still open:**
-- **The rendering layer.** Given a slot's structure/behavior and (for
-  text) a set of pre-typed strings, how does the Console housing
-  (`ThingStructureConsole` — confirmed to expose almost nothing over
-  LogicTypes itself, see `device-index.md`) turn that into an actual
-  on-screen UI? Likely means hooking the same
-  `ButtonCommands`/`MotherboardCommand` path vanilla's own circuit
-  cards use, per `motherboards.md`'s trace — see "Prior art" below for
-  a real reference implementation of the same general concept.
+- **The rendering layer.** Scoped into a concrete 3-step research/build
+  plan now — see "Rendering layer scoping" below.
 - **Console rotation — unconfirmed, needs an in-game check, not more
   research.** Post-Respawn-Update, a console's settings are configured
   via screwdriver on its side screw (replacing the old data-disk
@@ -122,11 +116,67 @@ already made:
   precedented category of mod, separate from what this project is
   building.
 
+## Rendering layer scoping (2026-08-06)
+
+**Confirmed: this mod needs the Unity Editor, not just Harmony/
+BepInEx — a real difference from `airlock-card-mod`.** StationeersMods'
+own docs are explicit: it doesn't support pure C#-only content creation
+for anything with visuals — "every asset in your project is added to
+your assetbundle," and mods boot by loading a specific prefab from an
+assetbundle into the scene. `airlock-card-mod` never needed this
+because it patches an *existing* vanilla Circuitboard's *existing* UI;
+this mod has to create new UI, so it needs the StationeersMods Exporter
++ Unity Editor asset pipeline on top of BepInEx. See "Requirements"
+below.
+
+**Good news, from `ScriptedScreens`' public API surface** (`ss.ui`,
+`surface:element`, `surface:layout`, `surface:commit()`): Consoles
+confirmed to support dynamic, script-driven world-space rendering, and
+the shape of that API — elements/layout committed at runtime, not
+authored per-design — strongly suggests the underlying pattern is
+*one* reusable Canvas plus a small set of generic primitive prefabs
+(button, graph, text), built once in Unity, with code driving
+instantiation/positioning at runtime rather than a new hand-authored
+prefab per UI design. That bounds the Unity asset work to something
+small and one-time, matching v1 scope almost exactly: a button
+primitive, a graph/banner primitive, nothing more.
+
+**Three-step plan, same discipline as `airlock-card-mod`'s
+decompile-before-build:**
+
+1. **R1 — decompile `ThingStructureConsole`/`Computer` and one or two
+   vanilla cards (Graph Display, Gas Display).** The question that
+   determines everything else: is there already a generic drawable
+   surface/Canvas shared across all Circuitboards plugged into a
+   Console, that this mod could piggyback on — or does each vanilla
+   card ship its own bespoke prefab with nothing reusable? Cheapest
+   possible outcome is the former. Needs decompiler access on the
+   project owner's own machine, same as every other ground-truth
+   question this project has hit.
+2. **R2 — author the minimal Unity prefab set, only if R1 shows
+   nothing reusable exists.** One Canvas, one button primitive, one
+   graph/banner primitive — scoped tightly to the 4-buttons-+-banner
+   v1, not more.
+3. **R3 — wire it up in C#.** Given the per-slot structure/behavior/
+   text data the protocol above already resolved, instantiate and
+   position the right primitives at runtime via
+   `ContentHandler.Instantiate`.
+
+R1 is the highest-leverage next step — it decides how much of R2 is
+even necessary.
+
 ## Requirements
 
 - BepInEx, same hard requirement as `airlock-card-mod` — see that
   project's `README.md` for why the Unity/StationeersMods path doesn't
   avoid this either.
+- **Unity Editor + the StationeersMods Exporter, unlike
+  `airlock-card-mod`.** Confirmed necessary above — this mod creates
+  new UI content, which StationeersMods' asset pipeline requires
+  authoring in Unity and exporting as an AssetBundle, not something
+  achievable through Harmony patches alone. The
+  `StationeersUnityModdingTemplate` (StationeersModding org on GitHub)
+  is the standard starting point for this.
 
 ## Not started yet
 
