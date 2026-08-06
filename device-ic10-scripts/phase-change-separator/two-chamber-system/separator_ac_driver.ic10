@@ -11,9 +11,11 @@ alias Self db
 alias Dial d0
 
 define FUDGEK 1.5
-define DefaultGasIndex 8   # no dial wired -> fixed target (8 = Nitrogen).
-                            # Keep in sync with separator_sequencer.ic10's
-                            # own DefaultGasIndex if you change this.
+define DefaultGasIndex 10  # no dial wired -> fixed target (10 = Pollutant --
+                            # picked over Nitrogen since it typically
+                            # condenses first at storage-tank pressures,
+                            # see two_chamber_notes.md). Keep in sync with
+                            # separator_sequencer.ic10's own DefaultGasIndex.
 
 alias PreviousError r15
 alias GasIndex r14

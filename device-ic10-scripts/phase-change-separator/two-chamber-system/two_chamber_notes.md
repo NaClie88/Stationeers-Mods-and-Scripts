@@ -53,6 +53,20 @@ useful, documented here as a set.
 - **Optional: a display showing the current selection.** Not built
   yet — see "Display, not yet built" below.
 
+**Pin map:**
+
+| Chip | Pin | Device |
+|---|---|---|
+| A (AC's onboard slot) | `db` | the AC itself (`Self`) |
+| A | `d0` | Dial (optional) |
+| A | `d1` | free — the AC's onboard slot only has 2 pins total, only 1 used |
+| B (IC Housing) | `d0` | Gas Sensor |
+| B | `d1` | source pump |
+| B | `d2` | Condensation Valve |
+| B | `d3` | Purge Valve |
+| B | `d4` | Dial (optional) |
+| B | `d5` | free |
+
 ## How it works
 
 Every tick, both chips independently read the same dial and look up
@@ -76,9 +90,10 @@ independent schedules:
 **The dial is optional, not required — both chips work either way.**
 If a dial is wired to `d0`/`d4`, its live value picks the gas index
 each tick, no re-flash needed. **If no dial is wired**, each script
-falls back to its own `DefaultGasIndex` constant (defaults to `8`,
-Nitrogen) — the same `brdns` graceful-degradation pattern used
-throughout this repo (see `../../air-conditioner/ac_thermostat.ic10`,
+falls back to its own `DefaultGasIndex` constant (defaults to `10`,
+Pollutant — see "Why Pollutant, not Nitrogen" below) — the same
+`brdns` graceful-degradation pattern used throughout this repo (see
+`../../air-conditioner/ac_thermostat.ic10`,
 `../../filtration/onboard_filtration.ic10`). This is a genuine, real
 fix, not just a nice-to-have: the first version of these two scripts
 read the dial unconditionally, which would have **faulted the whole
@@ -97,6 +112,21 @@ double-check both when you change it.
 **Never set either `DefaultGasIndex` or the dial to Helium's index —
 it doesn't have one, because it can't be liquefied in-game at all.**
 
+### Why Pollutant, not Nitrogen — the default, explained
+
+Originally defaulted to Nitrogen (index 8, matching the single-chamber
+script's own original hardcoded target). Project owner (2026-08-07)
+pointed out this is actually a poor default: per
+`../condensation_reference.md`, Nitrogen needs ~190 K even at the
+table's max charted pressure (6000 kPa) — genuinely one of the more
+demanding gases here, not a good target to fall back to blind. **Pollutant's
+curve runs the opposite way**: its condensation temperature *rises*
+with pressure rather than requiring extreme cold, so at typical
+high-pressure storage tank conditions it tends to condense first, with
+comparatively little active cooling needed. Matches real hands-on
+experience, not just the chart reading. Changed the default to index
+10 (Pollutant) in both scripts.
+
 ## Precooling pattern — no new script needed
 
 Project owner's observation: some environments make certain gases
@@ -114,13 +144,13 @@ own script.
 ## Display, not yet built
 
 Would be genuinely nice — a readout showing which gas is currently
-selected — but there's no free pin left on either chip for one right
-now (Chip B is already using all 6). Two paths if this gets built
-later: swap the Purge Valve or source pump to shared batch/hash
-addressing to free a pin, or add a third small chip just for display.
-Not designing this until it's actually wanted — speculative hardware
-additions before they're needed is exactly the kind of complexity this
-project tries to avoid.
+selected. **Correction (2026-08-07): there is a free pin for this** —
+Chip B only uses 5 of its 6 pins (`d5` is free, see the pin map
+above); an LED or Diode there could show a color/number keyed to
+`GasIndex`. Not built yet regardless — speculative hardware additions
+before they're actually wanted is exactly the kind of complexity this
+project tries to avoid — but the pin exists whenever it's wanted, no
+rewiring of anything else required.
 
 ## Known limitations
 
