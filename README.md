@@ -39,12 +39,27 @@ stands on its own.
   design rationale, corrections, and dry-run verification, validated
   against a real production Workshop script (Custom Airlock V2 by
   CowsAreEvil) and tested in a real IC10 emulator. Marked clearly where
-  remaining edge cases (stall recovery, mid-prop mismatch ordering)
-  still aren't handled.
+  remaining unknowns (`BtnHash`, the LED Color enum, an untested real
+  wireless Transmitter/Receiver link) still need in-game confirmation.
 - `ic10_airlock_setup_guide.md` — first-time build checklist: hardware
   list, wiring per chip/pin, Labeller naming steps for the three
   buttons, constants to verify before power-on, and a troubleshooting
   section.
+
+### `logic-network-reference/`
+Decompiled ground truth for what every device actually does over the
+LogicType network — built after this project got burned more than once
+trusting secondhand/community-sourced LogicType documentation (see its
+own `README.md` for the specific examples). `ground-truth-database.md`
+covers 120 device classes' real `GetLogicValue`/`SetLogicValue`/
+`CanLogicRead`/`CanLogicWrite` implementations, extracted straight from
+`Assembly-CSharp.dll`; `base-behavior.md` documents the shared
+implementation most devices inherit; `devices/*.md` are hand-written,
+narrative deep-dives for a handful of devices this project cares about
+most (Power Controller, Door, Motherboards/Circuitboards, Logic
+Transmitter). Already resolved one real bug in `watcher.ic10` (the
+Power Controller `Charge`/`Maximum` misread) and one open design
+question (the Power Controller's own output-gating LogicType).
 
 ### `database/`
 Structured data backing a future per-world/per-difficulty guide
