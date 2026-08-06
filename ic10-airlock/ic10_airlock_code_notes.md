@@ -542,9 +542,24 @@ close→evacuate→unlock ordering, the Button-C override, the Watcher gate
 logic including the safety-critical forced-wake-on-Critical rule, and
 the Gas Sensor chip's match/mismatch branching.
 
+**Power Controller's own output-gating LogicType — resolved
+2026-08-06, by project owner's authoritative design knowledge rather
+than decompilation.** Ground truth (`logic-network-reference`'s
+`AreaPowerControl` entry) already confirmed the class overrides
+`GetLogicValue` only — no `SetLogicValue`/`CanLogicRead`/
+`CanLogicWrite` override at all, meaning `On`'s write path is
+unmodified `base-behavior.md` (`HasOnOffState` → `OnServer.Interact
+(InteractOnOff, state)`), same as every other on/off device — so `On`
+was already the only candidate. What decompilation couldn't answer is
+whether toggling that state *functionally* cuts downstream power
+rather than something narrower — that's internal simulation behavior,
+outside what a LogicType-accessor scan covers. Project owner (2026-08-06):
+the Power Controller's explicit in-game purpose is a battery buffer/
+charge circuit for everything downstream of it *and* a power cutoff
+switch — confirmed directly, no in-game test needed. `Gate`/`On` in
+`watcher.ic10` was already written this way; nothing to change in code.
+
 **Genuinely still open:**
-- The exact LogicType that gates a Power Controller's own output —
-  assumed `On`, not independently confirmed.
 - `BtnHash` — single-sourced, not cross-confirmed.
 - `ColorGreen`/`ColorYellow`/`ColorRed` (2/5/4) — sourced from
   aggregated search results citing the Community Wiki's "Data Network
