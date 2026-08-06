@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Logic-only test project. Targets net9.0, NOT the mod's eventual
+    net472 BepInEx target: FailsafeController.cs is deliberately
+    written with zero Stationeers/Unity/BepInEx dependencies (see its
+    own header comment), so it compiles and runs identically here.
+    This project exists purely to verify the state machine logic before
+    any real game hooks exist; it is not part of the shipped mod build.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>AirlockCardMod.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Single source of truth: compile the real controller directly,
+         no copy. -->
+    <Compile Include="..\..\src\FailsafeController.cs" Link="FailsafeController.cs" />
+  </ItemGroup>
+
+</Project>

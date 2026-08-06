@@ -1,0 +1,4 @@
+# .NET build output (airlock-card-mod/)
+bin/
+obj/
+*.user
