@@ -1,0 +1,61 @@
+name: "Console UI Mod: Custom Screen Request"
+description: Request a screen layout/feature for console-UI-mod (see that branch's README for current design status).
+title: "[console-UI-mod] "
+labels: ["console-ui-mod", "feature-request"]
+body:
+  - type: textarea
+    id: use-case
+    attributes:
+      label: "1. Use case"
+      description: >
+        Why is this needed, and how is it not already served by one of
+        vanilla's own console cards (Graph Display, Gas Display, Power
+        Control, etc.)?
+      placeholder: |
+        Example: I want one screen showing both a temperature trend and a
+        pressure trend side by side, each with its own manual valve toggle,
+        for a cooling loop -- vanilla's Graph Display only shows one graph
+        per card and has no button.
+    validations:
+      required: true
+
+  - type: textarea
+    id: layout
+    attributes:
+      label: "2. Desired layout"
+      description: >
+        Describe where each element sits on the screen. Fractions/quadrants
+        work well -- you don't need pixel coordinates.
+      placeholder: |
+        Example:
+        - Left half, top 2/3: temperature graph
+        - Left half, bottom 1/3: button to actuate a networked valve
+        - Right half, top 2/3: pressure graph
+        - Right half, bottom 1/3: button to actuate a second valve (cooling loop)
+    validations:
+      required: true
+
+  - type: textarea
+    id: functionality
+    attributes:
+      label: "3. Functionality"
+      description: What does each element actually do at runtime?
+      placeholder: |
+        Example: graphs read live network data from a specified device.
+        Buttons toggle a networked device's On/Activate state.
+    validations:
+      required: true
+
+  - type: textarea
+    id: special-requests
+    attributes:
+      label: "4. Special requests (optional)"
+      description: >
+        Anything beyond the basics -- conditional behavior, styling, alerts,
+        etc. It's fine if this isn't feasible for a first version; it's
+        still useful to record.
+      placeholder: |
+        Example: can a graph swap color and flash a warning when its value
+        goes out of a defined range?
+    validations:
+      required: false
