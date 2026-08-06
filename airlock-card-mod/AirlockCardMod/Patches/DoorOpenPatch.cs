@@ -24,6 +24,17 @@ namespace AirlockCardMod.Patches
         // a debugger attached.
         private static bool loggedFirstMatch;
 
+        // TEMP diagnostic (2026-08-05): the first in-game door-open
+        // test produced no "OnDoorOpened fired" line and no exception
+        // either -- ambiguous between "the Postfix never runs on a
+        // door open" (deeper problem, Thing.IsOpen's setter isn't
+        // actually the real path) and "it runs but this door isn't
+        // recognized as belonging to any tracked airlock" (smaller
+        // problem). Logs once for ANY Door whose IsOpen transitions to
+        // true, regardless of controller match, to tell those two
+        // apart. Remove once resolved.
+        private static bool loggedAnyDoorOpen;
+
         // Captures the value before this specific assignment, so the
         // Postfix can edge-detect false -> true instead of firing on
         // every redundant same-value write (the setter runs on every
@@ -37,6 +48,13 @@ namespace AirlockCardMod.Patches
         {
             if (!value || __state) return;
             if (!(__instance is Door door)) return;
+
+            if (!loggedAnyDoorOpen)
+            {
+                loggedAnyDoorOpen = true;
+                UnityEngine.Debug.Log("[Salty's Advanced Airlock]: DIAGNOSTIC -- Thing.IsOpen setter fired for a Door ("
+                    + door.DisplayName + "), KnownControllers.Count=" + AdvancedAirlockFailsafePatch.KnownControllers.Count);
+            }
 
             foreach (var controller in AdvancedAirlockFailsafePatch.KnownControllers)
             {
