@@ -11,7 +11,7 @@ over time, and `devices/power-controller.md` for a concrete example of
 this exact source getting a device's behavior subtly wrong (`Charge`
 described as "Current charge of battery in slot" — no mention that it
 also includes live input-network power — the same imprecision that
-misled `ic10-airlock/watcher.ic10`'s original design).
+misled `airlock-ic10-scripts/watcher.ic10`'s original design).
 
 ## Source and license
 

@@ -32,7 +32,7 @@ enum ordinals, not assumed from the switch statement alone.
 
 `Charge` sounds like "how charged is the battery," and most
 community-sourced scripts (this project included, in
-`ic10-airlock/watcher.ic10` — see the correction in
+`airlock-ic10-scripts/watcher.ic10` — see the correction in
 `ic10_airlock_code_notes.md`'s Watcher section) read it and divide by
 `Maximum` expecting a clean percentage. **That's wrong whenever the
 Power Controller has any live input power flowing** (a connected

@@ -56,7 +56,7 @@ CREDITS/SOURCES file without hunting back through chat history.
   / Battery.PowerMaximum`, confirmed legally readable via
   `CanLogicRead`'s own range check against real enum ordinals) — this
   gist's div-by-Maximum approach is a working-but-imprecise substitute,
-  not the ground truth. See `ic10-airlock/ic10_airlock_code_notes.md`'s
+  not the ground truth. See `airlock-ic10-scripts/ic10_airlock_code_notes.md`'s
   Watcher section for the full trace and the likely resulting bug in
   `watcher.ic10`. Kept here for the correction trail, not deleted.
 - Community Wiki (community-derived enum reference), StationeersLua Docs "Enumerations & Constants" — https://orbitalfoundrymodteam.github.io/StationeersLuaDocs/guide/enums-constants.html

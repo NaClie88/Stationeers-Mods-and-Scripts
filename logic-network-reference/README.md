@@ -5,7 +5,7 @@
 This project has been burned more than once by trusting community-sourced
 Stationeers documentation (wiki pages, forum scripts, cross-referenced
 enum lists) about what a device's LogicTypes actually do — see
-`ic10-airlock/ic10_airlock_code_notes.md` for two real examples: the
+`airlock-ic10-scripts/ic10_airlock_code_notes.md` for two real examples: the
 Light `Setting` field that turned out not to exist at all, the
 "Logic Receiver"/numbered-channel Transmitter mechanism that also
 doesn't exist, and (the one that prompted this branch) a Power

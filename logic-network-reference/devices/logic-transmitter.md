@@ -3,7 +3,7 @@
 **Real class**: `Assets.Scripts.Objects.Electrical.LogicTransmitter`
 (decompiled via `ilspycmd`, 2026-08-06 — this project's own IC10
 airlock design depends on this device directly, see
-`ic10-airlock/watcher.ic10`/`cycle.ic10`). Extends `LogicInputBase`.
+`airlock-ic10-scripts/watcher.ic10`/`cycle.ic10`). Extends `LogicInputBase`.
 
 **Not in `ground-truth-database.md`'s automated extraction** — its
 `CanLogicRead`/`GetLogicValue`/`CanLogicWrite`/`SetLogicValue`
