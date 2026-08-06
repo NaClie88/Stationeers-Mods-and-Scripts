@@ -88,6 +88,24 @@ scripts, official patch notes, and community discussion threads.
 Organized by topic. If something in the two IC10 files doesn't have a
 matching entry here, it hasn't been properly sourced yet.
 
+## Repo organization
+
+This is a monorepo for multiple independent Stationeers projects, not
+one thing — currently the IC10 airlock scripts and the shared
+`logic-network-reference`, with a C# Harmony mod (`airlock-card-mod`,
+currently on its own `airlock-mod-card` branch, not yet merged) and a
+planned Console-UI-bridge mod to follow. **Each mod is self-contained
+in its own top-level folder** — own project file, own dependencies —
+specifically so Steam Workshop packaging is just "zip that one
+folder," independent of everything else here. Shared reference
+material like `logic-network-reference` is the payoff of keeping
+these together instead of splitting into separate repos per mod.
+
+**Versioning:** git tags/releases are repo-wide, not folder-scoped, so
+per-mod releases use a `<mod>-vX.Y` prefix (e.g. `airlock-card-v1.0`)
+rather than plain semver tags, to keep each mod's version history
+distinguishable in one shared tag list.
+
 ## Status
 
 Actively developed. Several things are explicitly flagged as
