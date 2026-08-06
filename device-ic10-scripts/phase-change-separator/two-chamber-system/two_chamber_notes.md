@@ -45,8 +45,11 @@ useful, documented here as a set.
   Community Wiki warns this valve can trigger unwanted re-evaporation
   if run too aggressively, potentially flooding/bursting pipes. Don't
   shorten the interval without understanding that risk.
-- **A Logic Dial** (`d4` on Chip B, `d0` on Chip A) — sets the target
-  gas index. See `../condensation_reference.md` for the index table.
+- **Optional: a Logic Dial** (`d4` on Chip B, `d0` on Chip A) — sets
+  the target gas index live. See `../condensation_reference.md` for
+  the index table. Skip it entirely and edit each script's
+  `DefaultGasIndex` instead if you'd rather not build one — see
+  "Switching target gas" below for the tradeoff.
 - **Optional: a display showing the current selection.** Not built
   yet — see "Display, not yet built" below.
 
@@ -70,10 +73,29 @@ independent schedules:
 
 ## Switching target gas
 
-Turn the shared dial to the desired index (`../condensation_reference.md`).
-Both chips pick it up within a tick or two — no re-flash needed.
-**Never dial in Helium's index — it doesn't have one, because it
-can't be liquefied in-game at all.**
+**The dial is optional, not required — both chips work either way.**
+If a dial is wired to `d0`/`d4`, its live value picks the gas index
+each tick, no re-flash needed. **If no dial is wired**, each script
+falls back to its own `DefaultGasIndex` constant (defaults to `8`,
+Nitrogen) — the same `brdns` graceful-degradation pattern used
+throughout this repo (see `../../air-conditioner/ac_thermostat.ic10`,
+`../../filtration/onboard_filtration.ic10`). This is a genuine, real
+fix, not just a nice-to-have: the first version of these two scripts
+read the dial unconditionally, which would have **faulted the whole
+chip** on an unwired pin rather than just not working — a pin read
+(unlike a batch read) errors out on an empty slot, the same lesson
+this project already learned building the Gas Sensor chip's `brdns`
+guards.
+
+So you get real flexibility either way: build the dial for live
+in-game switching, or skip it entirely and just edit
+`DefaultGasIndex` in both scripts before flashing to lock in a fixed
+target. **Both files' `DefaultGasIndex` need to match** if you're
+using the fixed-target path — nothing enforces that automatically, so
+double-check both when you change it.
+
+**Never set either `DefaultGasIndex` or the dial to Helium's index —
+it doesn't have one, because it can't be liquefied in-game at all.**
 
 ## Precooling pattern — no new script needed
 

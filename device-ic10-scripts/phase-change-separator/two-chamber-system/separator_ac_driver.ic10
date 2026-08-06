@@ -11,6 +11,9 @@ alias Self db
 alias Dial d0
 
 define FUDGEK 1.5
+define DefaultGasIndex 8   # no dial wired -> fixed target (8 = Nitrogen).
+                            # Keep in sync with separator_sequencer.ic10's
+                            # own DefaultGasIndex if you change this.
 
 alias PreviousError r15
 alias GasIndex r14
@@ -23,7 +26,12 @@ move PreviousError 0
 
 loop:
 yield
+brdns Dial noDial
 l GasIndex Dial Setting
+j haveIndex
+noDial:
+move GasIndex DefaultGasIndex
+haveIndex:
 jal lookupTemp
 move Target ReturnValue
 l r0 Self TemperatureOutput

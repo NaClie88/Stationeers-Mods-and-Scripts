@@ -20,6 +20,9 @@ define DrainInterval 100
 define DrainHoldTicks 20
 define PurgeInterval 400
 define PurgeHoldTicks 10
+define DefaultGasIndex 8   # no dial wired -> fixed target (8 = Nitrogen).
+                            # Keep in sync with separator_ac_driver.ic10's
+                            # own DefaultGasIndex if you change this.
 
 alias GasIndex r14
 alias TargetPressure r13
@@ -40,7 +43,12 @@ move PurgeHold 0
 
 loop:
 yield
+brdns Dial noDial
 l GasIndex Dial Setting
+j haveIndex
+noDial:
+move GasIndex DefaultGasIndex
+haveIndex:
 jal lookupPressure
 move TargetPressure ReturnValue
 l r0 Sensor Pressure
