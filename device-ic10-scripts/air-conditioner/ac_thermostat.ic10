@@ -1,0 +1,75 @@
+# Air Conditioner onboard-chip thermostat: PID-based temperature
+# control with a tolerance band before engaging, plus an optional
+# external target-temperature source.
+# Adapted from jhillacre/stationeers-scripts' air-conditioner-controller.ic10
+# (see ../SOURCES.md) -- two changes from the original:
+# 1) Real bug fix: the original compared current temperature against
+#    the LOWER bound twice (once each direction: slt/sgt against the
+#    same register) instead of against the lower AND upper bounds, so
+#    Mode came out active almost every tick regardless of the fudge
+#    factor -- the tolerance band never actually did anything. See
+#    ac_thermostat_notes.md for the full trace.
+# 2) Added an optional external target-temperature source on d0 (a
+#    Logic Dial or any device exposing a numeric Setting) -- if wired,
+#    its live value overrides TARGET; if not, falls back to the
+#    hardcoded define. Same brdns graceful-degradation idiom used
+#    elsewhere in this repo (see airlock-ic10-scripts/gas_sensor.ic10).
+
+alias Self db
+alias Dial d0
+
+define TARGET 294.15
+define FUDGEK 1.5
+
+alias PreviousError r15
+
+init:
+s Self Setting TARGET
+s Self Mode 0
+move PreviousError 0
+
+loop:
+yield
+brdns Dial noDial
+l r7 Dial Setting
+j haveTarget
+noDial:
+move r7 TARGET
+haveTarget:
+l r0 Self TemperatureOutput
+sub r2 r7 FUDGEK
+add r3 r7 FUDGEK
+slt r4 r0 r2
+sgt r5 r0 r3
+or r6 r4 r5
+s Self Mode r6
+beqz r6 loop
+l r1 Self Setting
+push r0
+push r7
+push PreviousError
+push r1
+jal scaleSetting
+pop PreviousError
+pop r1
+s Self Setting r1
+j loop
+
+scaleSetting:
+# stack args: current, target, prev error, prev setting
+# returns via stack: new setting, new error
+pop r3
+pop r2
+pop r1
+pop r0
+sub r4 r1 r0
+mul r5 r4 0.1
+mul r6 r2 0.1
+sub r7 r4 r2
+mul r7 r7 0.1
+add r5 r5 r6
+add r5 r5 r7
+add r5 r5 r3
+push r5
+push r4
+j ra

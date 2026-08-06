@@ -46,6 +46,16 @@ stands on its own.
   buttons, constants to verify before power-on, and a troubleshooting
   section.
 
+### `device-ic10-scripts/`
+Curated IC10 scripts for devices with their own **onboard** IC chip
+slot (Air Conditioner, Filtration, etc.) — a different category from
+`airlock-ic10-scripts/`'s freestanding IC-Housing design. One
+subfolder per device, each with a setup guide and a citation trail in
+this folder's own `SOURCES.md`. **Not everything here is original
+work** — several scripts are adapted from community sources, clearly
+marked per-script. Living collection, built out device by device, not
+delivered as a complete survey.
+
 ### `logic-network-reference/`
 Decompiled ground truth for what every device actually does over the
 LogicType network — built after this project got burned more than once
