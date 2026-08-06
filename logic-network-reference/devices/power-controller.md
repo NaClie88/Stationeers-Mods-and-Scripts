@@ -59,16 +59,26 @@ No additional writable LogicTypes beyond the shared base — `Charge`,
 (not present in the device's `SetLogicValue`, and not part of the
 shared base's writable six either).
 
+## Output-gating LogicType — resolved 2026-08-06
+
+`On` gates the Power Controller's own downstream output/cutoff
+switching. Decompilation alone narrowed this but couldn't close it:
+`AreaPowerControl` has no `SetLogicValue`/`CanLogicRead`/
+`CanLogicWrite` override at all (see "Write" above), so `On`'s write
+path is unmodified `base-behavior.md` (`HasOnOffState` →
+`OnServer.Interact(InteractOnOff, state)`) — meaning `On` was already
+the only candidate, since nothing else touches the write path. What a
+LogicType-accessor scan can't answer is whether toggling that state
+*functionally* cuts downstream power rather than something narrower —
+that's internal simulation behavior, not part of this reference's
+scope. Closed by project owner's direct design knowledge instead: the
+Power Controller's explicit in-game purpose is a battery buffer/charge
+circuit for everything downstream of it *and* a power cutoff switch —
+confirmed directly, no further decompilation or in-game test needed.
+
 ## Not yet checked
 
 - `LogicSlotType` reads into `BatterySlot` (index 0) — would return
   info about the inserted `BatteryCell` itself (occupied/hash/
   quantity/etc. per `base-behavior.md`'s `LogicSlotType` section), not
   yet cross-referenced against `BatteryCell`'s own fields.
-- The exact LogicType that gates the Power Controller's own
-  output/downstream switching (the `On`/`OnOff` field is inherited
-  from the shared base and presumably applies, per every other
-  powered device in this project's prior research, but not
-  independently re-confirmed here against this specific class's
-  `HasOnOffState` — flagged the same way in
-  `ic10_airlock_code_notes.md`).
