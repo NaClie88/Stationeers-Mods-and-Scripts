@@ -5,46 +5,74 @@ the checklist for Milestone 1.5: what to find in `Assembly-CSharp.dll`
 (dnSpy/ILSpy) so a thin Harmony `IAirlockHost` adapter can wire it up.
 Each `IAirlockHost` member below needs one real answer.
 
+**Real class names, CONFIRMED (2026-08-05, decompiled directly via
+`ilspycmd` — full source pulled, not just a class list):**
+`Assets.Scripts.Objects.Motherboards.AdvancedAirlockControl` extends
+`AirlockControlBase` extends `Assets.Scripts.Objects.Items.Circuitboard`
+extends `Motherboard`. The older non-Advanced airlock is a sibling,
+`Assets.Scripts.Objects.Motherboards.AirlockControl`, sharing the same
+`AirlockControlBase`. State lives in an `AdvancedAirlockState` enum
+(`Disabled`/`PressurizingInternal`/`PressurizedInternal`/
+`DepressurizingInternal`/`PressurizingExternal`/`PressurizedExternal`/
+`DepressurizingExternal`) exposed as `AirlockControlState`.
+
 ## What to find, per `IAirlockHost` member
 
-- **`DedicatedBatteryChargeRatio`** — find how the vanilla circuit (or
-  the Console it's inserted into) already reads any wired
-  Power Controller's `Charge`/`Maximum` — the LogicType names
-  themselves are already confirmed for IC10 use
-  (`ic10-airlock/watcher.ic10` lines 32-33, sourced in `SOURCES.md`),
-  the open question is purely the C# property/field name on whatever
-  class exposes it, if the vanilla circuit exposes a Power Controller
-  reference at all. **If it doesn't** (vanilla's cycling logic may not
-  care about power source at all, only whether it currently has
-  power), this needs its own new field on the patched class — a
-  reference to a specific Power Controller, set some other way (a new
-  Console setting? Hardcoded to "whatever's on the same network"?).
-  Flag whichever is true when you find it.
-- **`ButtonEHeld`/`ButtonIHeld`/`ButtonCHeld`** — find how the vanilla
-  circuit reads button/switch input at all (its Console UI buttons vs.
-  physical Logic Switches wired to the airlock). This project's IC10
-  side uses `lbn` with a hashed name per button (`AirlockBtnE`/`I`/`C`,
-  see `watcher.ic10`) — the vanilla class may use something else
-  entirely, e.g. UI button click callbacks rather than any hashed
-  device read. `ButtonEHeld`/`ButtonIHeld` feed the downstream-power
-  wake logic — if vanilla has no concept of a chamber-interior button
-  at all, new wiring is needed for those. **`ButtonCHeld` specifically
-  is now a fallback, not the primary plan** — see Milestone 0.5 in
-  `README.md` and `GAP_ANALYSIS.md`'s "Reusing vanilla's Skip instead
-  of custom Button C hardware": the Console already sits inside the
-  chamber in the traditional layout, so a trapped player already has
-  Skip access to vanilla's own stall-cancel mechanism with nothing
-  extra to build, and `ForceEvacuate()`/`UnlockDoors()` may not need a
-  separate override check at all. Don't invest heavily in finding a
-  hashed-button hook for Button C until Milestone 0.5 comes back
-  negative.
+- **`DedicatedBatteryChargeRatio`** — **CONFIRMED: no vanilla
+  equivalent, needs a new field.** `AdvancedAirlockControl`,
+  `AirlockControlBase`, and `AirlockControl` were all decompiled in
+  full — zero references to battery, charge, or any Power Controller
+  type anywhere in the three classes. The circuit only tracks Doors,
+  Gas Sensors, `IPoweredVent`s, `WallLight`s (as warning lights), and
+  Speakers; nothing about its own power source. This needs its own new
+  field, a reference to a specific Power Controller, set some other
+  way (a new Console setting, most likely) — not a hook into anything
+  that already exists.
+- **`ButtonEHeld`/`ButtonIHeld`/`ButtonCHeld`** — **CONFIRMED: no
+  vanilla equivalent, and the likely-looking hook is a dead end.**
+  Vanilla's button input is entirely Console UI `Button` components
+  wired to C# click handlers — `ButtonCycleAirlock()`,
+  `ButtonPressureInternal()`, `ButtonPressureExternal()`,
+  `ButtonEmergencyOverride()` — not hashed device reads the way this
+  project's IC10 side works. **`ButtonEmergencyOverride()` looked like
+  the obvious vanilla analog for Button C by name, but decompiling both
+  overrides shows it's a genuine no-op in both classes** —
+  `AdvancedAirlockControl` doesn't override it at all (falls through to
+  the empty base), and `AirlockControl`'s own override is just
+  `base.ButtonEmergencyOverride();` with nothing else. It's a vestigial
+  hook the shipped game doesn't wire to anything — don't build on its
+  name implying real behavior. This makes Milestone 0.5's finding more
+  load-bearing, not less: reusing vanilla's Skip (below) really is the
+  only working override path already in the game, so **stay on the
+  "`ButtonCHeld` is a fallback, not the primary plan" position** — see
+  `README.md` Milestone 0.5 and `GAP_ANALYSIS.md`'s "Reusing vanilla's
+  Skip instead of custom Button C hardware." `ButtonEHeld`/`ButtonIHeld`
+  (chamber-interior wake buttons) have no vanilla concept at all either
+  — confirmed new wiring regardless, same as originally flagged.
+- **HOW vanilla's own Skip/Cancel actually works, CONFIRMED** — useful
+  context for `ForceEvacuate()` below and for closing Milestone 0.5's
+  remaining open question. `ButtonCycleAirlock()` (bound to the
+  Console's main Cycle/Cancel button) calls
+  `Motherboard.UseComputer((int)ButtonCommands.SetFlag /* = 3 */, ...,
+  newStateInt, sendToAll: true)`, which round-trips into
+  `SetFlag(int page)` → sets `AirlockControlState`. The
+  `AirlockControlState` property setter has a `switch` that starts a
+  **new** `Pressurizing()`/`Depressurizing()` `UniTask` for whatever
+  state was just assigned. There's no explicit cancellation of the old
+  task — it's a plain async loop (`while (... && AirlockControlState ==
+  transitState ...) { await UniTask.Delay(100, ...); }`) that simply
+  stops looping on its next 100 ms poll once the state no longer
+  matches, since the setter already changed it out from under it. So
+  "Skip" is really "request the next state and let the old task notice
+  and exit" — not a cancellation API. This is the real mechanism a
+  Harmony patch would be reusing if `ForceEvacuate()` calls into the
+  same state-assignment path rather than reimplementing vent control.
 - **`HasWakeButtons`** — the actual gate for whether Deep Idle runs at
   all (see `GAP_ANALYSIS.md`'s "Graceful degradation" section). Just a
   presence check: does this circuit have a physical E or I button
-  wired at all, however Milestone 1.5 finds button-wiring is detected.
-  Straightforward once `ButtonEHeld`/`ButtonIHeld` above are resolved —
-  this is likely "is the reference/hash null" on whatever those turn
-  out to be built from.
+  wired at all — confirmed above that this is entirely new wiring, so
+  this becomes "is the new reference/hash null" on whatever gets built
+  for `ButtonEHeld`/`ButtonIHeld`.
 - **`VanillaCycleRequested`** — optional, nice-to-have, not blocking.
   Whatever vanilla's real cycle-trigger path is (Console UI click
   handler most likely), surfacing it as a boolean the patch can read
@@ -118,19 +146,20 @@ Each `IAirlockHost` member below needs one real answer.
   `ColorGreen`/`ColorYellow`/`ColorRed`, itself still flagged
   unconfirmed in that build too). Lowest-stakes item on this list —
   fine to stub this out last.
-- **`SetDownstreamPower(bool)`** — almost certainly no vanilla
-  equivalent (see `GAP_ANALYSIS.md`'s "Power architecture" section) —
-  needs a reference to the traditional Area Power Controller feeding
-  the doors, Vents, and chamber Gas Sensor, set up as a new field, the
-  same way the dedicated battery reference above likely needs to be.
-  **Must be wired from the APC's power-source side** (project owner,
-  2026-08-05: an APC only exposes its logic there, not on its
-  downstream/output side) — don't look for a control hook on the
-  network the APC creates downstream of itself. **Check first whether
-  "Area Power Controller" and "Power Controller" are the same device**
-  (a wiki redirect suggests they might be) — if so, this is the exact
-  same device and `On`-field question already flagged unconfirmed for
-  `ic10-airlock/watcher.ic10`'s own zone gate, not new unknowns.
+- **`SetDownstreamPower(bool)`** — **CONFIRMED: no vanilla
+  equivalent**, same decompile pass as `DedicatedBatteryChargeRatio`
+  above — zero Power Controller/APC references anywhere in the three
+  airlock classes. Needs a reference to the traditional Area Power
+  Controller feeding the doors, Vents, and chamber Gas Sensor, set up
+  as a new field. **Must be wired from the APC's power-source side**
+  (project owner, 2026-08-05: an APC only exposes its logic there, not
+  on its downstream/output side) — don't look for a control hook on
+  the network the APC creates downstream of itself. **Check first
+  whether "Area Power Controller" and "Power Controller" are the same
+  device** (a wiki redirect suggests they might be) — if so, this is
+  the exact same device and `On`-field question already flagged
+  unconfirmed for `ic10-airlock/watcher.ic10`'s own zone gate, not new
+  unknowns.
 - **`HasDownstreamController`** — presence check paired with the above:
   does a controllable APC actually exist on the source-side network at
   all. Same shape as `HasWakeButtons`'s presence check — likely "is the
@@ -209,20 +238,33 @@ branch.
 
 ## Where the Harmony patch itself attaches
 
-Two things needed from Milestone 1.5 beyond the above:
+1. **The class name — CONFIRMED**:
+   `Assets.Scripts.Objects.Motherboards.AdvancedAirlockControl` (see
+   the top of this doc for the full inheritance chain).
+2. **The per-tick update method — CONFIRMED, with a wrinkle worth
+   attending to.** `AirlockControlBase` (the shared base class)
+   overrides two per-tick hooks, and they are **not** interchangeable:
+   - `OnThreadUpdate()` — recomputes `_pressure` from the wired Gas
+     Sensors every call, no visibility check. This one keeps running
+     even when nobody's looking at the Console.
+   - `UpdateEachFrame()` — only touches UI (slider/text/color lerps),
+     and **returns immediately if `IsOccluded ||
+     !PressureText.gameObject.activeInHierarchy`** — i.e. it stops
+     running whenever the Console isn't actually on-screen.
 
-1. **The class name** for the Advanced Airlock Circuitboard's runtime
-   behavior (guessed as something like `InternalCircuitAdvancedAirlock`
-   in `README.md`, unconfirmed).
-2. **The per-tick update method** on that class — wherever its own
-   cycling state machine runs each tick, so a Harmony `Postfix` patch
-   can call `FailsafeController.UpdateTier()` +
-   `.ApplyTierEffects()` right after vanilla's own logic runs, every
-   tick, without needing to touch vanilla's method at all. A `Postfix`
-   (not a `Prefix` or full replacement) is the right shape *if*
-   vanilla's normal cycling should keep running underneath — which
-   `GAP_ANALYSIS.md` says it should, for everything except the new
-   Critical-tier override.
+   **`OnThreadUpdate()` is the correct Postfix target, not
+   `UpdateEachFrame()`.** A failsafe controller that only ran its Tier
+   checks while a player happened to be looking at the specific
+   Console would silently stop monitoring the instant they walked
+   away or the object got occluded — exactly the kind of failure this
+   whole project exists to prevent. `OnThreadUpdate()` has no such
+   gate. **Still unconfirmed:** the actual call frequency/thread of
+   `OnThreadUpdate()` — it's declared further up the hierarchy (not on
+   `Circuitboard` itself; tracing it needs `Motherboard`/`Thing`'s own
+   base, not yet decompiled) — needed before `TicksPerCheck` below can
+   be set correctly. A `Postfix` (not a `Prefix` or full replacement)
+   remains the right shape, since vanilla's normal cycling should keep
+   running underneath per `GAP_ANALYSIS.md`.
 
 ## Throttling how often the patch actually runs
 
@@ -246,7 +288,7 @@ the rest for free.
 private static int ticksSinceLastCheck = 0;
 private const int TicksPerCheck = /* TBD, see below */;
 
-private static void Postfix(/* real class */ __instance)
+private static void Postfix(AdvancedAirlockControl __instance)
 {
     if (++ticksSinceLastCheck < TicksPerCheck) return;
     ticksSinceLastCheck = 0;
@@ -283,10 +325,11 @@ this is actually running, not just assumed.
 
 ## Once these are known
 
-Write a class like:
+Real names are now confirmed (see the top of this doc and "Where the
+Harmony patch itself attaches"). Write a class like:
 
 ```csharp
-[HarmonyPatch(typeof(/* real class */), "/* real update method */")]
+[HarmonyPatch(typeof(AdvancedAirlockControl), nameof(AdvancedAirlockControl.OnThreadUpdate))]
 internal static class AdvancedAirlockFailsafePatch
 {
     // one FailsafeController per circuit instance -- a
@@ -295,7 +338,7 @@ internal static class AdvancedAirlockFailsafePatch
     // existing class," but confirm this project's chosen approach
     // once real types are known. Combine with the throttling counter
     // above -- both belong in this same Postfix.
-    private static void Postfix(/* real class */ __instance)
+    private static void Postfix(AdvancedAirlockControl __instance)
     {
         var controller = GetOrCreateController(__instance);
         controller.UpdateTier();
@@ -304,8 +347,11 @@ internal static class AdvancedAirlockFailsafePatch
 }
 ```
 
-This file doesn't exist yet — deliberately. Writing it before the real
-class/method names are known would mean guessing at a `HarmonyPatch`
-attribute that either doesn't compile or silently patches the wrong
-thing. `FailsafeController.cs` is the part safe to write now; this
-shell is Milestone 2's actual first task.
+This file still doesn't exist yet — deliberately. The remaining
+unknowns before it's safe to write for real: `OnThreadUpdate()`'s
+actual call frequency/thread (needed to set `TicksPerCheck` and
+recalibrate `WakeHoldTicks`), and the still-open "Where `OnDoorOpened`
+attaches" and "Cross-network visibility" questions above.
+`FailsafeController.cs` is the part safe to write now; this shell is
+Milestone 2's actual first task, and most of its inputs are no longer
+guesses.

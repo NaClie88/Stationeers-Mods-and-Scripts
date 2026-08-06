@@ -172,21 +172,55 @@ needing your machine at all:
   need to wait on a decompiler — it's ready to attach the moment real
   hooks are known.
 
-### Milestone 1.5 — find the real classes (needs a decompiler, your machine only)
+### Milestone 1.5 — mostly CONFIRMED: found the real classes
 
-Once Milestone 1 works, open the game's `Assembly-CSharp.dll`
+**Done, 2026-08-05**, and faster than expected — turns out this step
+didn't need the manual dnSpy workflow below at all. Claude has direct
+shell access to this machine this session, so rather than walking
+through a GUI, `ilspycmd` (ILSpy's command-line decompiler) was
+installed as a `dotnet` global tool and used to decompile
+`Assembly-CSharp.dll` directly and grep/read the real source. Full
+findings and updated code samples are in `PATCH_PLAN.md`; short
+version:
+
+- **Real class confirmed**:
+  `Assets.Scripts.Objects.Motherboards.AdvancedAirlockControl` extends
+  `AirlockControlBase` extends `Circuitboard` extends `Motherboard`.
+- **Real per-tick Postfix target confirmed**: `OnThreadUpdate()`, not
+  `UpdateEachFrame()` — the latter stops running whenever the Console
+  isn't on-screen (`IsOccluded` check), which would silently break
+  failsafe monitoring the moment nobody's looking at it.
+- **No vanilla equivalent exists** for a dedicated battery/Power
+  Controller reference, an Area Power Controller reference, or
+  physical E/I/C wake buttons — all three need new fields/wiring,
+  confirmed by reading the full decompiled source rather than guessed.
+- **`ButtonEmergencyOverride()`** looked like the obvious vanilla
+  analog for Button C by name — decompiling both its overrides shows
+  it's a genuine no-op in the shipped game. Reusing vanilla's Skip
+  (Milestone 0.5, confirmed working) remains the only real override
+  path that already exists.
+- **How vanilla's own Skip mechanism works internally** is now
+  understood in detail (`Motherboard.UseComputer(SetFlag, ...)` →
+  state reassignment → the old async cycle task notices and exits on
+  its own next poll) — see `PATCH_PLAN.md` for the full trace.
+
+**Still open**: `OnThreadUpdate()`'s actual call frequency (needed to
+set `TicksPerCheck`), and the door-open attachment point / cross-
+network-visibility questions in `PATCH_PLAN.md` — those need more
+decompiling, not in-game testing, so they're a natural next session's
+work rather than something blocking Milestone 2 from starting.
+
+<details>
+<summary>Original manual-decompiler instructions (kept for reference / if working on a machine without shell access)</summary>
+
+Open the game's `Assembly-CSharp.dll`
 (`<Stationeers install>/rocketstation_Data/Managed/Assembly-CSharp.dll`)
-in a free decompiler — dnSpy or ILSpy, either works. **`PATCH_PLAN.md`
-has the exact checklist**, one item per thing `FailsafeController.cs`
-needs from the real game: the Advanced Airlock Circuitboard's real
-class name, its per-tick update method, and where (if anywhere) it
-already exposes button input, a Power Controller reference, and
-door/vent control methods.
+in a free decompiler — dnSpy or ILSpy, either works (dnSpy is already
+installed on this machine, `BepInEx`/`Harmony` DLLs are in its plugins
+list). Browse to `Assets.Scripts.Objects.Motherboards` in the assembly
+tree and start with `AdvancedAirlockControl`.
 
-**Report back what you find** — class names, method signatures,
-whatever's visible — so the next step is real code, not a guess. I
-can't do this step myself; I have no access to that DLL from this
-sandbox.
+</details>
 
 ### Milestone 2 — patch the existing card in place
 
