@@ -320,6 +320,34 @@ Confirm the card's in-game behavior matches the documented IC10 design
 at every Tier transition and edge case already enumerated in the
 requirements doc's verification checklist.
 
+## Roadmap to 1.0 (spans branches — agreed with project owner 2026-08-06)
+
+Two separate 1.0s: the IC10-only path (no mod required, `main`) and
+this mod. Agreed order, next session onward:
+
+1. **Close out IC10 loose ends first, on `main`.** See
+   `ic10-airlock/ic10_airlock_code_notes.md`'s "Genuinely still open"
+   list — `BtnHash`, the LED Color enum, and the Power Controller
+   Charge/Ratio bug found via this branch's decompilation work. Goal:
+   a genuinely no-known-issues IC10-only 1.0. The
+   `logic-network-reference` branch's `ilspycmd` toolchain can very
+   likely resolve most of this directly, the same way it already
+   resolved the Charge/Ratio question and the Logic Transmitter
+   `Setting` mechanism — probably without needing the project owner
+   in-game at all.
+2. **Then real hardware wiring, back on this branch.** Wire
+   `AdvancedAirlockControlHost` to an actual dedicated battery/Power
+   Controller reference — the first step past Milestone 2's
+   confirmed-safe no-op. `logic-network-reference`'s
+   `devices/power-controller.md` already has the real field names
+   needed (`Ratio` for a clean charge percentage, not `Charge`).
+3. **Full rename sweep, right before this branch's own 1.0 publish**
+   to GitHub/Steam Workshop specifically — folder, namespace, `.csproj`/
+   `.sln`, plugin GUID, branch name, every doc reference. Deliberately
+   saved for last so it happens once, not mid-development (see
+   Milestone 1's display-name-only rename, done 2026-08-05, for why
+   this was split out).
+
 ## Sources
 
 - Stationeers Community Wiki, "Modding:XMLMods" / "Guide (Modding)" —
