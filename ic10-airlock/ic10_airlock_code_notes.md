@@ -39,9 +39,15 @@ under-specified:
   connected, skip ahead." The production script uses it for an optional
   Diode Slide and an optional Occupancy Sensor: `brdns diode 2` and
   `brdns ocupationSensor 4`. This is more direct than the batch-vs-pin
-  distinction this doc leaned on — **worth revising the Gas Sensor chip
-  to use `brdns` for optional hardware instead of relying solely on
-  batch addressing.**
+  distinction this doc leaned on. **Applied 2026-08-06** — `gas_sensor.ic10`
+  now guards both `SensExt`/`SensInt` pin reads with `brdns` at the top
+  of its loop, jumping straight to a no-match write instead of faulting.
+  This wasn't just style: a pin read (unlike a batch read) errors the
+  whole chip out on an empty slot, so a Gas Sensor chip built with only
+  one of its two sensors actually wired — mid-construction, or one
+  unplugged later — used to crash the script rather than degrade
+  gracefully the way the chip's own header comment already promised for
+  the whole-chip-missing case.
 - **The optional emergency-button pattern is confirmed working exactly
   as this doc designed it:** `lb r9 491845673 Activate Sum #reads in
   emergency button, will be 0 if no button exists`. Batch-by-hash
@@ -465,9 +471,26 @@ and wires correctly, though the actual Gas Sensor chip's flag write
 still can't be exercised end-to-end in this emulator (`lb`/`sb` are
 no-ops here, same limitation noted for the Gas Sensor chip below).
 
-**Still not implemented (unchanged from before the restructuring):**
-Stalled-phase detection/recovery, and the Propped-Open exit sequence
-once a mismatch is detected mid-prop (close which door first — not
+**Stall handling — implemented 2026-08-06, matching vanilla's actual
+behavior rather than inventing recovery logic vanilla doesn't have.**
+Project owner (2026-08-06): vanilla shows a Cancel button during a
+stalled evacuate/pressurize phase; pressing it just cancels *that*
+phase (one of the two air-movement halves of a transfer — evacuating
+before the exterior door, pressurizing before the interior door), it
+doesn't auto-detect a stall or retry anything. `Button C` (`r8`) is
+reused for this: already unused during Normal/Low active cycling (its
+only prior meaning was suppressing forced evacuation in Critical, a
+different code path — `tierCrit` vs. `evacuate`/`pressurize`, so no
+conflict), so no new hardware is needed. Holding it during either
+phase skips the pressure-target check for that tick and falls straight
+into the same completion code the target-reached path uses — vent off,
+door open — exactly mirroring "stop waiting, let me through anyway."
+No automatic stall *detection* was added (no timeout, no retry) since
+vanilla doesn't have that either — this is a manual cancel, not
+self-healing.
+
+**Still not implemented:** the Propped-Open exit sequence once a
+mismatch is detected mid-prop (close which door first — not
 specified).
 
 ---
@@ -533,20 +556,23 @@ the Gas Sensor chip's match/mismatch branching.
   manual pairing step in-game (adjusting the Passive unit's dial to the
   Active unit's name) — not scripted, easy to forget, worth calling out
   clearly in the setup guide.
-- Stalled-phase detection/recovery, and Propped-Open's mid-mismatch
-  exit ordering — unchanged gaps from before this restructuring.
-- Whether `brdns` should replace pure batch addressing for the optional
-  Gas Sensors — a real improvement per Custom Airlock V2, not yet made.
+- Propped-Open's mid-mismatch exit ordering — unchanged gap from before
+  this restructuring.
 
-**Roadmap to 1.0 (agreed with project owner, 2026-08-06):** step 1,
-next session — close out the Charge/Ratio bug, `BtnHash`, and the
-Color enum above using the `logic-network-reference` branch's
-`ilspycmd` decompilation toolchain (the same approach that already
-resolved the Charge/Ratio question and the Logic Transmitter `Setting`
-mechanism there), for a genuinely no-known-issues IC10-only 1.0. Steps
-2-3 (real mod hardware wiring, then a full rename) continue on
-`airlock-mod-card` — see that branch's `README.md` for the full
-sequence.
+**Roadmap to 1.0 (agreed with project owner, 2026-08-06):** step 1 —
+the Charge/Ratio bug is now fixed, and the `brdns`/stall-handling gaps
+above are closed too. What's left for step 1: `BtnHash` and the Color
+enum, both needing the `logic-network-reference` branch's `ilspycmd`
+decompilation toolchain against a real `Assembly-CSharp.dll` (the same
+approach that already resolved the Charge/Ratio question and the Logic
+Transmitter `Setting` mechanism there) — that toolchain isn't available
+in every environment working on this repo, so this step is blocked on
+whichever session has the actual game install. Once those two are
+closed, plus a decision on Propped-Open's mid-mismatch exit ordering
+(the one remaining functional gap, not just an unconfirmed constant),
+that's a genuinely no-known-issues IC10-only 1.0. Steps 2-3 (real mod
+hardware wiring, then a full rename) continue on `airlock-mod-card` —
+see that branch's `README.md` for the full sequence.
 
 **Resolved in-game (2026-08-04):** a standard Light — and separately,
 the "battery backup" Light variant — have no `Setting` LogicType at

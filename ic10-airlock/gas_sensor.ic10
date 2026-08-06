@@ -5,6 +5,12 @@
 # on what they're reading/writing.
 # If this chip doesn't exist, Cycle's batch reads of the same flag
 # simply return nothing - no error, Propped-Open just never triggers.
+# If the chip exists but only one Gas Sensor pin is actually populated
+# (mid-construction, or one got unplugged), the brdns guards below stop
+# short before touching the empty pin and report no-match instead of
+# faulting - pin reads (unlike batch reads) error the whole chip on an
+# empty slot, so this isn't optional polish, it's what keeps a partial
+# build from crashing the script.
 # No single "Ratio" field exists for composition - check Oxygen
 # (breathable) plus Pollutant/Methane/NOx (hazard) per-gas instead.
 
@@ -16,6 +22,8 @@ define PropFlagHash -1234567   # must match the Cycle chip's constant
                                  # copy, they don't share a symbol table
 
 loop:
+brdns SensExt noSensors
+brdns SensInt noSensors
 l r0 SensExt Pressure
 l r1 SensInt Pressure
 l r2 SensExt Temperature
@@ -53,6 +61,10 @@ sub r7 r4 r5
 abs r7 r7
 bgt r7 0.005 noMatch
 move r6 1
+j noMatch
+
+noSensors:
+move r6 0
 
 noMatch:
 sb PropFlagHash Setting r6

@@ -22,13 +22,14 @@ l r9 Receiver Setting
 mod r0 r9 10
 div r1 r9 10
 floor r1 r1
-mod r6 r1 10
+mod r6 r1 10        # r6 = ButtonE (exterior request, idle)
 div r1 r1 10
 floor r1 r1
-mod r7 r1 10
+mod r7 r1 10        # r7 = ButtonI (interior request, idle)
 div r1 r1 10
 floor r1 r1
-mod r8 r1 10
+mod r8 r1 10        # r8 = ButtonC - suppress forced evacuation in Critical,
+                    # cancel the active evacuate/pressurize phase otherwise
 
 beq r0 2 tierCrit
 beq r0 0 checkProp
@@ -77,8 +78,10 @@ j pressurize
 evacuate:
 s Vent Mode 0
 s Vent On 1
-l r12 ChamberSensor Pressure
-bgt r12 TargetExt endLoop
+bnez r8 evacDone       # Button C: cancel this phase early, same as
+l r12 ChamberSensor Pressure       # vanilla's Cancel Pressurize button -
+bgt r12 TargetExt endLoop          # stop waiting for TargetExt, move on
+evacDone:
 s Vent On 0
 move r10 0
 move r13 0
@@ -89,8 +92,10 @@ j endLoop
 pressurize:
 s Vent Mode 1
 s Vent On 1
+bnez r8 pressDone       # Button C: cancel this phase early, same idea
 l r12 ChamberSensor Pressure
 blt r12 TargetInt endLoop
+pressDone:
 s Vent On 0
 move r10 1
 move r13 0
