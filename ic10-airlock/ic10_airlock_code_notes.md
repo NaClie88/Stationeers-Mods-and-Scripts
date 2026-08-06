@@ -251,6 +251,20 @@ BtnE*10 + Tier`. Cycle's unit is set to Passive (`s Receiver Mode 0`)
 and unpacks that same number back into four registers via chained
 `mod`/`div`/`floor`, once at the top of every loop iteration.
 
+**Confirmed via decompilation, 2026-08-06 (`logic-network-reference`
+branch, `devices/logic-transmitter.md`):** the mechanism above is
+accurate, and one previously-unconfirmed assumption now has real
+evidence behind it — **a Passive unit ("Receiver") needs its own power
+to read its paired Active unit's `Setting` at all.** A Passive
+Transmitter's `CanLogicRead`/`GetLogicValue` for `Setting` return
+false/0 whenever it has no power of its own, *regardless* of whether
+the Active unit it's paired to is broadcasting fine. This doesn't
+change anything about this design specifically — Cycle (which houses
+the Receiver) is only ever powered when it would need to read `Setting`
+anyway — but it was previously just an assumption, not a confirmed
+fact, and is worth knowing if this architecture is ever adapted to a
+build where the Receiver might sit on an always-on circuit.
+
 **Fix, part 2 — the player-facing indicator got upgraded, not just
 patched.** A further screenshot of the LED (`StructureDiode`, 25W) showed
 it has a `Color` LogicType (Read/Write) that neither Light variant
