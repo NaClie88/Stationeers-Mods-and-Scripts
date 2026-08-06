@@ -63,24 +63,29 @@ hasn't been properly logged yet.
 
 **Original design for this project** — the automation framework
 (`phase-change-separator/phase_separator.ic10`) is not adapted from
-any external source, so it has no `original/` file. The one piece of
-game data it depends on — a gas's condensation pressure/temperature —
-could not be reliably sourced:
+any external source, so it has no `original/` file.
 
+- **Project owner's own Stationpedia screenshots, 11 gases, provided
+  2026-08-06** — the primary source for
+  `condensation_reference.md`'s full reference table (Hydrazine,
+  Sodium Chloride, Carbon Dioxide, Hydrochloric Acid, Hydrogen,
+  Methane, Water, Silanol, Nitrogen, Oxygen, Pollutant). Real
+  in-game data, read visually off each chart's gridlines — see that
+  file's own header for the precision caveat (accurate to the nearest
+  gridline, not the decimal). This superseded the search-aggregated
+  Nitrogen-only figure the script originally shipped with; that
+  figure turned out to match the real chart almost exactly, a good
+  independent confirmation, but is no longer the operative source —
+  the screenshots are.
 - Community Wiki, "Phase Change Mechanics" —
-  https://stationeers-wiki.com/Phase_Change_Mechanics — **not
-  retrieved**, 403's on fetch (Cloudflare bot-protection).
+  https://stationeers-wiki.com/Phase_Change_Mechanics — still **not
+  retrieved**, 403's on fetch (Cloudflare bot-protection). No longer
+  blocking anything now that the screenshots cover the actual data
+  needed, but left here in case its explanatory text (not just the
+  numbers) is useful later.
 - Stationeering (Substack), "Thermal Conditioning & Gas Separation
   Guide" — https://stationeering.substack.com/p/atmos-2-thermal-separation
-  — **not retrieved**, also 403's.
-- Search-aggregated result, Nitrogen condensation point: ~6000 kPa /
-  -83.2°C (189.95 K). **Not independently confirmed** — this is the
-  one number used as the script's placeholder, and it should be
-  treated as a starting guess, not a fact, until checked against a
-  real in-game Stationpedia phase diagram. See
-  `phase-change-separator/phase_separator_notes.md` for the full
-  caveat and why an unverified table wasn't shipped as if it were
-  real data.
+  — same status, not retrieved, not currently blocking anything.
 
 ## Fabrication automation (researched, not yet built)
 

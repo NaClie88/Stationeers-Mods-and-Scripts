@@ -1,14 +1,15 @@
 # Phase Change Separator -- single-stage, table-driven condensation
 # controller. NEW SCRIPT for this project (not adapted from an
 # external source) -- see phase_separator_notes.md for the full design
-# rationale, hardware layout, and -- importantly -- why the pressure/
-# temperature values below are placeholders, not verified game data.
+# rationale and hardware layout, and condensation_reference.md for
+# where the values below come from (real Stationpedia phase diagrams,
+# not a guess) and how to point this at a different gas.
 
 alias Sensor d0
 alias Vent d1
 alias Drain d2
 
-define TargetPressure 6000
+define TargetPressure 6000  # Nitrogen, ~6000 kPa / ~190 K -- see condensation_reference.md
 define TargetTemp 189.95
 define PressureTolerance 50
 define TempTolerance 1

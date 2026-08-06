@@ -32,7 +32,7 @@ survey. Confirmed so far:
 | Filtration Liquid | `ThingStructureFiltrationLiquid` | Not started |
 | Portable Air Conditioner | `ThingDynamicAirConditioner` | Not started |
 | Rocket Gas Filtration | `ThingStructureRocketFiltrationGas` | Not started |
-| Phase Change Separator (multi-device system, not a single device) | n/a | **Framework done, data unverified** — see `phase-change-separator/`. Original design for this project; ships with a placeholder pressure/temperature table that needs your own Stationpedia check before real use. |
+| Phase Change Separator (multi-device system, not a single device) | n/a | **Single-stage done, data confirmed** — see `phase-change-separator/`. Original design for this project; real Stationpedia-derived reference data now backs 11 gases (`condensation_reference.md`), one stage (Nitrogen) wired up, multi-stage cascading not yet built. |
 
 **Separately, a distinct category worth its own pass later:**
 fabrication automation. Autolathe, Electronics Printer, Hydraulic Pipe

@@ -9,38 +9,29 @@ Valve), driven by an external IC Housing, same general category as
 folder's scope has broadened to cover both — see the root
 `device-ic10-scripts/README.md`.
 
-## The pressure/temperature table is a placeholder — read this first
+## The pressure/temperature data — now confirmed, not a placeholder
 
-I could not find a reliable, complete per-gas condensation
-pressure/temperature table through available tools. The Community
-Wiki's "Phase Change Mechanics" page and the most detailed guide found
-(a Substack article specifically about thermal gas separation) both
-403'd on every fetch attempt — the same Cloudflare/bot-protection
-block this project has hit repeatedly on wiki and long-form guide
-pages. Search snippets surfaced exactly **one** semi-reliable data
-point: Nitrogen condensing around **6000 kPa / -83.2°C (189.95 K)** —
-itself search-aggregated, not a direct primary-source quote, so treat
-even that one as a starting guess, not a confirmed fact.
-
-**The `TargetPressure`/`TargetTemp` defines in `phase_separator.ic10`
-use that Nitrogen figure as an illustrative placeholder — verify it,
-and every other gas's numbers you want to add, against your own
-in-game Stationpedia phase-change diagram before relying on this
-script.** Shipping a plausible-looking but unverified table would be
-worse than not having one at all — this project has been burned by
-exactly that mistake before (see `logic-network-reference/README.md`'s
-"Why this exists"). The framework below is solid; the numbers inside
-it are not, yet.
+**Resolved 2026-08-06.** The original version of this script shipped
+with a single search-aggregated, unconfirmed Nitrogen figure and an
+explicit warning not to trust it. The project owner then provided
+real Stationpedia phase-diagram screenshots for 11 gases — see
+`condensation_reference.md` for the full table and how it was read.
+Genuine primary-source game data now backs the Nitrogen stage this
+script actually uses (6000 kPa / ~190 K), and independently confirms
+the original web-search figure happened to be right. Still worth
+knowing: these are two-point chart readings (freezing point + one
+point on the curve), not the full curve shape — see
+`condensation_reference.md`'s "What this doesn't give you yet" if you
+need a precise operating point away from the chart's pressure ceiling.
 
 ## What this does
 
 Holds a separation chamber at a target pressure and waits for it to
 also reach a target temperature, then opens a drain valve to remove
 the condensed liquid, holds it open briefly, closes it, and repeats.
-Only Nitrogen's placeholder stage is wired up (`StageCount` is
-implicitly 1 — see "Extending to multiple stages" below); the
-structure is built to extend to a real per-gas table once the numbers
-are verified.
+Currently wired to a single stage — Nitrogen, using the confirmed
+figure above — see "Extending to multiple stages" below for scaling
+this to the other 10 gases now that real data exists for all of them.
 
 ## Hardware
 
@@ -70,7 +61,8 @@ are verified.
 ## Constants to adjust
 
 - `TargetPressure` (kPa), `TargetTemp` (K) — the stage's setpoint.
-  **Placeholder values, see above.**
+  Currently set to Nitrogen's confirmed figure. To target a different
+  gas, swap in its values from `condensation_reference.md`.
 - `PressureTolerance` (kPa), `TempTolerance` (K) — how close is "close
   enough" before considering the stage stable.
 - `SettleTicks` — how many consecutive ticks both readings must stay
@@ -84,14 +76,18 @@ Real multi-gas separation usually needs sequential stages — condense
 out the highest-condensation-point gas first, drain it, adjust to the
 next gas's setpoint, drain that, and so on until what's left is your
 target output. This first version only implements one stage
-end-to-end since the underlying data isn't verified yet — extending it
+end-to-end. Real data now exists for all 11 gases in
+`condensation_reference.md`, so this is now unblocked — extending it
 is mechanical, not a redesign: replace the single `TargetPressure`/
 `TargetTemp` defines with a small pushed table (same static-data-on-
 the-stack idiom `filtration/onboard_filtration.ic10` uses for its
 filter-hash list) indexed by a stage counter, and advance the counter
 after each successful drain cycle instead of looping back to the same
-stage forever. Worth building once there's a real, verified table to
-drive it with — not before.
+stage forever. Ordering stages highest-condensation-point-first
+(Sodium Chloride, Silanol, Hydrazine... down to Hydrogen last) would
+match the real-world logic of the technique. Not yet built — worth
+confirming you want the full cascading version before it's built,
+since it's a real jump in complexity from the single-stage script.
 
 ## Known limitations
 
