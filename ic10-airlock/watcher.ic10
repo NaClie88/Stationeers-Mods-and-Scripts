@@ -29,9 +29,7 @@ move r0 0
 move r7 0
 
 loop:
-l r1 Battery Charge
-l r2 Battery Maximum
-div r1 r1 r2
+l r1 Battery Ratio
 mul r1 r1 100
 
 beq r0 0 fromNorm

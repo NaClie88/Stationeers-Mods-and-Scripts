@@ -300,11 +300,11 @@ the exact LogicType that gates a Power Controller's own output
 project, but not independently verified — flagged for an in-game Logic
 Reader check).
 
-**Likely real bug, found 2026-08-05 via direct decompilation of
+**Real bug, found 2026-08-05 via direct decompilation of
 `Assembly-CSharp.dll` (on the `airlock-mod-card` branch, cross-checked
-against this file since it affects `watcher.ic10` too) — not yet fixed
-here, flagged for verification before touching this stable script.**
-Lines 32-35 compute `r1` (the Tier-decision percentage) as:
+against this file since it affects `watcher.ic10` too) — fixed
+2026-08-06.** Lines 32-35 used to compute `r1` (the Tier-decision
+percentage) as:
 
 ```
 l r1 Battery Charge
@@ -333,10 +333,9 @@ clean 0-100 reading. `LogicType.Ratio` gives exactly that in one read,
 already confirmed legally readable on this device (`CanLogicRead`'s
 own range check, verified against real `LogicType` enum ordinals:
 `Ratio` = 24, `Maximum` = 23, and the check is `logicType - 23 <=
-LogicType.Mode(3)`, i.e. `logicType <= 26` — both pass). The likely
-fix, once verified in-game: replace those four lines with `l r1 Battery
-Ratio` + `mul r1 r1 100`, dropping the `Maximum` read and `div`
-entirely.
+LogicType.Mode(3)`, i.e. `logicType <= 26` — both pass). Fix applied:
+those four lines are now `l r1 Battery Ratio` + `mul r1 r1 100`,
+dropping the `Maximum` read and `div` entirely.
 
 **Why this wasn't caught earlier**: `SOURCES.md`'s entry for this
 (the "real working script" citation) could only confirm `Ratio` exists
@@ -352,12 +351,13 @@ Logic Transmitter/Receiver corrections above, both in this same
 file) — worth building a decompiled ground-truth reference instead of
 re-guessing per script.
 
-**Not fixed in `watcher.ic10` itself yet** — this file's own code is
-otherwise stable and dry-run verified; deliberately leaving the actual
-`.ic10` script untouched until this specific read is verified in-game
-(does a live Power Controller with active charging input actually show
-the inflated `Charge` value this analysis predicts?) rather than
-patching blind.
+**Fixed in `watcher.ic10` itself, 2026-08-06** (project owner
+confirmed applying the fix without waiting for a live-Charge-inflation
+observation first, given the decompiled source, ordinal check, and
+cross-check against `devices/power-controller.md` left no ambiguity).
+Still worth a sanity check with a Logic Reader on a real Power
+Controller with active charging input, if only to see the now-fixed
+`Ratio` read behave as expected end-to-end in-game.
 
 The hysteresis thresholds (`bgt r1 90`, `ble r1 10`, `bge r1 93`,
 `bgt r1 13`) are unchanged from the original Chip A design — those were
@@ -516,14 +516,6 @@ logic including the safety-critical forced-wake-on-Critical rule, and
 the Gas Sensor chip's match/mismatch branching.
 
 **Genuinely still open:**
-- **Likely bug, found 2026-08-05 (decompiled ground truth, not yet
-  in-game verified or fixed):** `r1`'s Charge/Maximum/div/mul
-  computation (Watcher lines 32-35) probably reads a Power
-  Controller's live input-network load on top of the dedicated
-  battery's own stored charge, not the battery's charge alone —
-  `LogicType.Ratio` is the actual clean 0-100 reading this code wants.
-  See the Watcher section above for the full trace and why it wasn't
-  caught earlier.
 - The exact LogicType that gates a Power Controller's own output —
   assumed `On`, not independently confirmed.
 - `BtnHash` — single-sourced, not cross-confirmed.
