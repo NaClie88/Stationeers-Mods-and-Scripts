@@ -128,6 +128,19 @@ scattered elsewhere. Steam Workshop packaging of a mod's base folder
 stays clean and dependency-free regardless of how much compatibility
 work exists underneath it.
 
+**Shelve, don't discard (project owner, 2026-08-07):** when work gets
+built on a wrong premise — a misread requirement, a hardware
+assumption that turns out false — but the underlying idea is still
+conceptually useful, file it away instead of deleting it. The
+design/implementation cost is already spent, and storage is cheap;
+revert the code from wherever it was wrong, but keep the actual
+attempt (exact code, the reasoning, what would need to be true to
+revive it) somewhere findable — a `shelved_*.md` file next to the
+work it came from is the pattern used so far (see
+`device-ic10-scripts/phase-change-separator/two-chamber-system/shelved_display_ideas.md`
+for a worked example). Applies to any project in this repo, not just
+where it started.
+
 ## Status
 
 Actively developed. Several things are explicitly flagged as

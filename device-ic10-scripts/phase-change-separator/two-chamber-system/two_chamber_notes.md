@@ -186,6 +186,10 @@ neither confirmed yet:
    research into the Kit (Consoles) LED Display card specifically)
    confirms how to drive one from IC10 output.
 `d5` stays free on Chip B until one of these is actually confirmed.
+**Both ideas, including the exact reverted code, are filed away in
+`shelved_display_ideas.md`** rather than thrown away — the design/
+implementation cost is already spent, and either could become
+buildable the moment its blocking unknown resolves.
 
 ## Known limitations
 
