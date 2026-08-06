@@ -47,6 +47,18 @@ CREDITS/SOURCES file without hunting back through chat history.
   (active vent nonlinear pull-rate taper-off, confirmed)
 - Gist, Twipped/77bf1bcdaa74a9bad404f937e0f40cf0d, "Stationeers Power Controller IC10 Script" — https://gist.github.com/Twipped/77bf1bcdaa74a9bad404f937e0f40cf0
   (real working script confirming Power Controller exposes `Charge` and `Maximum`, Joules, ratio computed manually via division — not a direct `Ratio`/`ChargeRatio` field; resolves requirements-doc checklist item 2)
+  **SUPERSEDED, 2026-08-05, by direct decompilation of `Assembly-CSharp.dll`
+  (`AreaPowerControl.GetLogicValue`)** — this gist's script apparently
+  worked (or wasn't caught) because `Charge` on Power Controller isn't
+  the battery's own stored charge, it's `AvailablePower` = live input-
+  network load *plus* stored battery charge combined. `Ratio` IS
+  directly exposed on Power Controller after all (`Battery.PowerStored
+  / Battery.PowerMaximum`, confirmed legally readable via
+  `CanLogicRead`'s own range check against real enum ordinals) — this
+  gist's div-by-Maximum approach is a working-but-imprecise substitute,
+  not the ground truth. See `ic10-airlock/ic10_airlock_code_notes.md`'s
+  Watcher section for the full trace and the likely resulting bug in
+  `watcher.ic10`. Kept here for the correction trail, not deleted.
 - Community Wiki (community-derived enum reference), StationeersLua Docs "Enumerations & Constants" — https://orbitalfoundrymodteam.github.io/StationeersLuaDocs/guide/enums-constants.html
   (LogicType table cross-checked: `Charge`/`Maximum` confirmed, generic `Ratio` confirmed to exist as a LogicType but not shown tied to Power Controller specifically, no `Lock` entry found on this particular page — see the Steam Community "Question about locking" entry below for that confirmation instead)
 - Steam Community, "Question about locking" — https://steamcommunity.com/app/544550/discussions/0/1729828401685627356/

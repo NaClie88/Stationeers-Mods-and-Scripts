@@ -286,6 +286,65 @@ the exact LogicType that gates a Power Controller's own output
 project, but not independently verified — flagged for an in-game Logic
 Reader check).
 
+**Likely real bug, found 2026-08-05 via direct decompilation of
+`Assembly-CSharp.dll` (on the `airlock-mod-card` branch, cross-checked
+against this file since it affects `watcher.ic10` too) — not yet fixed
+here, flagged for verification before touching this stable script.**
+Lines 32-35 compute `r1` (the Tier-decision percentage) as:
+
+```
+l r1 Battery Charge
+l r2 Battery Maximum
+div r1 r1 r2
+mul r1 r1 100
+```
+
+Ground truth from `AreaPowerControl.GetLogicValue` (the Power
+Controller's real C# class — confirmed the same device as "Area Power
+Controller," there's only one class in the whole game):
+
+```csharp
+LogicType.Charge => AvailablePower,   // InputNetwork.PotentialLoad + Battery.PowerStored
+LogicType.Maximum => Battery.PowerMaximum,
+LogicType.Ratio => Battery.PowerStored / Battery.PowerMaximum,   // clean 0-1, no division needed
+```
+
+`Charge` is **not** the dedicated battery's own stored charge — it's
+that plus whatever the Power Controller's input network is currently
+drawing. If the dedicated Power Controller has any live charging input
+at read time (a small solar panel, a trickle from the main grid,
+anything), `r1` comes out inflated above the battery's true percentage,
+undermining every hysteresis threshold below — all of which assume a
+clean 0-100 reading. `LogicType.Ratio` gives exactly that in one read,
+already confirmed legally readable on this device (`CanLogicRead`'s
+own range check, verified against real `LogicType` enum ordinals:
+`Ratio` = 24, `Maximum` = 23, and the check is `logicType - 23 <=
+LogicType.Mode(3)`, i.e. `logicType <= 26` — both pass). The likely
+fix, once verified in-game: replace those four lines with `l r1 Battery
+Ratio` + `mul r1 r1 100`, dropping the `Maximum` read and `div`
+entirely.
+
+**Why this wasn't caught earlier**: `SOURCES.md`'s entry for this
+(the "real working script" citation) could only confirm `Ratio` exists
+as a *general* LogicType, not that it's specifically exposed on Power
+Controller — the Charge/Maximum-division approach was the
+secondhand-sourced fallback when that couldn't be pinned down. Direct
+decompilation resolves it now. This is exactly the class of mistake
+prompting a broader project (see `logic-network-reference` branch,
+2026-08-06): Stationeers' community-sourced LogicType documentation is
+good but not always complete or precise per-device, and this project
+has been burned by it more than once (see the Light `Setting` and
+Logic Transmitter/Receiver corrections above, both in this same
+file) — worth building a decompiled ground-truth reference instead of
+re-guessing per script.
+
+**Not fixed in `watcher.ic10` itself yet** — this file's own code is
+otherwise stable and dry-run verified; deliberately leaving the actual
+`.ic10` script untouched until this specific read is verified in-game
+(does a live Power Controller with active charging input actually show
+the inflated `Charge` value this analysis predicts?) rather than
+patching blind.
+
 The hysteresis thresholds (`bgt r1 90`, `ble r1 10`, `bge r1 93`,
 `bgt r1 13`) are unchanged from the original Chip A design — those were
 dry-run verified tick-by-tick in an earlier pass (see project history)
@@ -443,6 +502,14 @@ logic including the safety-critical forced-wake-on-Critical rule, and
 the Gas Sensor chip's match/mismatch branching.
 
 **Genuinely still open:**
+- **Likely bug, found 2026-08-05 (decompiled ground truth, not yet
+  in-game verified or fixed):** `r1`'s Charge/Maximum/div/mul
+  computation (Watcher lines 32-35) probably reads a Power
+  Controller's live input-network load on top of the dedicated
+  battery's own stored charge, not the battery's charge alone —
+  `LogicType.Ratio` is the actual clean 0-100 reading this code wants.
+  See the Watcher section above for the full trace and why it wasn't
+  caught earlier.
 - The exact LogicType that gates a Power Controller's own output —
   assumed `On`, not independently confirmed.
 - `BtnHash` — single-sourced, not cross-confirmed.
