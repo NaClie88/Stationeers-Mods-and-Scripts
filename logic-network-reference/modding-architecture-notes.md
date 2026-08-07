@@ -72,6 +72,23 @@ that needs to bridge the same kind of boundary should expect to need
 the same kind of bridge** — don't assume a C# `DeviceList()` call can
 reach across a power-switching device's own input/output split.
 
+**Likely root cause of getting this wrong in the first place, worth
+naming explicitly**: this repo works with both vanilla Stationeers and
+the Re-Volt mod (`Sukasa/ReVolt`, see `SOURCES.md`) side by side, and
+Re-Volt's own feature list includes "Circuit Breakers" and "Cable
+Tray" — names that strongly suggest more flexible power/data routing
+than vanilla actually has (separately switchable power without losing
+data continuity, more flexible cable bundling). The vanilla-only
+single-combined-cable model documented above is very likely correct
+specifically *because* it's easy to unconsciously borrow a mental
+model from a mod that adds the exact capability being reached for,
+even when the task at hand was explicitly scoped vanilla-only. **When
+a "surely there's a way to do X" instinct shows up, check whether X is
+actually a vanilla capability or a Re-Volt one before trusting it** —
+this project's compatibility-layering policy (vanilla-first, Re-Volt
+as an isolated optional layer, see the repo root `README.md`) exists
+partly to keep this exact confusion from bleeding across the boundary.
+
 ## 3. Some runtime facts are genuinely unrecoverable via static decompilation
 
 Not "hard to find" — structurally absent from the compiled IL, no
