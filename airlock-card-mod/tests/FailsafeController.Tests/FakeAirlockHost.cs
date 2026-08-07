@@ -9,6 +9,7 @@ namespace AirlockCardMod.Tests;
 // mocking framework.
 public sealed class FakeAirlockHost : IAirlockHost
 {
+    public float StationBatteryChargeRatio { get; set; } = 100f;
     public bool BasePowerBrownout { get; set; }
     public bool ButtonEHeld { get; set; }
     public bool ButtonIHeld { get; set; }

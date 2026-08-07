@@ -5,19 +5,25 @@ using Assets.Scripts.Objects.Motherboards;
 
 namespace AirlockCardMod
 {
-    // Milestone 2, real-hardware wiring. Battery/downstream (2026-08-06)
-    // and buttons (2026-08-06) are confirmed working in-game. This pass
-    // (2026-08-07) wires the brownout-triggered redesign: BasePowerBrownout
-    // (Cable Analyser on the always-on backbone, replacing the old
-    // percentage-based battery read -- see FailsafeController.cs's
-    // IAirlockHost.BasePowerBrownout doc comment for why), PresenceDetected
-    // (Occupancy Sensor), and the door/vent primitives ForceEvacuate/
-    // UnlockDoors/LockDoors/OpenDoor/CloseDoor. The door/vent primitives are
-    // built from decompiled evidence of vanilla's own AdvancedAirlockControl
-    // (Pressurizing/Depressurizing/WaitDoorClose/AirlockControlState's
-    // IsOperable check) but have NOT been exercised in-game yet -- flagged
-    // per-method below where confidence is lower than the already-proven
-    // patterns (buttons, power controller discovery).
+    // Milestone 2, real-hardware wiring. Downstream controller/buttons
+    // (2026-08-06) are confirmed working in-game. This pass (2026-08-07,
+    // second one today) restores percentage-based Tier staging on top of
+    // the brownout-triggered redesign from earlier the same day: a
+    // dedicated Station Battery (Assets.Scripts.Objects.Electrical.Battery
+    // -- ground truth confirmed, logic-network-reference/
+    // ground-truth-database.md's Battery entry) now drives
+    // StationBatteryChargeRatio, with the Cable Analyser's BasePowerBrownout
+    // kept as a secondary immediate-override signal rather than removed --
+    // see FailsafeController.cs's IAirlockHost interface for the full
+    // reasoning on both. PresenceDetected (Occupancy Sensor) and the
+    // door/vent primitives ForceEvacuate/UnlockDoors/LockDoors/OpenDoor/
+    // CloseDoor are unchanged from that same pass. The door/vent primitives
+    // are built from decompiled evidence of vanilla's own
+    // AdvancedAirlockControl (Pressurizing/Depressurizing/WaitDoorClose/
+    // AirlockControlState's IsOperable check) but have NOT been exercised
+    // in-game yet -- flagged per-method below where confidence is lower
+    // than the already-proven patterns (buttons, power controller
+    // discovery).
     internal sealed class AdvancedAirlockControlHost : IAirlockHost
     {
         // Mirrors AdvancedAirlockControl's own private DefaultPressureMax
@@ -42,9 +48,11 @@ namespace AirlockCardMod
         // APC chain only ever exposes ONE controller here (the switchable
         // Sub APC directly upstream of the Console's own backbone; see
         // logic-network-reference/modding-architecture-notes.md section
-        // 2b). No separate "battery" role anymore -- see
-        // BasePowerBrownout below for why that concept was dropped
-        // entirely (2026-08-07, project owner).
+        // 2b). This is purely the Deep-Idle power switch now -- the
+        // "battery" monitoring role that used to live on an APC lives on
+        // a separate, dedicated Station Battery instead, see
+        // FindStationBattery/StationBatteryChargeRatio below (2026-08-07,
+        // project owner, same day, second pass).
         private void FindDownstreamController(out AreaPowerControl downstream)
         {
             downstream = null;
@@ -93,7 +101,10 @@ namespace AirlockCardMod
         // network it's physically clamped to -- must be the backbone,
         // not the true upstream base-power segment, or the Console
         // can't see it at all). Required > Potential means that segment
-        // can't currently get enough power to meet its own demand.
+        // can't currently get enough power to meet its own demand. Kept
+        // wired even after percentage staging came back (below) as a
+        // secondary, immediate Critical override -- see
+        // FailsafeController.UpdateTier.
         private void FindCableAnalyser(out CableAnalyser analyser)
         {
             analyser = null;
@@ -119,7 +130,7 @@ namespace AirlockCardMod
             if (_loggedAnalyserDiscovery) return;
             _loggedAnalyserDiscovery = true;
             string info = analyser == null
-                ? "none found (BasePowerBrownout will always read false -- Low power mode can never trigger)"
+                ? "none found (BasePowerBrownout will always read false -- the immediate Critical override can never trigger, only the Station Battery percentage chain can)"
                 : analyser.DisplayName;
             UnityEngine.Debug.Log("[Salty's Advanced Airlock]: ANALYSER -- " + info);
         }
@@ -141,6 +152,73 @@ namespace AirlockCardMod
                         + " (required=" + analyser.RequiredLoad.ToString("F1") + "W, potential=" + analyser.PotentialLoad.ToString("F1") + "W)");
                 }
                 return brownout;
+            }
+        }
+
+        // Finds the dedicated Station Battery ("Station Battery" in-game,
+        // real class Assets.Scripts.Objects.Electrical.Battery -- ground
+        // truth confirmed via logic-network-reference/ground-truth-
+        // database.md's Battery entry, prefab ThingStructureBattery per
+        // logic-network-reference/device-index.md) reachable on the
+        // Console's own data network. Unlike the Sub APC above, this is
+        // safe to find via the same DeviceList() scan without the
+        // source-side wiring caveat -- project owner (2026-08-07): a
+        // Station Battery has its Data IO as a fully separate port from
+        // Power IN/Power OUT, so as long as its Data IO is run into this
+        // card's data network at all, it's reachable regardless of which
+        // power segment it's charging from. NOT independently verified
+        // (2026-08-07) whether other battery structures (Battery Large/
+        // Small, different prefabs/classes per device-index.md) also
+        // match `is Battery` through some shared base class -- if a build
+        // ever wires one of those alongside a real Station Battery on the
+        // same data network, this scan could grab the wrong one. Flagged
+        // here rather than guarded against, since it isn't decompile-
+        // confirmed either way yet; the discovery log below makes a
+        // wrong pick visible in-game if it ever happens.
+        private void FindStationBattery(out Battery battery)
+        {
+            battery = null;
+            var deviceList = _control.ParentComputer?.DeviceList();
+            if (deviceList == null) return;
+
+            foreach (var logicable in deviceList)
+            {
+                if (logicable is Battery found)
+                {
+                    battery = found;
+                    break;
+                }
+            }
+        }
+
+        private bool _loggedBatteryDiscovery;
+
+        private void LogBatteryDiscoveryOnce(Battery battery)
+        {
+            if (_loggedBatteryDiscovery) return;
+            _loggedBatteryDiscovery = true;
+            string info = battery == null
+                ? "none found (Tier will stay Normal)"
+                : battery.DisplayName + ", charge=" + (battery.GetLogicValue(LogicType.Ratio) * 100.0).ToString("F1") + "%";
+            UnityEngine.Debug.Log("[Salty's Advanced Airlock]: HARDWARE -- Station Battery: " + info);
+        }
+
+        // Ratio, not Charge -- same gotcha as the original AreaPowerControl
+        // design (logic-network-reference/devices/power-controller.md's
+        // "Charge/Ratio gotcha" section): Charge folds in live input-network
+        // power on top of the battery's own stored energy, inflating the
+        // reading above the battery's true state of charge. Ratio
+        // (PowerStored / PowerMaximum, ground-truth-database.md's Battery
+        // entry) is the clean 0-1 fraction, confirmed to exist on this
+        // class specifically via decompile, not assumed by analogy.
+        public float StationBatteryChargeRatio
+        {
+            get
+            {
+                FindStationBattery(out var battery);
+                LogBatteryDiscoveryOnce(battery);
+                if (battery == null) return 100f;
+                return (float)battery.GetLogicValue(LogicType.Ratio) * 100f;
             }
         }
 

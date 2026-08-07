@@ -24,10 +24,18 @@ using System;
 
 namespace AirlockCardMod
 {
+    // Three tiers again (2026-08-07, project owner): restores the
+    // percentage-based staging the 2026-08-07 brownout redesign gave up
+    // on, now that a Station Battery -- not an AreaPowerControl -- is
+    // the charge source. See StationBatteryChargeRatio's doc comment on
+    // IAirlockHost for why that swap makes graceful staging trustworthy
+    // again, and BasePowerBrownout's doc comment for its new role
+    // (an immediate Critical override, not the sole trigger).
     public enum Tier
     {
         Normal = 0,
         Low = 1,
+        Critical = 2,
     }
 
     public enum DoorSide
@@ -44,32 +52,54 @@ namespace AirlockCardMod
     // confirmed.
     public interface IAirlockHost
     {
-        // Simplified fail-safe trigger (2026-08-07, project owner,
-        // replacing the original percentage-based DedicatedBatteryChargeRatio
-        // design below this comment in git history): vanilla gives no
-        // way to read a battery's true remaining runway from a point
-        // upstream of this project's own network boundary (an APC only
-        // exposes its own logic on its power-SOURCE side -- see
-        // logic-network-reference/modding-architecture-notes.md section
-        // 2b -- so a downstream battery reads as artificially healthy
-        // for as long as anything upstream is still supplying it,
-        // giving almost no advance warning before a real failure).
-        // Rather than risk an incorrect "still plenty of runway"
-        // estimate that locks someone out, the design gave up on
-        // graceful percentage-based staging entirely: a Cable Analyser
-        // placed on the always-on backbone itself (the same network
-        // this Console already reaches, no bridging needed) exposes
-        // Required/Potential for that whole segment, and
-        // Required > Potential -- a genuine brownout, worse than a
-        // clean blackout because it drains what reserve exists while
-        // delivering nothing -- is treated as maximally urgent every
-        // single time, no severity staging.
+        // Percentage-based staging is back (2026-08-07, project owner),
+        // reading a dedicated Station Battery instead of the original
+        // design's AreaPowerControl. Original problem (see git history,
+        // the 2026-08-07 brownout redesign this reverses): vanilla gives
+        // no way to read a battery's true remaining runway from a point
+        // upstream of this project's own network boundary using an
+        // APC -- an APC only exposes its own logic on its power-SOURCE
+        // side, and a real multi-tier chain only ever exposes the one
+        // nearest "Sub APC" to the Console's data network (see
+        // HasDownstreamController's doc comment below) -- so its
+        // battery reads as artificially healthy for as long as anything
+        // upstream is still supplying it, giving almost no advance
+        // warning before a real failure.
+        //
+        // A Station Battery sidesteps that problem structurally
+        // (project owner, 2026-08-07): unlike an APC, it has three
+        // fully independent ports -- Power IN only, a separate Power
+        // OUT, and a separate Data IO -- so its Data IO can sit on the
+        // Console's own always-on data network regardless of which
+        // power segment its Power IN actually draws from. Wired so its
+        // Power IN taps the segment actually worth monitoring (costs a
+        // second grid -- Power IN and Power OUT can't share a network,
+        // see GAP_ANALYSIS.md's Station Battery note), its own Ratio
+        // reading isn't propped up by a downstream consumer's recharge
+        // cycle the way an APC's inserted battery cell is.
+        //
+        // Safe default if no Station Battery is wired at all: 100
+        // (always Normal) -- a host that can't find one should disable
+        // the fail-safe layer by always looking healthy, not fail
+        // closed into permanent false Critical-tier lockdowns.
+        float StationBatteryChargeRatio { get; }
+
+        // Kept from the brownout redesign as a secondary, immediate
+        // override (2026-08-07, project owner) rather than removed
+        // outright: a Cable Analyser on the always-on backbone reports
+        // Required > Potential the instant that segment can't meet its
+        // own demand right now, which is real signal a slowly-drifting
+        // percentage reading can't provide -- worth keeping as a
+        // safety net even though it's no longer the sole trigger. See
+        // FailsafeController.UpdateTier: true here always forces
+        // Critical for that tick, regardless of what
+        // StationBatteryChargeRatio's hysteresis chain would otherwise
+        // have decided, and never downgrades a tier the charge-based
+        // chain already reached on its own.
         //
         // Safe default if no Cable Analyser is wired at all: false
-        // (never trigger). Same reasoning as the property this
-        // replaced: a host that can't find one should disable the
-        // fail-safe layer by always looking healthy, not fail closed
-        // into a permanent false lockdown.
+        // (never trigger) -- same graceful-degradation convention as
+        // everywhere else on this interface.
         bool BasePowerBrownout { get; }
 
         // Button reads. All three are confirmed elsewhere in this
@@ -223,10 +253,9 @@ namespace AirlockCardMod
         // part of sealing the chamber, then run the vent(s) toward
         // vacuum -- locking is bundled in here rather than a separate
         // interface member because it's the same "seal it" duty every
-        // time this gets called (2026-08-07, project owner's Low-tier
-        // redesign: called every idle tick, same as it was for the
-        // tier this replaced). Safe to call repeatedly/every tick --
-        // not a one-shot action.
+        // time this gets called (called every tick while Tier is
+        // Critical -- see FailsafeController.ApplyTierEffects). Safe to
+        // call repeatedly/every tick -- not a one-shot action.
         void ForceEvacuate();
         void UnlockDoors();
 
@@ -290,6 +319,24 @@ namespace AirlockCardMod
 
     public sealed class FailsafeController
     {
+        // Hysteresis thresholds for the restored percentage staging
+        // (2026-08-07, project owner) -- same values and same
+        // reasoning as the original discarded design: bands, not
+        // simple crossings, so a charge value bouncing right at a
+        // boundary doesn't chatter between tiers. Never independently
+        // validated as anything more than a reasonable starting guess
+        // -- configurable rather than fixed so a host can retune
+        // without recompiling.
+        //
+        // Invariant this class assumes but doesn't enforce (keep the
+        // host/settings UI honest instead): LowToNormal > NormalToLow,
+        // and CriticalToLow > LowToCritical -- inverting a band makes
+        // Tier oscillate every tick at the boundary.
+        public float NormalToLowThreshold { get; set; } = 90f;
+        public float LowToNormalThreshold { get; set; } = 93f;
+        public float LowToCriticalThreshold { get; set; } = 10f;
+        public float CriticalToLowThreshold { get; set; } = 13f;
+
         // Ticks to hold downstream power on after the last qualifying
         // event, before Deep Idle can cut it again. Unconfirmed cadence
         // -- same flag the IC10 build carries for this exact constant
@@ -310,9 +357,12 @@ namespace AirlockCardMod
 
         private enum LowPowerPhase
         {
-            // Powered off (subject to WakeHoldTicks), doors closed,
-            // locked, then unlocked, vents running toward vacuum --
-            // every tick, same as the old Critical tier always did.
+            // Powered off, subject to WakeHoldTicks -- pure downstream
+            // power idle-saving, no door/vent action at all (2026-08-07,
+            // project owner: the evacuate-and-unlock behavior this phase
+            // used to run every tick moved to the restored Tier.Critical
+            // case in ApplyTierEffects, now that Low tier means "getting
+            // low" again, not "a crisis").
             Idle,
 
             // Woken: power held on unconditionally, the requested
@@ -376,15 +426,41 @@ namespace AirlockCardMod
         // it afterward.
         public void UpdateTier()
         {
-            bool brownout = host.BasePowerBrownout;
-            Tier newTier = brownout ? Tier.Low : Tier.Normal;
+            float charge = host.StationBatteryChargeRatio;
 
-            // Reset Low tier's own sub-state whenever brownout clears
-            // entirely, so a later brownout always starts fresh from
-            // Idle (evacuate) rather than resuming mid-Active as if
-            // nothing happened -- deliberately conservative, matching
-            // "treat every entry as maximally urgent."
-            if (CurrentTier == Tier.Low && newTier == Tier.Normal)
+            Tier newTier;
+            switch (CurrentTier)
+            {
+                case Tier.Normal:
+                    newTier = (charge <= NormalToLowThreshold) ? Tier.Low : Tier.Normal;
+                    break;
+
+                case Tier.Low:
+                    if (charge >= LowToNormalThreshold) newTier = Tier.Normal;
+                    else if (charge <= LowToCriticalThreshold) newTier = Tier.Critical;
+                    else newTier = Tier.Low;
+                    break;
+
+                case Tier.Critical:
+                default:
+                    newTier = (charge > CriticalToLowThreshold) ? Tier.Low : Tier.Critical;
+                    break;
+            }
+
+            // Brownout override (2026-08-07, project owner) -- see
+            // BasePowerBrownout's doc comment. A real demand-exceeds-
+            // supply event right now is itself confirmation of crisis
+            // regardless of what the battery's percentage happens to
+            // read this tick, so it always escalates to Critical. Never
+            // downgrades a tier the charge-based chain above already
+            // reached on its own -- this is strictly an escalation.
+            if (host.BasePowerBrownout) newTier = Tier.Critical;
+
+            // Reset Low tier's own Idle/Active sub-state whenever we
+            // leave Low tier in either direction, so a later Low-tier
+            // entry always starts fresh from Idle rather than resuming
+            // mid-Active as if nothing happened.
+            if (CurrentTier == Tier.Low && newTier != Tier.Low)
             {
                 lowPowerPhase = LowPowerPhase.Idle;
                 hasBeenOccupiedSinceWake = false;
@@ -465,26 +541,28 @@ namespace AirlockCardMod
                     break;
 
                 case Tier.Low:
-                    // Redesigned 2026-08-07 (project owner): Low tier no
-                    // longer means "battery getting low" -- it means "a
-                    // base-power brownout is happening right now,"
-                    // treated with the same maximum urgency the old
-                    // Critical tier reserved for a confirmed near-total
-                    // failure (see BasePowerBrownout's doc comment for
-                    // why graceful staging isn't possible in vanilla).
+                    // Restored (2026-08-07, project owner) to its
+                    // original meaning: "battery genuinely getting
+                    // low," not a crisis -- just downstream power idle-
+                    // saving, same as before the brownout redesign. The
+                    // evacuate-and-lockdown behavior this branch used to
+                    // absorb from the old Critical tier has moved to the
+                    // restored Tier.Critical case below, since that's a
+                    // distinct, more urgent condition again now that
+                    // percentage staging can tell them apart.
                     // PropAtmosphereMatched (the Normal-tier propped-open
-                    // convenience) is deliberately NOT consulted here --
-                    // during a real brownout the chamber should be at
-                    // vacuum, not held open matched to atmosphere, so
-                    // that field is left alone for Normal tier's own use.
+                    // convenience) stays deliberately NOT consulted here
+                    // -- that was already the case pre-restoration and
+                    // isn't part of what this pass changes; not
+                    // relitigating that decision here.
                     wasHoldingDoorsOpenLastTick = false;
 
                     // Same graceful-degradation fallback as before:
                     // can't safely idle without both a confirmed-safe
                     // wake mechanism and something to actually switch,
-                    // so just hold power on and don't attempt the
-                    // evacuate sequence -- matches vanilla with no
-                    // fail-safe layer at all, not a false lockdown.
+                    // so just hold power on continuously -- matches
+                    // vanilla with no fail-safe layer at all, not a
+                    // false lockdown.
                     if (!host.HasWakeButtons || !host.HasDownstreamController)
                     {
                         UpdateDownstreamPower(forceOn: true);
@@ -494,31 +572,11 @@ namespace AirlockCardMod
                     switch (lowPowerPhase)
                     {
                         case LowPowerPhase.Idle:
+                            // The actual Deep Idle power saving -- no
+                            // forced evacuation here anymore (that's
+                            // Critical's job now), just gate downstream
+                            // power on the wake sources below.
                             UpdateDownstreamPower(forceOn: wakeRequested);
-
-                            // cycle.ic10 lineage: Button C held skips
-                            // the forced lockdown this tick -- someone
-                            // caught inside gets to cancel it. Power
-                            // stays on either way (the call above
-                            // already ran) -- only evacuate/lock/unlock
-                            // is skipped.
-                            if (!host.ButtonCHeld)
-                            {
-                                // Evacuating is always safe regardless
-                                // of temperature, so unconditional.
-                                // UNLOCKING is gated on
-                                // SafeToUnlockTemperature -- a player or
-                                // the next cycle could walk straight
-                                // into whatever's on the other side.
-                                // Unlocked (not just closed) specifically
-                                // so a fully depowered chamber can still
-                                // be crowbarred open by a player with no
-                                // tools (project owner, 2026-08-07) --
-                                // the intended manual fallback once this
-                                // mod's own safety margin runs out.
-                                host.ForceEvacuate();
-                                if (host.SafeToUnlockTemperature) host.UnlockDoors();
-                            }
 
                             if (wakeRequested)
                             {
@@ -574,6 +632,46 @@ namespace AirlockCardMod
                             // door still opening) -- stay Active and
                             // keep waiting, don't re-idle prematurely.
                             break;
+                    }
+                    break;
+
+                case Tier.Critical:
+                    // Restored (2026-08-07, project owner) as its own
+                    // tier again -- this is exactly the behavior Low's
+                    // Idle phase absorbed during the brownout redesign
+                    // (ported originally from cycle.ic10's tierCrit
+                    // branch), moved back out now that percentage
+                    // staging -- or an immediate BasePowerBrownout
+                    // override, see UpdateTier -- can distinguish "a
+                    // real crisis" from "just getting low" again.
+                    // Deliberately no Idle/Active wake distinction here,
+                    // unlike Low: this tier doesn't offer a "wake and
+                    // hold open" option at all, since the whole point is
+                    // there's no safety margin left to gamble with.
+                    // Power forced on unconditionally every tick,
+                    // doors evacuated and unlocked every tick.
+                    UpdateDownstreamPower(forceOn: true);
+                    wasHoldingDoorsOpenLastTick = false;
+
+                    // cycle.ic10 lineage: Button C held skips the forced
+                    // lockdown this tick -- someone caught inside gets
+                    // to cancel it. Power stays on either way (the call
+                    // above already ran) -- only evacuate/unlock is
+                    // skipped.
+                    if (!host.ButtonCHeld)
+                    {
+                        // Evacuating is always safe regardless of
+                        // temperature, so unconditional. UNLOCKING is
+                        // gated on SafeToUnlockTemperature -- a player
+                        // or the next cycle could walk straight into
+                        // whatever's on the other side. Unlocked (not
+                        // just closed) specifically so a fully
+                        // depowered chamber can still be crowbarred
+                        // open by a player with no tools -- the
+                        // intended manual fallback once this mod's own
+                        // safety margin runs out.
+                        host.ForceEvacuate();
+                        if (host.SafeToUnlockTemperature) host.UnlockDoors();
                     }
                     break;
             }

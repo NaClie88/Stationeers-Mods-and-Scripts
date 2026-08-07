@@ -292,9 +292,28 @@ same `On` LogicType — resolved 2026-08-06, see `PATCH_PLAN.md`) as the
 zone gate in `airlock-ic10-scripts/watcher.ic10`, just wired the same
 way again.
 
-## Idea: Station Battery instead of the Sub APC for monitoring (post-redesign note, 2026-08-07)
+## Station Battery instead of the Sub APC for monitoring (implemented 2026-08-07)
 
-**Filed as an idea for future consideration, not an active redesign.** The
+**IMPLEMENTED, same day as the note below.** Project owner asked to go
+ahead and build it rather than leave it filed: three-tier percentage
+staging (`Tier.Normal`/`Low`/`Critical`) is back in
+`src/FailsafeController.cs`, reading `IAirlockHost.StationBatteryChargeRatio`
+off a real Station Battery (`Assets.Scripts.Objects.Electrical.Battery`,
+confirmed via `logic-network-reference/ground-truth-database.md`) instead
+of an `AreaPowerControl`. `BasePowerBrownout`/the Cable Analyser stayed in
+as a secondary, immediate override into Critical rather than being
+removed — see `FailsafeController.UpdateTier` and both classes' updated
+doc comments for the full reasoning. Tests updated in
+`tests/FailsafeController.Tests/FailsafeControllerTests.cs`
+(`TierStagingTests`, `CriticalTierTests`, `LowTierIdleSavingTests`).
+**Not yet exercised in-game** — no Station Battery has been wired up and
+tested live yet, same "NOT YET VERIFIED IN-GAME" status as the rest of
+this pass's door/vent primitives.
+Original note this implements, kept below for the record:
+
+**Filed as an idea for future consideration, not an active redesign** —
+this framing is now superseded by the paragraph above; kept verbatim
+since it's still the accurate account of *why*. The
 two-Power-Controller section above (and most of this file) predates the
 brownout-detection redesign (commit `9ed9699`, 2026-08-07) that replaced
 percentage-based Tier staging with a Cable Analyser on the always-on
@@ -332,9 +351,9 @@ visibility problem above, not just a different battery:
   staging could come back on top of it, rather than treating the current
   coarser design as permanent.
 
-Not scoped or scheduled — recording it here per this project's "shelve,
-don't discard" policy (see root `README.md`) so the idea isn't lost, next
-to the section it most directly follows up on.
+(Originally: "not scoped or scheduled, recording it here per this
+project's 'shelve, don't discard' policy" — superseded, see the
+IMPLEMENTED note at the top of this section.)
 
 ## Cross-network visibility for the downstream side
 
