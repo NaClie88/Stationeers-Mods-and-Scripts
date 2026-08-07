@@ -40,6 +40,16 @@ in-game cross-check, same caveat as everywhere else in this doc.
   - Hot side: furnace waste gas, drawn out by the exhaust pump below.
   - Cool side: the Nitrogen working-gas loop, returning from wherever
     it gave up its heat.
+  - **Passive — no ceiling of its own.** Unlike the AC stages below, a
+    Heat Exchanger just equalizes toward whatever temperature the
+    waste gas actually is, however high that is. See "Reaching high
+    working-gas temperatures" below for why this may end up mattering
+    more than AC staging for the big temperature lift.
+- **Zero or more AC stages, in series** (2026-08-07 — see "Reaching
+  high working-gas temperatures" below) — active heat-pump boost/trim
+  on top of what the passive Heat Exchanger delivers, chained the same
+  way players already stack ACs for large cooling gaps: each stage's
+  hot output feeds the next stage's target loop.
 - **Nitrogen working-gas loop** — see "Why Nitrogen" below. Needs:
   - A **hot reservoir tank** (heated N2, post-heat-exchanger) —
     mole-capped for safety, see "Mole-based safety regulation" below.
@@ -72,6 +82,50 @@ in-game cross-check, same caveat as everywhere else in this doc.
   index-into-lookup-table idiom the phase separator already uses for
   gas selection. Looks up that alloy's `[MinTemp,MaxTemp]` and
   `[MinPressure,MaxPressure]` from `alloy_reference.md`'s table.
+
+## Reaching high working-gas temperatures: AC staging
+
+Project owner's question (2026-08-07): how do we move heat into an
+*already-hotter* pool — do we stack AC units in a push-pull/cascade
+configuration? **Cascading is confirmed as a real, established
+technique** — the Community Wiki documents players chaining multiple
+Air Conditioners in series for large cooling gaps ("each air
+conditioner cools the waste of the previous one... aim for one AC per
+every 50°C difference"), same heat-pump mechanism working in either
+direction, not cooling-specific.
+
+**But a real, unresolved catch turned up alongside it.** The wiki lists
+a single AC's output range as **-270°C to 999°C (~3K to ~1272K)** —
+specific enough to read like a real per-unit ceiling, not a rough
+guideline (moderate confidence, search-snippet sourced, not
+decompiled). Several targets in `alloy_reference.md` sit above that:
+Stellite needs 1700K, Invar up to 2000K. **Genuinely unknown from what
+I could find:** when AC stages are chained, does each stage's own
+`Setting` get to climb *another* ~1272K on top of what the previous
+stage delivered (cascading works, same as the cooling case) — or is
+999°C an absolute ceiling no AC-touched gas can ever exceed regardless
+of how many stages (cascading caps out, doesn't help past that point)?
+This needs an in-game test, not another web search — try pushing a
+single AC's `Setting` past 999°C and see if it clamps.
+
+**This reframes where the real temperature lift is likely coming
+from.** If furnace waste gas is already hotter than 1272K on its own
+(plausible — unmeasured so far), the *passive* Heat Exchanger has no
+AC-style ceiling and could get the working loop close to or above
+several alloy targets for free, with AC stages doing fine
+regulation/trimming (the same job `air-conditioner/ac_thermostat.ic10`
+already does) rather than bulk heating from near-ambient. The real
+open unknown isn't "how many AC stages" so much as "how hot does
+furnace waste gas actually run" — nobody's measured that yet either.
+
+**Cross-branch flag, not yet acted on:** `phase-change-separator/
+two-chamber-system/separator_ac_driver.ic10` (on `main`, already
+shipped) targets **2500K for Sodium Chloride** (gas index 1). If the
+999°C/1272K ceiling turns out to be real and absolute, that target is
+unreachable by a single AC as currently wired — that script's
+Sodium Chloride stage would just permanently pin at max output. Not
+touched pending the same in-game verification; flagged here so it
+isn't lost.
 
 ## Why Nitrogen (confirmed, 2026-08-07)
 
@@ -162,3 +216,16 @@ furnace or cools.
    (furnace exhaust temp, heat exchanger efficiency) — `T_max_working`
    above is a design floor grounded in the alloy table, not yet a
    measured real number.
+6. **Whether a single AC's `Setting` is capped around 999°C/1272K, and
+   whether chaining AC stages can climb past that ceiling or not** —
+   see "Reaching high working-gas temperatures" above. Needs an
+   in-game test (push `Setting` past 999°C on one AC, see if it
+   clamps), not more web research.
+7. How hot furnace waste gas actually runs, unmeasured — decides
+   whether AC staging is doing the primary heat lift or just fine
+   trimming on top of what the passive Heat Exchanger already
+   delivers for free.
+8. **Cross-branch flag**: `phase-change-separator/two-chamber-system/
+   separator_ac_driver.ic10` (on `main`) targets 2500K for Sodium
+   Chloride — possibly unreachable if item 6 confirms a hard 1272K
+   ceiling. Not touched yet, pending that same verification.
