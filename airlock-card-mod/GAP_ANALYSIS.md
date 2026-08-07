@@ -223,6 +223,52 @@ substitute for testing the real patched path once it exists.
 
 ## Power architecture
 
+**REVISED 2026-08-07 — the "second, dedicated Power Controller" concept
+described in this section's original text (below, kept for history)
+turned out to be the wrong shape entirely, confirmed via real in-game
+topology testing.** Short version of what changed and why, written for
+a GitHub reader who hasn't followed the whole investigation:
+
+An `AreaPowerControl` ("Power Controller"/"Area Power Controller," the
+same device) only exposes its own logic on the side that *feeds it*
+power — never on the side it distributes power *to*. In a real
+multi-tier build (a switchable Power Controller feeding the doors,
+itself fed from a backbone network upstream), that means the mod's
+Console can only ever see the *one* Power Controller directly above it
+— never a separate, more-upstream one, no matter how it's wired. So a
+second, purpose-built "dedicated Power Controller" sitting between the
+Console and the true power source doesn't actually solve the
+survive-a-power-loss problem this section originally set out to solve
+— it just becomes one more thing that reads as artificially healthy
+for as long as anything upstream is still supplying it.
+
+**The actual fix needs nothing custom at all: just the player's
+ordinary Station Battery** (`ThingStructureBattery` — the same large
+battery bank most Stationeers bases already build for backup power,
+not a bespoke "second APC"). Wire the airlock's always-on backbone
+(Console, buttons, sensors, Vents) to the same network the Station
+Battery already supplies, the same way any other base-critical load
+would be. No second Power Controller, no special naming, no
+airlock-specific power infrastructure — the airlock just becomes one
+more thing on the base's existing backup circuit.
+
+**Detecting an actual power problem doesn't come from reading the
+Station Battery's own charge, either** — same reachability limit as
+above, plus a deeper one: a battery reads as healthy for as long as
+anything upstream is charging it, so waiting for its charge to visibly
+drop gives almost no advance warning before a real failure. Instead, a
+Cable Analyser placed on that same always-on backbone (fully reachable
+by the Console, no bridging needed) reads `Required`/`Potential` for
+the whole segment directly — `Required > Potential` is a live brownout,
+a much more direct signal that whatever's supplying the backbone
+(Station Battery included) can no longer keep up with demand right
+now, not an inference from a lagging charge percentage. See
+`src/FailsafeController.cs`'s `IAirlockHost.BasePowerBrownout` for the
+implementation.
+
+**Original text, 2026-08-05, kept for history — describes the
+now-superseded "second Power Controller" design:**
+
 **Two Power Controllers, not one — this build adds a second one beyond
 the traditional layout.** The traditional set (see "Reusing vanilla's
 Skip" above) has exactly *one* Area Power Controller, feeding
