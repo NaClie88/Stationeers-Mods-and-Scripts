@@ -9,7 +9,7 @@ alias Sensor d0
 alias Vent d1
 alias Drain d2
 
-define TargetPressure 6000  # Nitrogen, ~6000 kPa / ~190 K -- see condensation_reference.md
+define TargetPressure 6000  # Nitrogen, ~6000 kPa/190K -- see condensation_reference.md
 define TargetTemp 189.95
 define PressureTolerance 50
 define TempTolerance 1
@@ -29,6 +29,7 @@ s Drain On 0
 loop:
 yield
 bgtz DrainCount draining
+brdns Sensor noSensor
 l r0 Sensor Pressure
 l r1 Sensor Temperature
 sub r2 r0 TargetPressure
@@ -57,6 +58,19 @@ s Drain On 1
 move DrainCount DrainTicks
 j loop
 notStable:
+move StableCount 0
+j loop
+noSensor:
+# Sensor is a hard requirement here, no fallback reading makes sense --
+# this just stops an unplugged/removed Sensor from faulting the whole
+# chip mid-tick (a pin read, unlike a batch read, errors out on an
+# empty slot) and leaving the Vent stuck running from whatever it was
+# last commanded to. Idles the Vent to a known-safe state and resets
+# StableCount so a returning Sensor has to reconfirm stability from
+# scratch rather than resuming a stale count. Doesn't touch an
+# already-running drain -- that's handled above and doesn't need the
+# Sensor at all.
+s Vent On 0
 move StableCount 0
 j loop
 draining:

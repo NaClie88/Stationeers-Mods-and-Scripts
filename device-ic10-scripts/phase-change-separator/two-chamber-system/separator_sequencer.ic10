@@ -55,6 +55,7 @@ move GasIndex DefaultGasIndex
 haveIndex:
 jal lookupPressure
 move TargetPressure ReturnValue
+brdns Sensor noSensor
 l r0 Sensor Pressure
 sub r1 r0 TargetPressure
 abs r1 r1
@@ -65,6 +66,16 @@ outOfTolerance:
 sgt r2 r0 TargetPressure
 bnez r2 drainStep   # too high: no down-pressure device exists, do nothing
 s SourcePump On 1   # too low: top up from the source tank
+j drainStep
+noSensor:
+# Sensor is a hard requirement for pressure top-up, no fallback
+# reading makes sense -- this just stops an unplugged/removed Sensor
+# from faulting the whole chip mid-tick (a pin read, unlike a batch
+# read, errors out on an empty slot). Idles the pump to a known-safe
+# state (don't blindly pump without knowing pressure); drain/purge
+# below are timer-driven and don't depend on the Sensor at all, so
+# they keep running regardless.
+s SourcePump On 0
 
 drainStep:
 bgtz DrainHold drainHolding

@@ -58,16 +58,18 @@ j loop
 scaleSetting:
 # stack args: current, target, prev error, prev setting
 # returns via stack: new setting, new error
+# PD update: newSetting = prevSetting + Kp*error + Kd*(error-prevError),
+# Kp=Kd=0.1 -- see ac_thermostat_notes.md's second bug section for why
+# there used to be an extra prevError*0.1 term here that algebraically
+# canceled the D term, silently collapsing this to a pure P controller.
 pop r3
 pop r2
 pop r1
 pop r0
 sub r4 r1 r0
 mul r5 r4 0.1
-mul r6 r2 0.1
 sub r7 r4 r2
 mul r7 r7 0.1
-add r5 r5 r6
 add r5 r5 r7
 add r5 r5 r3
 push r5

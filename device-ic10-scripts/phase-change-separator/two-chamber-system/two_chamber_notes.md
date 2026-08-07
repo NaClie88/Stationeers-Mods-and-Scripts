@@ -32,7 +32,10 @@ useful, documented here as a set.
   port** — this is what actually controls temperature; Chip A drives
   it.
 - **A Gas Sensor** on the gas side, feeding Chip B's pressure reading
-  (`d0`).
+  (`d0`), required. `brdns`-guarded (2026-08-07) — an unplugged/removed
+  Sensor idles the source pump to a known-safe off state instead of
+  faulting Chip B mid-tick; the drain/purge timers below don't depend
+  on it and keep running regardless.
 - **A pump from your source/waste tank into the gas side** (`d1`) —
   tops up pressure as the target gas condenses out and gets removed.
 - **A Condensation Valve** (`d2`) — one-way, moves liquid from the gas
@@ -73,8 +76,14 @@ useful, documented here as a set.
 Every tick, both chips independently read the same dial and look up
 their own value from the gas's table row (Chip A: temperature; Chip
 B: pressure). Chip A runs the same PID logic as the standalone AC
-thermostat, just retargeted each tick. Chip B does three things on
-independent schedules:
+thermostat, just retargeted each tick — including a 2026-08-07 bug fix
+shared with it: the original `scaleSetting` carried an extra term that
+canceled its own derivative term, so it was silently running as
+pure-P (double the intended gain, no damping) despite tracking
+`PreviousError` every call. See
+`../../air-conditioner/ac_thermostat_notes.md`'s second bug section
+for the full trace; both files were fixed together. Chip B does three
+things on independent schedules:
 1. **Pressure top-up** — if chamber pressure is below target, runs the
    source pump; if above target, does nothing (there's no
    down-pressure device in this design, matching the manual process,

@@ -76,6 +76,54 @@ Now `Mode` only goes active when the reading actually leaves the
 `[target - FUDGEK, target + FUDGEK]` band, matching what the
 original's own "fudge check" comment described as the intent.
 
+## A second bug, found 2026-08-07: the PID controller was never actually PID
+
+Found while reviewing `separator_ac_driver.ic10` (`../phase-change-separator/
+two-chamber-system/`), which reuses this same `scaleSetting` subroutine
+unchanged — the same bug exists in both files, fixed in both together.
+
+`scaleSetting` computes a proportional term and a derivative-looking
+term from the current and previous error, then adds both to the
+previous setting -- a P+D update. The bug: it also added a *third*
+term, `prevError * 0.1`, that isn't part of any standard PID
+structure:
+
+```
+r5 = error * 0.1            # P term
+r6 = prevError * 0.1        # the extra term
+r7 = (error - prevError) * 0.1   # D term
+r5 = r5 + r6 + r7
+newSetting = prevSetting + r5
+```
+
+Expand that: `r5 + r6 + r7 = 0.1*error + 0.1*prevError + 0.1*error -
+0.1*prevError`. The `prevError` terms cancel exactly, every time,
+regardless of what `prevError` actually is. So despite pushing and
+popping `PreviousError` across every single call, the real effective
+update was always just `newSetting = prevSetting + 0.2*error` -- a
+plain proportional controller with `Kp=0.2`, no derivative damping at
+all. The tolerance-band bug above was already found and fixed during
+the original adaptation from `jhillacre/stationeers-scripts`; this one
+slipped through that same pass.
+
+Fixed by removing the extra `r6` term:
+
+```
+r5 = error * 0.1                  # P term, Kp=0.1
+r7 = (error - prevError) * 0.1    # D term, Kd=0.1
+r5 = r5 + r7
+newSetting = prevSetting + r5
+```
+
+Now `newSetting = prevSetting + 0.1*error + 0.1*(error - prevError)`,
+a real P+D controller. Behavior change to expect in-game: less
+overshoot/oscillation around the fudge band than before, since the
+derivative term now actually dampens fast-changing error instead of
+being silently canceled -- worth a live comparison if you were already
+running this script and it seemed to work fine, since "fine" was a
+pure-P controller with double the intended proportional gain, not
+broken outright.
+
 ## Known limitations / not yet verified
 
 - The Air Conditioner's onboard pin behavior (`db`, and whatever `d0`/

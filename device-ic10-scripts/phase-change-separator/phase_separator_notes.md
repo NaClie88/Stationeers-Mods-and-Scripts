@@ -48,8 +48,13 @@ this to the other 10 gases now that real data exists for all of them.
   through, sized to your setup. Not a specific device; this script
   doesn't care what the chamber physically is, only what it reads and
   drives.
-- **`d0`: a Gas Sensor inside the chamber** — live `Pressure` and
-  `Temperature` readings drive every decision this script makes.
+- **`d0`: a Gas Sensor inside the chamber, required** — live `Pressure`
+  and `Temperature` readings drive every decision this script makes,
+  no fallback is possible without one. `brdns`-guarded (2026-08-07,
+  same lesson as `airlock-ic10-scripts/gas_sensor.ic10`: a pin read
+  faults the whole chip on an empty slot) so an unplugged/removed
+  Sensor idles the Vent to a known-safe state instead of faulting the
+  chip mid-tick and leaving it stuck wherever it last was.
 - **`d1`: an Active Vent controlling the chamber's pressure** —
   `Mode 0` evacuates (lowers pressure), `Mode 1` pressurizes (raises
   it), confirmed convention already used elsewhere in this repo
@@ -103,6 +108,16 @@ since it's a real jump in complexity from the single-stage script.
 
 ## Known limitations
 
+- **Pressure control pauses for the full drain window.** While the
+  drain valve is open (`DrainTicks`, 40 by default), the main loop
+  only counts down `DrainCount` — it doesn't re-check the Sensor or
+  adjust the Vent at all until draining finishes. If source gas
+  pressure drifts during that window, nothing corrects it until the
+  next full loop iteration. `two-chamber-system/separator_sequencer.ic10`
+  doesn't have this gap — its pressure top-up runs every tick,
+  independent of its own drain/purge timers — worth porting that
+  pattern here if this script sees a setup where the drain window
+  turns out to matter in practice.
 - **No stall handling.** If the Vent can never reach target (e.g. the
   chamber is disconnected from a network large enough to supply the
   pressure swing), this script will keep adjusting indefinitely rather

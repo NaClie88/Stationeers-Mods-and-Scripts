@@ -12,12 +12,19 @@ hasn't been properly logged yet.
   (already cited elsewhere in this repo's airlock `SOURCES.md`, a
   known-good source used before). Base for `air-conditioner/
   ac_thermostat.ic10` — PID-based temperature control via the AC's
-  onboard `db` self-reference. **Bug found and fixed here**: the
-  original's tolerance-band check compared current temperature
+  onboard `db` self-reference. **Two bugs found and fixed here**:
+  (1) the original's tolerance-band check compared current temperature
   against the lower bound in both directions instead of against the
   lower and upper bounds separately, so `Mode` was active almost every
-  tick regardless of the tolerance setting. See
-  `air-conditioner/ac_thermostat_notes.md` for the full trace.
+  tick regardless of the tolerance setting; (2) found 2026-08-07, the
+  `scaleSetting` subroutine carried an extra term that algebraically
+  canceled its own derivative term, so the controller was silently
+  running as pure-P (`Kp=0.2`, no damping) despite tracking
+  `PreviousError` across every call as if it were a real P+D
+  controller. See `air-conditioner/ac_thermostat_notes.md` for both
+  full traces. Bug (2) also existed in `phase-change-separator/
+  two-chamber-system/separator_ac_driver.ic10`, which reuses this same
+  subroutine unchanged — fixed there too, same day.
   **Feature added here**: optional external target-temperature source
   via `d0`, graceful-degrades to the hardcoded default if unwired.
 
