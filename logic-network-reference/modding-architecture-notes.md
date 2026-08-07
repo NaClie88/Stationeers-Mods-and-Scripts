@@ -97,12 +97,28 @@ different problem. `Assets.Scripts.Objects.Prefab.AllPrefabs`
 (`List<Thing>`, every registered prefab) is the master registry worth
 reusing for future `PrefabHash` questions specifically.
 
-## 4. Power draw model — `Device.GetUsedPower`, as far as static reading shows
+## 4. Power draw model — `Device.GetUsedPower` predicts some of this correctly, not all of it
 
-**Flagged explicitly as needing the project owner's own in-game
-verification — do not treat this section as settled.** The base
-`Device` class (`Assets.Scripts.Objects.Pipes.Device`) declares
-`public float UsedPower = 10f` and:
+**Real numbers, confirmed in-game by the project owner (2026-08-06),
+some matching the static code trace and one genuinely not explained by
+it — recorded honestly, gap included:**
+
+| Device | Off | On / idle | Active |
+|---|---|---|---|
+| Glass Door | 0W | 10W (standby, just sitting there) | — |
+| LED Light | 0W | 25W | — |
+| Cable Analyzer | — | 0W (draws nothing from the network it monitors) | — |
+| Gas Sensor | — | **0W observed** (wiki states ~1W) | — |
+| Active Vent | 0W | — | **100W while pumping** |
+
+Doors, the LED, and the Cable Analyzer match what the static trace
+below predicts. **Gas Sensor and Active Vent don't, or aren't fully
+explained by it** — worth understanding as a real limit of this
+project's decompilation reach, not a settled fact to build on
+uncritically.
+
+The base `Device` class (`Assets.Scripts.Objects.Pipes.Device`)
+declares `public float UsedPower = 10f` and:
 
 ```csharp
 public virtual float GetUsedPower(CableNetwork cableNetwork)
@@ -116,29 +132,33 @@ public virtual float GetUsedPower(CableNetwork cableNetwork)
 Neither `Door`, `ActiveVent`, nor `GasSensor` override this anywhere
 in their full inheritance chains (`ActiveVent`'s traced all the way up
 through `SmallDeviceOutput → DeviceOutput → DeviceAtmospherics →
-Device` with no override found at any level) — meaning, as far as the
-compiled code shows, each draws its single flat `UsedPower` value
-continuously whenever `OnOff == true` and powered, with **no built-in
-distinction between "actively working" and "on but idle."** The
-actual number (Stationeers wiki cites ~100W for Active Vent, ~1W for
-Gas Sensor) is Inspector-configured per prefab, not visible in code —
-same category as PrefabHash.
+Device`, `UsedPower` itself confirmed never dynamically reassigned
+anywhere in that chain either — checked specifically after the vent
+finding below, since `UsedPower` is a mutable field a subclass could
+write to without needing to override the method at all). This predicts
+a single flat draw whenever `OnOff == true` and powered, with no
+built-in distinction between "actively working" and "idle" — and
+that's exactly what Doors and the LED showed. **It does not explain
+Active Vent's confirmed 0W‑off/100W‑pumping split** (as opposed to
+0W‑off/100W‑whenever‑switched‑on‑regardless‑of‑pumping, which is what
+the trace above predicts) — there must be a real mechanism gating
+consumption on actual pump activity specifically, somewhere outside
+every class this pass checked. **Not yet found — flagged as a genuine
+open question, not swept under the "probably fine" rug.** Possible
+places to look next if this matters for a future mod: network load-
+balancing/`PowerTick` code (outside the `Device`/`ElectricalInputOutput`
+hierarchy checked here), or a completely separate power-request path
+that isn't `GetUsedPower` at all.
 
-**Why this doesn't necessarily contradict "cutting power upstream
-still saves power"**: `GetUsedPower` reports what a device *wants* to
-draw from its network — actual consumption is bounded by what's
-actually available. Cut the upstream switch (e.g. an APC's own `On`)
-and downstream devices have zero supply regardless of their individual
-`OnOff` state or nominal `UsedPower` — real draw goes to zero either
-way. The open question this section doesn't resolve is narrower:
-whether an *idle-but-switched-on-and-powered* device (vent doing
-nothing, door just sitting closed) draws its full nominal wattage or
-something reduced — the static code trace says "full nominal, no
-reduction," but this is exactly the kind of claim that's worth an
-in-game Power Meter check rather than trusting the trace alone,
-especially given atmospheric/electrical simulation logic outside this
-one method could still affect real observed draw in ways a
-method-level decompile wouldn't show.
+Gas Sensor's 0W (vs. the wiki's ~1W) is a smaller discrepancy, same
+general lesson: don't trust either the wiki figure or a static
+`UsedPower` field reading over an actual in-game measurement.
+
+**Still true regardless of the above**: cutting the *upstream* switch
+(an APC's own `On`) zeroes everything downstream's actual consumption
+regardless of individual device state, since there's no supply to
+draw from at all — this part doesn't depend on resolving the Active
+Vent mechanism.
 
 ## 5. Verify every Harmony patch actually fires — a plausible-looking target can be wrong two different ways
 
