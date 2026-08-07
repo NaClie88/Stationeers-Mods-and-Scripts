@@ -76,6 +76,19 @@ Power Controller's explicit in-game purpose is a battery buffer/charge
 circuit for everything downstream of it *and* a power cutoff switch —
 confirmed directly, no further decompilation or in-game test needed.
 
+## Network position — a chain of APCs is only ever visible one hop at a time
+
+See `modding-architecture-notes.md` section 2b for the full
+explanation and a real in-game example. Short version: this device's
+logic surface (this whole page) is only reachable from the network
+wired to its **Power-In + Logic-I/O side** — the network feeding it
+power. A mod sitting on that same network can see and control *this*
+controller, but can never see whatever controller supplies power one
+tier further upstream, since that controller's own Logic-I/O sits on
+a different network past a power-only boundary. In a multi-APC chain,
+expect exactly one `AreaPowerControl` to be visible from any given
+point, not "all of them" — plan discovery logic accordingly.
+
 ## Not yet checked
 
 - `LogicSlotType` reads into `BatterySlot` (index 0) — would return

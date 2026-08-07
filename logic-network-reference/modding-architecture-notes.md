@@ -129,6 +129,65 @@ Transmitter) was completely sound — it just names a real device that
 exists in the wrong one of this repo's two toolsets for a vanilla-only
 build.
 
+## 2b. An APC's logic-I/O is on its upstream (input) side only — in a chain, a mod can only ever see the *one* controller directly above it, never further up
+
+**The project owner told me this exact rule before this session
+rediscovered it the hard way in-game — recording it thoroughly so it
+doesn't need re-explaining a third time.**
+
+Section 2 above establishes that an `AreaPowerControl` has its
+Power-In and Logic-I/O combined on one side, Power-Out-only on the
+other. The consequence that matters for a chain of *multiple* APCs
+(exactly `airlock-card-mod`'s real topology) is easy to miss even
+knowing that fact: **logic access to a given APC only exists on the
+network that feeds power *into* it — never on the network it outputs
+power *to*, and never on some network two hops away.**
+
+Concretely, for a chain like:
+
+```
+[Battery / Super APC] --output (power-only)-->
+  [backbone network: Console, sensors, buttons, vents,
+   door data ports, and the Sub APC's own Power-In+Logic-I/O side]
+--output (power-only)-->
+  [switched network: door/vent power only]
+```
+
+- A mod running on the Console (which lives on the backbone) **can**
+  see and control the Sub APC — its Power-In+Logic-I/O side is on that
+  same backbone network.
+- The same mod **can never** see the Super APC (or whatever actually
+  supplies the backbone), even though the backbone is powered by it —
+  the Super APC's own Logic-I/O is on *its own* upstream side, one
+  network further up, past a power-only boundary
+  `ParentComputer.DeviceList()` cannot cross.
+- **Only one `AreaPowerControl` will ever be visible from the
+  Console's own network in a topology shaped like this** — it's always
+  the one immediately upstream of the Console, never the one further
+  upstream that actually supplies power to the whole chain.
+
+**Confirmed in-game, `airlock-card-mod`, 2026-08-07**: a live
+`ParentComputer.DeviceList()` dump from the Console showed exactly
+this — 12 devices, exactly one `AreaPowerControl` (the Sub APC),
+nothing further upstream. `AdvancedAirlockControlHost`'s original
+`FindPowerControllers` logic ("first `AreaPowerControl` found =
+battery, second found = downstream") assumed both roles could coexist
+discoverable on one network, which is wrong for this shape of chain:
+the single controller found is the **downstream/switchable** one, not
+a battery. A genuine "dedicated battery charge" reading needs either a
+battery-backed controller placed one level shallower (on the backbone
+itself, not upstream of it), or the battery-tracking feature dropped
+until the topology supports it — role assignment can't be fixed by
+list order alone; it needs to know which network tier it's actually
+running on.
+
+**The generalizable rule, worth restating plainly**: when a mod script
+running from a fixed point in the network asks "what Power Controllers
+can I see," the honest answer is never "however many exist in the
+build," it's "however many have their Power-In+Logic-I/O side on
+exactly my own network" — which in a multi-tier power chain is usually
+one, sometimes zero, essentially never "all of them."
+
 ## 3. Some runtime facts are genuinely unrecoverable via static decompilation
 
 Not "hard to find" — structurally absent from the compiled IL, no
