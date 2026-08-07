@@ -250,10 +250,16 @@ furnace or cools.
    drawn through per tick, unmeasured — now the real driver of how
    fast N2 heats up on the uncapped side (not a ceiling question
    anymore, a throughput one).
-8. **Cross-branch flag**: `phase-change-separator/two-chamber-system/
-   separator_ac_driver.ic10` (on `main`) targets 2500K for Sodium
-   Chloride by driving the AC's *controlled* side — under the
-   corrected model above, that's still very likely unreachable as
-   currently wired for that one gas. Not touched yet; the fix, if
-   needed, is probably rewiring that chamber loop to the AC's other
-   side, same pattern this doc just adopted.
+8. **Cross-branch flag, deprioritized (2026-08-07, project owner):**
+   `phase-change-separator/two-chamber-system/separator_ac_driver.ic10`
+   (on `main`) targets 2500K for Sodium Chloride by driving the AC's
+   *controlled* side — under the corrected model above, that's still
+   very likely unreachable as currently wired. But Sodium Chloride's
+   freezing point (~600K, `condensation_reference.md`) is a dramatic
+   outlier versus every other gas in that table (next highest is
+   ~274K) — it solidifies well above where the other 10 gases would
+   even still be liquid, so a setup built around their operating range
+   probably never keeps it liquid long enough to matter in practice.
+   Real bug, low practical impact — not worth fixing ahead of things
+   that actually get used. Left as-is; see `condensation_reference.md`
+   for the same note added there.
