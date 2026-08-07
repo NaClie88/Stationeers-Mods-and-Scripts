@@ -18,16 +18,23 @@ extends `Motherboard`. The older non-Advanced airlock is a sibling,
 
 ## What to find, per `IAirlockHost` member
 
-- **`DedicatedBatteryChargeRatio`** — **CONFIRMED: no vanilla
-  equivalent, needs a new field.** `AdvancedAirlockControl`,
-  `AirlockControlBase`, and `AirlockControl` were all decompiled in
-  full — zero references to battery, charge, or any Power Controller
-  type anywhere in the three classes. The circuit only tracks Doors,
-  Gas Sensors, `IPoweredVent`s, `WallLight`s (as warning lights), and
-  Speakers; nothing about its own power source. This needs its own new
-  field, a reference to a specific Power Controller, set some other
-  way (a new Console setting, most likely) — not a hook into anything
-  that already exists.
+- **`DedicatedBatteryChargeRatio`** — **WIRED, 2026-08-06.** Confirmed
+  no vanilla equivalent, as originally found (`AdvancedAirlockControl`/
+  `AirlockControlBase`/`AirlockControl` track Doors, Gas Sensors,
+  `IPoweredVent`s, `WallLight`s, and Speakers; nothing about their own
+  power source). Rather than a new Console setting, `AdvancedAirlockControlHost`
+  auto-discovers a linked `AreaPowerControl` from
+  `AdvancedAirlockControl.LinkedDevices` (public `List<Device>`,
+  confirmed via decompiling `Motherboard.cs` — `AreaPowerControl : ElectricalInputOutput
+  : Device`, so it's a valid member) — first one found = the dedicated
+  battery, mirroring the exact "first found / second found" role-
+  assignment pattern vanilla's own `OnDeviceListChanged` already uses
+  for `ExteriorPoweredVent`/`InteriorPoweredVent`. Reads
+  `battery.Battery.PowerRatio * 100f` (`BatteryCell.PowerRatio`, a
+  real public property — cleaner than round-tripping through
+  `GetLogicValue(LogicType.Ratio)`). No battery linked, or no
+  `BatteryCell` inserted in its slot → safe default `100f`, matching
+  `IAirlockHost`'s own documented graceful-degradation behavior.
 - **`ButtonEHeld`/`ButtonIHeld`/`ButtonCHeld`** — **CONFIRMED: no
   vanilla equivalent, and the likely-looking hook is a dead end.**
   Vanilla's button input is entirely Console UI `Button` components
@@ -143,37 +150,32 @@ extends `Motherboard`. The older non-Advanced airlock is a sibling,
 - **`SetWarningIndicator(Tier)`** — vanilla's Console likely has its
   own status display; decide whether this drives that, or a separate
   physical LED the way the IC10 build does (`watcher.ic10`'s
-  `ColorGreen`/`ColorYellow`/`ColorRed`, itself still flagged
-  unconfirmed in that build too). Lowest-stakes item on this list —
-  fine to stub this out last.
-- **`SetDownstreamPower(bool)`** — **CONFIRMED: no vanilla
-  equivalent**, same decompile pass as `DedicatedBatteryChargeRatio`
-  above — zero Power Controller/APC references anywhere in the three
-  airlock classes. Needs a reference to the traditional Area Power
-  Controller feeding the doors, Vents, and chamber Gas Sensor, set up
-  as a new field. **Must be wired from the APC's power-source side**
-  (project owner, 2026-08-05: an APC only exposes its logic there, not
-  on its downstream/output side) — don't look for a control hook on
-  the network the APC creates downstream of itself. "Area Power
-  Controller" and "Power Controller" are confirmed the same device
-  (`AreaPowerControl`, `logic-network-reference`'s `devices/
-  power-controller.md`), so this was the exact same `On`-field question
-  flagged for `airlock-ic10-scripts/watcher.ic10`'s own zone gate — **now
-  resolved there too** (2026-08-06, project owner's direct design
-  knowledge: the Power Controller's explicit purpose is a battery
-  buffer/charge circuit for everything downstream plus a power cutoff
-  switch). `On` is confirmed as the field to write here as well once
-  the actual APC reference/field wiring below gets built — this item
-  was never about *which* LogicType, only about finding the reference
-  to write it against.
-- **`HasDownstreamController`** — presence check paired with the above:
-  does a controllable APC actually exist on the source-side network at
-  all. Same shape as `HasWakeButtons`'s presence check — likely "is the
-  reference/hash null" once `SetDownstreamPower`'s real hook is found.
-  Without this, `SetDownstreamPower` could get called against a device
-  that isn't there; `FailsafeController` already handles that
-  gracefully (Deep Idle just doesn't run), but the adapter still needs
-  to detect absence rather than assume presence.
+  `ColorGreen`/`ColorYellow`/`ColorRed`, confirmed correct 2026-08-06
+  via a live BepInEx dump of `GameManager.CustomColors` — see
+  `airlock-ic10-scripts/ic10_airlock_code_notes.md`). Lowest-stakes
+  item on this list — currently just logs on Tier change
+  (`AdvancedAirlockControlHost.SetWarningIndicator`) so real Tier
+  tracking is visible in-game; a real LED/Console indicator is still
+  follow-up work.
+- **`SetDownstreamPower(bool)`/`HasDownstreamController`** —
+  **WIRED, 2026-08-06.** Confirmed no vanilla equivalent, as originally
+  found. `AreaPowerControl` confirmed the same device as "Power
+  Controller"/"Area Power Controller" (`logic-network-reference`'s
+  `devices/power-controller.md`), and its explicit in-game purpose is
+  a battery buffer/charge circuit plus power cutoff switch (project
+  owner, 2026-08-06) — `On` is the correct field, matching every other
+  powered device. `AdvancedAirlockControlHost` finds the *second*
+  linked `AreaPowerControl` (the first is the dedicated battery, see
+  above) and writes `On` via `OnServer.Interact(downstream.InteractOnOff,
+  on ? 1 : 0)` — the same universal write mechanism confirmed in
+  `logic-network-reference/base-behavior.md`. `HasDownstreamController`
+  is just "was a second one found." **Safety note on this first
+  wiring pass**: with `HasWakeButtons` still hardcoded `false`,
+  `FailsafeController`'s own Low-tier branch always forces
+  `SetDownstreamPower(true)` regardless of Tier (Deep Idle specifically
+  requires `HasWakeButtons`) — so this slice can only ever turn a
+  downstream controller *on*, never off, until buttons are wired too.
+  Deliberately de-risked this way for the first real-hardware test.
 - **`MaintenanceModeEnabled`** — a Console setting toggle, no device to
   find. Same "no decompiler work needed, just a settings surface"
   category as `AllowPowerDownWhilePropped` — safe to stub as
