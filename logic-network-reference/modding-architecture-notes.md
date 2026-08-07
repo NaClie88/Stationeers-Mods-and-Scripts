@@ -41,36 +41,64 @@ my network" query from a mod.** `LinkedDevices` is specifically for
 "what did this particular Circuitboard type accept a link to," a much
 narrower and type-gated question.
 
-## 2. Power and data are the same cable — confirmed, corrected mid-session
+## 2. One cable type, but devices differ in how many connector ports they expose — this is the part that actually matters
 
-**Got this wrong once, corrected by the project owner, worth recording
-precisely so it doesn't get re-guessed wrong again.** Stationeers uses
-a single combined cable for both power and logic/data — there is no
-separate "data-only" cable that can be routed independently of power
-topology to bypass a power split. This was NOT obvious from the
-decompiled evidence alone (`ElectricalInputOutput.InputNetwork`/
-`OutputNetwork` and `IComputer.DataCableNetwork` are both typed
-`CableNetwork`, which is *consistent* with either "same unified
-network" or "coincidentally same C# type for two independent graphs"
-— the decompiled types alone don't disambiguate this, and guessing
-the wrong one is exactly what happened here initially).
+**Revised twice this session — worth reading the whole arc, not just
+the conclusion, since the intermediate wrong answer is exactly the
+trap to avoid next time.**
 
-**Practical consequence**: an `AreaPowerControl` splitting its
-`InputNetwork` from its `OutputNetwork` splits **both power and data**
-reachability across that boundary — a device wired to the power-out
-side is not reachable from the power-in side's data network, full
-stop, the same way a Transformer blocks everything (Transformers just
-have zero data port *at all*, an even harder wall; an APC's data port
-exists but only on whichever specific physical connector it's
-attached to). **There is no way to run a "logic bridge" cable around
-this** — the only in-game mechanism that crosses an always-on/switched
-power boundary without requiring continuous power on both sides is a
-wireless Logic Transmitter pair (see `devices/logic-transmitter.md`),
-relaying exactly one value (`Setting`), which is exactly why this
-project's own IC10 Watcher/Cycle design already uses one. **A mod
-that needs to bridge the same kind of boundary should expect to need
-the same kind of bridge** — don't assume a C# `DeviceList()` call can
-reach across a power-switching device's own input/output split.
+**The cable itself**: Stationeers has one combined cable type for both
+power and logic/data — there's no separate "data-only" cable item.
+Confirmed by the project owner directly.
+
+**First wrong conclusion drawn from that**: "so there's no way to keep
+data connectivity across a power split" — i.e. an `AreaPowerControl`
+splitting `InputNetwork`/`OutputNetwork` must split *all* reachability
+for *everything* downstream of it, no exceptions, the only way across
+being a wireless Logic Transmitter (one value, `Setting`).
+
+**That conclusion is wrong, and the reason why is the actually useful
+lesson**: it's not about the cable, it's about **how many separate
+connector ports a given device exposes**. Confirmed in-game:
+- The Kit Console has **one** combined power+data port. Whatever
+  network that single port is on is the *only* network the Console
+  can reach — full stop, no way around it for the Console itself.
+- `AreaPowerControl` has **two** ports on different sides — Power-In
+  combined with Logic I/O on one, Power-Out only on the other. This is
+  what makes an APC's own power-source-side logic access work at all
+  (see `devices/power-controller.md`) — it's not "the APC blocks all
+  data," it's "the APC only *has* a data connector on one specific
+  physical side."
+- **`Door` has separate, independent power and data ports** — not
+  combined like the Console, not "one side has both" like the APC,
+  genuinely two distinct connectors. **This means a Door's power can
+  be wired to a switched circuit (Sub APC output) while its data port
+  is wired directly to an always-on Console's network** — full,
+  permanent vanilla control/visibility over the door regardless of
+  whether it currently has power, while its actual electrical draw
+  stays fully gated by the switch. This is achievable with zero mods,
+  no Logic Transmitter needed for it specifically — it only requires
+  running the door's *data* connector to a different network than its
+  *power* connector, which the door's own two-port design permits
+  directly.
+
+**The generalizable lesson**: before concluding "X can't be reached
+across this power boundary," check whether the specific device in
+question has one combined port (blocked, like the Console) or
+separate power/data ports (not blocked, like the Door) — don't
+generalize from one device's connector layout to the whole game.
+**Worth checking for any device this project cares about controlling
+across a power-switched boundary** — Active Vent's port layout hasn't
+been confirmed yet as of this writing, and matters for whether it can
+join the same switched-but-controllable arrangement as Doors.
+
+A wireless Logic Transmitter pair (see `devices/logic-transmitter.md`)
+remains the only mechanism for crossing a boundary where the device on
+the far side genuinely has no independent data port at all (or where
+you need to relay something across two structures with no direct
+cable run between them) — it's not obsolete, just not the first thing
+to reach for whenever a device turns out to have its own separate data
+connector.
 
 **Likely root cause of getting this wrong in the first place, worth
 naming explicitly**: this repo works with both vanilla Stationeers and
@@ -139,6 +167,7 @@ it — recorded honestly, gap included:**
 | Cable Analyzer | — | 0W (see below — it's a pure passive monitor) | — |
 | Gas Sensor | — | **0W observed** (wiki states ~1W) | — |
 | Active Vent | 0W | — | **100W while pumping (see below — vent only exposes a binary On/Off logic state at all, no separate "pumping" flag)** |
+| Kit Console (with card installed) | — | **50W on standby** — this is the baseline always-on cost of the mod's own hardware, separate from whatever it's monitoring | — |
 
 Doors and the LED match what the static trace below predicts exactly
 — a single flat draw the whole time they're on, no exceptions. **Gas
