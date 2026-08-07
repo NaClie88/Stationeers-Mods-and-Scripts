@@ -48,7 +48,7 @@ with both scripts' lookup tables if this reference table ever changes.
 | Index | Gas | Freezing point | Chart max pressure | Temperature at chart max pressure | Notes |
 |---|---|---|---|---|---|
 | 0 | Hydrazine | ~274 K (~1°C) | 6000 kPa | ~520 K | |
-| 1 | Sodium Chloride | ~600 K | 500 kPa | ~2500 K (curve still rising at chart's right edge) | Note the much lower 500 kPa chart ceiling vs. the 6000 kPa used for most other gases. |
+| 1 | Sodium Chloride | ~600 K | 500 kPa | ~2500 K (curve still rising at chart's right edge) | Note the much lower 500 kPa chart ceiling vs. the 6000 kPa used for most other gases. **Freezing point (~600K) is a dramatic outlier versus every other gas in this table** (next highest is ~274K) — it solidifies well above where the other 10 would even still be liquid, so a two-chamber setup built around their operating range is unlikely to keep it liquid long enough to matter in practice (project owner, 2026-08-07). Separately, `separator_ac_driver.ic10`'s 2500K target for this gas index also drives the AC's *controlled* side, which has a real ~999°C/1272K ceiling (see `furnace-heat-recovery/topology_notes.md` on the `furnace-heat-recovery` branch) — likely unreachable as wired, but left unfixed given how unlikely this gas is to see real use. |
 | 2 | Carbon Dioxide | ~217 K (~-56°C) | 6000 kPa | ~270 K | |
 | 3 | Hydrochloric Acid | ~248 K (~-25°C) | 1000 kPa | ~430 K | Chart ceiling is 1000 kPa, not 6000. |
 | 4 | Hydrogen | ~14 K | 6000 kPa | ~70 K | |
