@@ -89,6 +89,18 @@ this project's compatibility-layering policy (vanilla-first, Re-Volt
 as an isolated optional layer, see the repo root `README.md`) exists
 partly to keep this exact confusion from bleeding across the boundary.
 
+**Confirmed, not just theorized**: the project owner identified the
+specific device — an "Optoisolator," which does exactly the
+isolate-power-pass-data behavior originally expected. Checked both
+`device-index.md` (all 499 vanilla devices) and the full decompiled
+`Assembly-CSharp.dll` class list directly — zero matches for
+"opto"/"Optoisolator" anywhere. **It's a Re-Volt-only device, not
+vanilla.** The original design instinct (something should be able to
+pass logic across a power-isolation boundary without a wireless
+Transmitter) was completely sound — it just names a real device that
+exists in the wrong one of this repo's two toolsets for a vanilla-only
+build.
+
 ## 3. Some runtime facts are genuinely unrecoverable via static decompilation
 
 Not "hard to find" — structurally absent from the compiled IL, no
