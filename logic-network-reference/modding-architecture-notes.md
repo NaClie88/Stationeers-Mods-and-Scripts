@@ -103,15 +103,16 @@ reusing for future `PrefabHash` questions specifically.
 some matching the static code trace and one genuinely not explained by
 it — recorded honestly, gap included:**
 
-| Device | Off | On / idle | Active |
+| Device | Off | On | Active |
 |---|---|---|---|
-| Glass Door | 0W | 10W (standby, just sitting there) | — |
+| Glass Door | 0W | 10W flat, regardless of open/closed/mid-cycle (confirmed no distinction at all) | — |
 | LED Light | 0W | 25W | — |
 | Cable Analyzer | — | 0W (see below — it's a pure passive monitor) | — |
 | Gas Sensor | — | **0W observed** (wiki states ~1W) | — |
-| Active Vent | 0W | — | **100W while pumping** |
+| Active Vent | 0W | — | **100W while pumping (see below — vent only exposes a binary On/Off logic state at all, no separate "pumping" flag)** |
 
-Doors and the LED match what the static trace below predicts. **Gas
+Doors and the LED match what the static trace below predicts exactly
+— a single flat draw the whole time they're on, no exceptions. **Gas
 Sensor and Active Vent don't, or aren't fully explained by it** —
 worth understanding as a real limit of this project's decompilation
 reach, not a settled fact to build on uncritically.
@@ -141,9 +142,15 @@ observed with a live meter was almost certainly `Actual` — and
 genuinely pumping, points at network-level demand/delivery balancing
 elsewhere in the simulation (not inside `Device`/`ElectricalInputOutput`'s
 own `GetUsedPower`, which is the "how much do I want" side, not the
-"how much am I actually getting" side). **Still not confirmed exactly
-where that balancing logic lives** — flagged as the more precise
-version of the still-open question, not fully resolved.
+"how much am I actually getting" side). **Confirmed (project owner):
+Active Vent only exposes a binary `On`/`Off` logic state at all — no
+separate "pumping" flag or `Activate` field to read** (matches
+`device-index.md`'s LogicType list for it — no `Activate` there
+either). So whatever decides "genuinely pumping right now" isn't even
+a *readable logic value* on the vent itself, only an internal
+simulation detail that happens to also gate `Actual` power draw —
+**still not confirmed exactly where that logic lives**, flagged as the
+more precise version of the still-open question, not fully resolved.
 
 The base `Device` class (`Assets.Scripts.Objects.Pipes.Device`)
 declares `public float UsedPower = 10f` and:
