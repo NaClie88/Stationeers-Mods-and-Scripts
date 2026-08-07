@@ -292,6 +292,50 @@ same `On` LogicType — resolved 2026-08-06, see `PATCH_PLAN.md`) as the
 zone gate in `airlock-ic10-scripts/watcher.ic10`, just wired the same
 way again.
 
+## Idea: Station Battery instead of the Sub APC for monitoring (post-redesign note, 2026-08-07)
+
+**Filed as an idea for future consideration, not an active redesign.** The
+two-Power-Controller section above (and most of this file) predates the
+brownout-detection redesign (commit `9ed9699`, 2026-08-07) that replaced
+percentage-based Tier staging with a Cable Analyser on the always-on
+backbone — see `src/FailsafeController.cs`'s `IAirlockHost.BasePowerBrownout`
+doc comment and `AdvancedAirlockControlHost.cs`'s `FindDownstreamController`/
+`FindCableAnalyser` for the current, real design. That redesign happened
+because a real multi-tier APC chain only ever exposes *one* Area Power
+Controller to the Console's own data network — confirmed via live NETDUMP —
+the switchable one directly upstream (what the project owner calls the
+"Super/Sub APC" here). Anything further upstream is invisible, and that one
+controller's battery reads as artificially healthy for as long as anything
+upstream is still supplying it, which is what made percentage-based Tier
+staging unsafe to keep.
+
+Project owner's proposal (2026-08-07): swap that Sub APC out for a small
+**Station Battery** for monitoring purposes instead. Confirmed vanilla
+device (Community Wiki) with a layout that's a genuine fix for the
+visibility problem above, not just a different battery:
+
+- **Opposite orientation from an APC — power IN only**, plus its own
+  **separate Data IO port** and a **separate Power OUT port**. Because
+  charge state is read off its own dedicated Data IO rather than inferred
+  through an APC that's also passing power downstream, its state can't be
+  "artificially healthy" the way the Sub APC's reading can — there's no
+  upstream circuit to mask it.
+- **Downside: forces a 2-grid design.** The wiki is explicit that a Station
+  Battery's input and output sides must stay on separate networks — no
+  generators on the output side, no consumers on the input side. That's a
+  real added-complexity cost versus the current single-backbone Cable
+  Analyser approach, not a free win.
+- **Potential upside:** this is a hardware-level fix for the exact problem
+  that forced the collapse to binary Normal/Low + brownout detection. If a
+  Station Battery's charge is genuinely trustworthy where the Sub APC's
+  isn't, it's worth a real look at whether richer Normal/Low/Critical
+  staging could come back on top of it, rather than treating the current
+  coarser design as permanent.
+
+Not scoped or scheduled — recording it here per this project's "shelve,
+don't discard" policy (see root `README.md`) so the idea isn't lost, next
+to the section it most directly follows up on.
+
 ## Cross-network visibility for the downstream side
 
 Project owner's concern (2026-08-05): Deep Idle logic still needs some
