@@ -3,157 +3,67 @@ using Xunit;
 
 namespace AirlockCardMod.Tests;
 
-public class TierHysteresisTests
+public class TierTriggerTests
 {
-    // Mirrors the IC10 dry-run's tick-by-tick trace: 100->91->90->89,
-    // 92.9->93->94, 12->11->10->9, 10->12->13->14 - same boundary
-    // values that caught the off-by-one-percentage-point bug in
-    // watcher.ic10, run here against the C# port instead.
-    private static (FakeAirlockHost host, FailsafeController ctrl) Make()
-    {
-        var host = new FakeAirlockHost();
-        return (host, new FailsafeController(host));
-    }
-
-    [Theory]
-    [InlineData(100, Tier.Normal)]
-    [InlineData(91, Tier.Normal)]
-    [InlineData(90, Tier.Low)]   // <=90 crosses into Low
-    [InlineData(89, Tier.Low)]
-    public void NormalToLow_boundary(float charge, Tier expected)
-    {
-        var (host, ctrl) = Make();
-        host.DedicatedBatteryChargeRatio = charge;
-        ctrl.UpdateTier();
-        Assert.Equal(expected, ctrl.CurrentTier);
-    }
-
+    // Replaces the old percentage/hysteresis boundary tests -- Tier is
+    // now a direct binary reflection of BasePowerBrownout, no staging
+    // (2026-08-07 redesign, see FailsafeController.cs's IAirlockHost
+    // interface for why graceful percentage-based staging isn't
+    // possible in vanilla).
     [Fact]
-    public void LowToNormal_requiresStrictlyAbove93_not90()
+    public void NoBrownout_staysNormal()
     {
-        var (host, ctrl) = Make();
-        host.DedicatedBatteryChargeRatio = 90; // enter Low
-        ctrl.UpdateTier();
-        Assert.Equal(Tier.Low, ctrl.CurrentTier);
-
-        host.DedicatedBatteryChargeRatio = 92.9f; // still below 93 - stays Low
-        ctrl.UpdateTier();
-        Assert.Equal(Tier.Low, ctrl.CurrentTier);
-
-        host.DedicatedBatteryChargeRatio = 93; // >= 93 recovers
+        var host = new FakeAirlockHost { BasePowerBrownout = false };
+        var ctrl = new FailsafeController(host);
         ctrl.UpdateTier();
         Assert.Equal(Tier.Normal, ctrl.CurrentTier);
     }
 
     [Fact]
-    public void LowToCritical_and_back_respectsHysteresisGap()
+    public void Brownout_entersLowImmediately()
     {
-        var (host, ctrl) = Make();
-        host.DedicatedBatteryChargeRatio = 90; // Normal -> Low
-        ctrl.UpdateTier();
-
-        host.DedicatedBatteryChargeRatio = 11;
-        ctrl.UpdateTier();
-        Assert.Equal(Tier.Low, ctrl.CurrentTier); // 11 > 10, still Low
-
-        host.DedicatedBatteryChargeRatio = 10;
-        ctrl.UpdateTier();
-        Assert.Equal(Tier.Critical, ctrl.CurrentTier); // <=10 crosses
-
-        host.DedicatedBatteryChargeRatio = 12;
-        ctrl.UpdateTier();
-        Assert.Equal(Tier.Critical, ctrl.CurrentTier); // 12 not > 13, stays Critical
-
-        host.DedicatedBatteryChargeRatio = 13;
-        ctrl.UpdateTier();
-        Assert.Equal(Tier.Critical, ctrl.CurrentTier); // not strictly > 13
-
-        host.DedicatedBatteryChargeRatio = 14;
-        ctrl.UpdateTier();
-        Assert.Equal(Tier.Low, ctrl.CurrentTier); // > 13 recovers
-    }
-
-    [Fact]
-    public void CriticalRecoversToLow_neverDirectlyToNormal()
-    {
-        var (host, ctrl) = Make();
-        host.DedicatedBatteryChargeRatio = 5;
-        ctrl.UpdateTier(); // Normal->Low
-        ctrl.UpdateTier(); // Low->Critical
-        Assert.Equal(Tier.Critical, ctrl.CurrentTier);
-
-        host.DedicatedBatteryChargeRatio = 100;
-        ctrl.UpdateTier();
-        Assert.Equal(Tier.Low, ctrl.CurrentTier); // one tier per tick, matches IC10 design
-    }
-}
-
-public class CriticalTierTests
-{
-    private static (FakeAirlockHost, FailsafeController) MakeInCritical()
-    {
-        var host = new FakeAirlockHost { DedicatedBatteryChargeRatio = 5 };
+        var host = new FakeAirlockHost { BasePowerBrownout = true };
         var ctrl = new FailsafeController(host);
-        ctrl.UpdateTier(); // Normal -> Low
-        ctrl.UpdateTier(); // Low -> Critical
-        Assert.Equal(Tier.Critical, ctrl.CurrentTier);
-        return (host, ctrl);
+        ctrl.UpdateTier();
+        Assert.Equal(Tier.Low, ctrl.CurrentTier);
     }
 
     [Fact]
-    public void ForcesDownstreamPowerOn_withZeroButtonsPressed()
+    public void BrownoutClearing_returnsToNormal()
     {
-        var (host, ctrl) = MakeInCritical();
-        ctrl.ApplyTierEffects();
-        Assert.Equal(true, host.LastDownstreamPower);
-        Assert.Equal(1, host.ForceEvacuateCalls);
-        Assert.Equal(1, host.UnlockDoorsCalls);
+        var host = new FakeAirlockHost { BasePowerBrownout = true };
+        var ctrl = new FailsafeController(host);
+        ctrl.UpdateTier();
+        Assert.Equal(Tier.Low, ctrl.CurrentTier);
+
+        host.BasePowerBrownout = false;
+        ctrl.UpdateTier();
+        Assert.Equal(Tier.Normal, ctrl.CurrentTier);
     }
 
     [Fact]
-    public void ButtonCHeld_skipsEvacuateAndUnlock_butPowerStaysOn()
+    public void BrownoutRecurring_resumesFromIdle_notMidActive()
     {
-        var (host, ctrl) = MakeInCritical();
-        host.ButtonCHeld = true;
+        // A later brownout should always start the full evacuate
+        // sequence fresh, never resume mid-Active as if the earlier
+        // wake was still in progress -- deliberately conservative.
+        var host = new FakeAirlockHost { BasePowerBrownout = true };
+        var ctrl = new FailsafeController(host);
+        ctrl.UpdateTier();
+        ctrl.ApplyTierEffects(); // Idle tick: ForceEvacuate/UnlockDoors run
+
+        host.ButtonEHeld = true;
+        ctrl.ApplyTierEffects(); // wakes -> Active
+        host.ButtonEHeld = false;
+
+        host.BasePowerBrownout = false;
+        ctrl.UpdateTier(); // clears entirely
+
+        host.BasePowerBrownout = true;
+        ctrl.UpdateTier(); // brownout again
+        host.ForceEvacuateCalls = 0;
         ctrl.ApplyTierEffects();
-
-        Assert.Equal(true, host.LastDownstreamPower); // power still forced on
-        Assert.Equal(0, host.ForceEvacuateCalls);       // but evacuation skipped
-        Assert.Equal(0, host.UnlockDoorsCalls);
-    }
-
-    [Fact]
-    public void UnsafeTemperature_evacuatesButDoesNotUnlock()
-    {
-        var (host, ctrl) = MakeInCritical();
-        host.SafeToUnlockTemperature = false;
-        ctrl.ApplyTierEffects();
-
-        Assert.Equal(1, host.ForceEvacuateCalls); // evacuation is unconditional
-        Assert.Equal(0, host.UnlockDoorsCalls);   // unlock gated on temperature
-    }
-
-    [Fact]
-    public void PropAtmosphereMatched_isIgnoredInCritical()
-    {
-        var (host, ctrl) = MakeInCritical();
-        host.PropAtmosphereMatched = true;
-        ctrl.ApplyTierEffects();
-        Assert.Equal(0, host.HoldBothDoorsOpenCalls); // Propped-Open never applies in Critical
-    }
-
-    [Fact]
-    public void MaintenanceMode_suspendsEverythingExceptIndicator()
-    {
-        var (host, ctrl) = MakeInCritical();
-        host.MaintenanceModeEnabled = true;
-        ctrl.ApplyTierEffects();
-
-        Assert.Equal(0, host.ForceEvacuateCalls);
-        Assert.Equal(0, host.UnlockDoorsCalls);
-        Assert.Empty(host.DownstreamPowerHistory);
-        Assert.Single(host.WarningIndicatorHistory); // indicator still updates
-        Assert.Equal(Tier.Critical, host.WarningIndicatorHistory[0]);
+        Assert.Equal(1, host.ForceEvacuateCalls); // ran again, i.e. back in Idle phase
     }
 }
 
@@ -161,7 +71,7 @@ public class NormalTierTests
 {
     private static (FakeAirlockHost, FailsafeController) Make()
     {
-        var host = new FakeAirlockHost { DedicatedBatteryChargeRatio = 100 };
+        var host = new FakeAirlockHost { BasePowerBrownout = false };
         return (host, new FailsafeController(host));
     }
 
@@ -228,11 +138,16 @@ public class NormalTierTests
     }
 }
 
-public class LowTierDeepIdleTests
+public class LowTierIdlePhaseTests
 {
+    // Idle phase absorbed the old Critical tier's evacuate/unlock/
+    // Button-C-override behavior (2026-08-07 redesign) -- every
+    // brownout is treated with the same maximum urgency a confirmed
+    // near-total failure used to get, since vanilla gives no way to
+    // measure how close to real failure a brownout actually is.
     private static (FakeAirlockHost, FailsafeController) MakeInLow()
     {
-        var host = new FakeAirlockHost { DedicatedBatteryChargeRatio = 90 };
+        var host = new FakeAirlockHost { BasePowerBrownout = true };
         var ctrl = new FailsafeController(host);
         ctrl.UpdateTier();
         Assert.Equal(Tier.Low, ctrl.CurrentTier);
@@ -240,36 +155,103 @@ public class LowTierDeepIdleTests
     }
 
     [Fact]
-    public void NoWakeSourceEver_powerNeverTurnsOn()
+    public void NoWakeSource_evacuatesAndUnlocks_powerStaysOff()
     {
-        // Distinct from the expiry test below: this one never had power
-        // on in the first place (wakeHoldRemaining starts at 0), so it
-        // only proves the "stays off with nothing requesting a wake"
-        // case, not the countdown-then-cut behavior.
         var (host, ctrl) = MakeInLow();
-        for (int i = 0; i < 5; i++) ctrl.ApplyTierEffects();
-        Assert.All(host.DownstreamPowerHistory, on => Assert.False(on));
+        ctrl.ApplyTierEffects();
+        Assert.Equal(1, host.ForceEvacuateCalls);
+        Assert.Equal(1, host.UnlockDoorsCalls);
+        Assert.Equal(false, host.LastDownstreamPower);
     }
 
     [Fact]
-    public void ButtonPress_holdsPowerForWakeHoldWindow_thenIdles()
+    public void EveryIdleTick_reRunsEvacuateAndUnlock()
+    {
+        // Matches the old Critical tier's own every-tick call pattern --
+        // ForceEvacuate/UnlockDoors are safe to call repeatedly.
+        var (host, ctrl) = MakeInLow();
+        for (int i = 0; i < 5; i++) ctrl.ApplyTierEffects();
+        Assert.Equal(5, host.ForceEvacuateCalls);
+        Assert.Equal(5, host.UnlockDoorsCalls);
+    }
+
+    [Fact]
+    public void ButtonCHeld_skipsEvacuateAndUnlock_butPowerStillReflectsWakeState()
     {
         var (host, ctrl) = MakeInLow();
-        ctrl.WakeHoldTicks = 3;
-
-        host.ButtonEHeld = true;
+        host.ButtonCHeld = true;
         ctrl.ApplyTierEffects();
-        Assert.Equal(true, host.LastDownstreamPower);
 
-        host.ButtonEHeld = false;
-        ctrl.ApplyTierEffects(); // tick 1 of hold
-        Assert.Equal(true, host.LastDownstreamPower);
-        ctrl.ApplyTierEffects(); // tick 2
-        Assert.Equal(true, host.LastDownstreamPower);
-        ctrl.ApplyTierEffects(); // tick 3
-        Assert.Equal(true, host.LastDownstreamPower);
-        ctrl.ApplyTierEffects(); // hold exhausted
-        Assert.Equal(false, host.LastDownstreamPower);
+        Assert.Equal(0, host.ForceEvacuateCalls);
+        Assert.Equal(0, host.UnlockDoorsCalls);
+        Assert.Equal(true, host.LastDownstreamPower); // ButtonCHeld is itself a wake source
+    }
+
+    [Fact]
+    public void UnsafeTemperature_evacuatesButDoesNotUnlock()
+    {
+        var (host, ctrl) = MakeInLow();
+        host.SafeToUnlockTemperature = false;
+        ctrl.ApplyTierEffects();
+
+        Assert.Equal(1, host.ForceEvacuateCalls); // evacuation is unconditional
+        Assert.Equal(0, host.UnlockDoorsCalls);   // unlock gated on temperature
+    }
+
+    [Fact]
+    public void PropAtmosphereMatched_noLongerHoldsDoorsOpenInLowTier()
+    {
+        // Deliberate simplification (2026-08-07): during a real
+        // brownout the chamber should be at vacuum, not held open
+        // matched to atmosphere -- PropAtmosphereMatched only matters
+        // in Normal tier now.
+        var (host, ctrl) = MakeInLow();
+        host.PropAtmosphereMatched = true;
+        ctrl.ApplyTierEffects();
+        Assert.Equal(0, host.HoldBothDoorsOpenCalls);
+    }
+
+    [Fact]
+    public void MaintenanceMode_suspendsEverythingExceptIndicator()
+    {
+        var (host, ctrl) = MakeInLow();
+        host.MaintenanceModeEnabled = true;
+        ctrl.ApplyTierEffects();
+
+        Assert.Equal(0, host.ForceEvacuateCalls);
+        Assert.Equal(0, host.UnlockDoorsCalls);
+        Assert.Empty(host.DownstreamPowerHistory);
+        Assert.Single(host.WarningIndicatorHistory); // indicator still updates
+        Assert.Equal(Tier.Low, host.WarningIndicatorHistory[0]);
+    }
+
+    [Fact]
+    public void NoWakeButtonsWired_fallsBackToAlwaysOn()
+    {
+        var (host, ctrl) = MakeInLow();
+        host.HasWakeButtons = false;
+        for (int i = 0; i < 10; i++) ctrl.ApplyTierEffects();
+        Assert.All(host.DownstreamPowerHistory, on => Assert.True(on));
+    }
+
+    [Fact]
+    public void NoDownstreamController_fallsBackToAlwaysOn()
+    {
+        var (host, ctrl) = MakeInLow();
+        host.HasDownstreamController = false;
+        for (int i = 0; i < 10; i++) ctrl.ApplyTierEffects();
+        Assert.All(host.DownstreamPowerHistory, on => Assert.True(on));
+    }
+}
+
+public class LowTierWakeAndReidleTests
+{
+    private static (FakeAirlockHost, FailsafeController) MakeInLow()
+    {
+        var host = new FakeAirlockHost { BasePowerBrownout = true };
+        var ctrl = new FailsafeController(host);
+        ctrl.UpdateTier();
+        return (host, ctrl);
     }
 
     [Theory]
@@ -291,67 +273,76 @@ public class LowTierDeepIdleTests
     }
 
     [Fact]
-    public void NoWakeButtonsWired_fallsBackToAlwaysOn()
+    public void ButtonE_wakesAndOpensOnlyExteriorDoor_andRelocks()
     {
         var (host, ctrl) = MakeInLow();
-        host.HasWakeButtons = false;
-        for (int i = 0; i < 10; i++) ctrl.ApplyTierEffects();
-        Assert.All(host.DownstreamPowerHistory, on => Assert.True(on));
-    }
-
-    [Fact]
-    public void NoDownstreamController_fallsBackToAlwaysOn()
-    {
-        var (host, ctrl) = MakeInLow();
-        host.HasDownstreamController = false;
-        for (int i = 0; i < 10; i++) ctrl.ApplyTierEffects();
-        Assert.All(host.DownstreamPowerHistory, on => Assert.True(on));
-    }
-
-    [Fact]
-    public void PropMatched_holdsDoorsOpen_evenInLowTier()
-    {
-        // Explicit divergence from the original cycle.ic10, which only
-        // checked this in Normal - documented in the source as an
-        // intentional 2026-08-05 design change.
-        var (host, ctrl) = MakeInLow();
-        host.PropAtmosphereMatched = true;
+        host.ButtonEHeld = true;
         ctrl.ApplyTierEffects();
-        Assert.Equal(1, host.HoldBothDoorsOpenCalls);
+
+        Assert.Single(host.OpenedDoors);
+        Assert.Equal(DoorSide.Exterior, host.OpenedDoors[0]);
+        Assert.Equal(1, host.LockDoorsCalls); // re-locked for vanilla's IsOperable
     }
 
     [Fact]
-    public void AllowPowerDownWhilePropped_steadyMatch_doesNotForceWake()
+    public void ButtonI_wakesAndOpensOnlyInteriorDoor()
     {
         var (host, ctrl) = MakeInLow();
-        ctrl.WakeHoldTicks = 2;
-        host.AllowPowerDownWhilePropped = true;
-        host.PropAtmosphereMatched = true;
-
-        for (int i = 0; i < 5; i++) ctrl.ApplyTierEffects();
-
-        // Doors stay held open regardless...
-        Assert.True(host.HoldBothDoorsOpenCalls > 0);
-        // ...but downstream power is allowed to idle down despite the
-        // steady match, since AllowPowerDownWhilePropped opts out of
-        // treating "still matched" as its own wake reason.
-        Assert.Equal(false, host.LastDownstreamPower);
-    }
-
-    [Fact]
-    public void AllowPowerDownWhilePropped_mismatchAppearing_stillForcesWake()
-    {
-        var (host, ctrl) = MakeInLow();
-        ctrl.WakeHoldTicks = 2;
-        host.AllowPowerDownWhilePropped = true;
-        host.PropAtmosphereMatched = true;
-
-        for (int i = 0; i < 5; i++) ctrl.ApplyTierEffects();
-        Assert.Equal(false, host.LastDownstreamPower); // idled down while matched
-
-        host.PropAtmosphereMatched = false; // mismatch just appeared
+        host.ButtonIHeld = true;
         ctrl.ApplyTierEffects();
-        Assert.Equal(true, host.LastDownstreamPower); // forces a wake regardless of the setting
+
+        Assert.Single(host.OpenedDoors);
+        Assert.Equal(DoorSide.Interior, host.OpenedDoors[0]);
+    }
+
+    [Fact]
+    public void OnceActive_powerStaysOn_regardlessOfButtonState_untilChamberVacatedAndDelayExpires()
+    {
+        var (host, ctrl) = MakeInLow();
+        ctrl.ReidleDelayTicks = 2;
+
+        host.ButtonEHeld = true;
+        ctrl.ApplyTierEffects(); // wake -> Active (this tick's own ForceEvacuate() already ran as Idle's last act)
+        host.ButtonEHeld = false;
+        host.ForceEvacuateCalls = 0;
+
+        // Power stays on with no button held and nobody detected yet --
+        // Active phase doesn't idle off on a fixed timer anymore.
+        for (int i = 0; i < 5; i++) ctrl.ApplyTierEffects();
+        Assert.All(host.DownstreamPowerHistory, on => Assert.True(on));
+        Assert.Equal(0, host.ForceEvacuateCalls); // never re-entered Idle
+
+        host.PresenceDetected = true; // someone genuinely entered
+        ctrl.ApplyTierEffects();
+        host.PresenceDetected = false; // and left
+
+        ctrl.ApplyTierEffects(); // reidle tick 1
+        Assert.Equal(true, host.LastDownstreamPower);
+        ctrl.ApplyTierEffects(); // reidle tick 2, delay expires -> back to Idle
+        Assert.Equal(true, host.LastDownstreamPower); // Idle's own forceOn(wakeRequested=false)+wake-hold still covers this tick
+
+        host.ForceEvacuateCalls = 0;
+        ctrl.ApplyTierEffects();
+        Assert.Equal(1, host.ForceEvacuateCalls); // back in Idle phase, evacuating again
+    }
+
+    [Fact]
+    public void NeverConfirmedOccupied_staysActiveIndefinitely()
+    {
+        // e.g. button pressed but nobody actually walked in -- shouldn't
+        // snap back to Idle just because PresenceDetected never went
+        // true, since that would fight a player who's simply slow to
+        // walk through.
+        var (host, ctrl) = MakeInLow();
+        ctrl.ReidleDelayTicks = 1;
+        host.ButtonEHeld = true;
+        ctrl.ApplyTierEffects(); // wake tick's own ForceEvacuate() already ran as Idle's last act
+        host.ButtonEHeld = false;
+        host.ForceEvacuateCalls = 0;
+
+        for (int i = 0; i < 10; i++) ctrl.ApplyTierEffects();
+        Assert.Equal(0, host.ForceEvacuateCalls);
+        Assert.All(host.DownstreamPowerHistory, on => Assert.True(on));
     }
 }
 

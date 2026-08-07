@@ -28,7 +28,6 @@ namespace AirlockCardMod
     {
         Normal = 0,
         Low = 1,
-        Critical = 2,
     }
 
     public enum DoorSide
@@ -45,26 +44,33 @@ namespace AirlockCardMod
     // confirmed.
     public interface IAirlockHost
     {
-        // 0-100. Source: dedicated Power Controller's Charge/Maximum,
-        // same as watcher.ic10 lines 32-35 (l Battery Charge / Maximum,
-        // div, mul 100). This is a SECOND Power Controller, distinct
-        // from the traditional build's single Area Power Controller
-        // (see GAP_ANALYSIS.md "Power architecture") -- must sit
-        // outside the switched downstream circuit below, feeding the
-        // always-on Console directly. Same placement requirement as
-        // the IC10 build's dedicated battery, same reason: the Console
-        // has to survive a loss of the main circuit to detect and
-        // respond to it.
+        // Simplified fail-safe trigger (2026-08-07, project owner,
+        // replacing the original percentage-based DedicatedBatteryChargeRatio
+        // design below this comment in git history): vanilla gives no
+        // way to read a battery's true remaining runway from a point
+        // upstream of this project's own network boundary (an APC only
+        // exposes its own logic on its power-SOURCE side -- see
+        // logic-network-reference/modding-architecture-notes.md section
+        // 2b -- so a downstream battery reads as artificially healthy
+        // for as long as anything upstream is still supplying it,
+        // giving almost no advance warning before a real failure).
+        // Rather than risk an incorrect "still plenty of runway"
+        // estimate that locks someone out, the design gave up on
+        // graceful percentage-based staging entirely: a Cable Analyser
+        // placed on the always-on backbone itself (the same network
+        // this Console already reaches, no bridging needed) exposes
+        // Required/Potential for that whole segment, and
+        // Required > Potential -- a genuine brownout, worse than a
+        // clean blackout because it drains what reserve exists while
+        // delivering nothing -- is treated as maximally urgent every
+        // single time, no severity staging.
         //
-        // Safe default if no dedicated Power Controller is wired at
-        // all: report 100 (always Normal), not 0. A host that can't
-        // find one should disable the fail-safe layer by always
-        // looking healthy, not fail closed into permanent false
-        // Critical-tier lockdowns -- there's nothing to be safe *from*
-        // if there's no dedicated battery to monitor in the first
-        // place, so this should behave like vanilla with no fail-safe
-        // layer at all, not like vanilla that's stuck evacuating.
-        float DedicatedBatteryChargeRatio { get; }
+        // Safe default if no Cable Analyser is wired at all: false
+        // (never trigger). Same reasoning as the property this
+        // replaced: a host that can't find one should disable the
+        // fail-safe layer by always looking healthy, not fail closed
+        // into a permanent false lockdown.
+        bool BasePowerBrownout { get; }
 
         // Button reads. All three are confirmed elsewhere in this
         // project to work fully unpowered (SOURCES.md, Logic Switch
@@ -145,6 +151,14 @@ namespace AirlockCardMod
         // its own purpose. That placement cost is the tradeoff for the
         // convenience; it's why this project didn't make it the
         // default.
+        //
+        // Second role (2026-08-07, project owner): also drives Low
+        // tier's re-idle decision -- once woken, Low tier stays awake
+        // until this reads true at least once (someone genuinely
+        // entered the chamber) and then false again (they left), only
+        // then returning to the evacuate-and-idle sequence. Same
+        // sensor, same always-on placement requirement, a second
+        // consumer of the same reading rather than a separate field.
         bool PresenceDetected { get; }
 
         // True once Propped-Open's match condition is confirmed (see
@@ -163,28 +177,6 @@ namespace AirlockCardMod
         // in GAP_ANALYSIS.md for what that falls back to.
         bool ExteriorPresenceDetected { get; }
         bool InteriorPresenceDetected { get; }
-
-        // Setup-time choice, not a live sensor read (project owner,
-        // 2026-08-05): if true, a genuine atmosphere match by itself no
-        // longer forces downstream power on in Low tier -- the doors
-        // and Vent circuit is allowed to idle down even while propped
-        // open, on the assumption that (a) a door doesn't need
-        // continuous power just to stay in whatever position it's
-        // already in, only to move, and (b) all three Gas Sensors (the
-        // chamber one plus the exterior/interior-facing Propped-Open
-        // pair) are wired to the always-on circuit so they keep
-        // reading regardless. Point (a) is the same open question
-        // flagged in STATE_TABLE.md's transition notes -- still
-        // unconfirmed, Milestone 1.5/in-game territory, so this is an
-        // opt-in, not the default (false).
-        //
-        // Doesn't disable monitoring -- see the mismatch-while-idle
-        // handling in ApplyTierEffects: a match going false while this
-        // is enabled still forces a wake, so a real leak or reopened
-        // mismatch still gets caught and acted on. What this setting
-        // skips is re-affirming power for a *steady, unchanging* match,
-        // not surveillance of the chamber generally.
-        bool AllowPowerDownWhilePropped { get; }
 
         // Setup/runtime toggle (Console setting), NOT a live sensor
         // read (project owner, 2026-08-05): when true, suspends this
@@ -226,8 +218,32 @@ namespace AirlockCardMod
         // PATCH_PLAN.md for how this affects reusing vanilla's own
         // evacuate method, if that method turns out to unlock as part
         // of the same call.
+        //
+        // ForceEvacuate() is expected to close AND lock both doors as
+        // part of sealing the chamber, then run the vent(s) toward
+        // vacuum -- locking is bundled in here rather than a separate
+        // interface member because it's the same "seal it" duty every
+        // time this gets called (2026-08-07, project owner's Low-tier
+        // redesign: called every idle tick, same as it was for the
+        // tier this replaced). Safe to call repeatedly/every tick --
+        // not a one-shot action.
         void ForceEvacuate();
         void UnlockDoors();
+
+        // Counterpart to UnlockDoors() (2026-08-07) -- re-locks both
+        // doors. Needed specifically when Low tier wakes from idle:
+        // ForceEvacuate()/UnlockDoors() leave doors unlocked (so a
+        // fully depowered chamber can still be crowbarred open by a
+        // player with no tools -- project owner, 2026-08-07), but
+        // vanilla's own IsOperable check requires both doors LOCKED
+        // before its own Pressurizing/Depressurizing cycling will run
+        // at all. Re-locking on wake gives vanilla's normal cycling
+        // its best chance of taking over once the player is inside and
+        // using the Console/buttons normally. NOT yet confirmed
+        // in-game whether this is sufficient on its own -- flagged as
+        // a real open question, see modding-architecture-notes.md.
+        void LockDoors();
+
         void HoldBothDoorsOpen();
 
         // Closes ONE specific door, leaves the other exactly as it was
@@ -237,6 +253,14 @@ namespace AirlockCardMod
         // actively re-commanded open either; it's simply not touched,
         // same as any other door this design isn't currently managing.
         void CloseDoor(DoorSide side);
+
+        // Opens ONE specific door (2026-08-07, project owner's Low-tier
+        // redesign) -- the wake-from-idle behavior only opens whichever
+        // side's button was pressed, not both, unlike HoldBothDoorsOpen
+        // below which is a Normal-tier convenience for a confirmed
+        // atmosphere match. The other door isn't touched, same
+        // "leave the rest alone" convention as CloseDoor.
+        void OpenDoor(DoorSide side);
 
         void SetWarningIndicator(Tier tier);
 
@@ -266,61 +290,48 @@ namespace AirlockCardMod
 
     public sealed class FailsafeController
     {
-        // Same thresholds as watcher.ic10's fromNorm/fromLow/fromCrit
-        // branches (lines 41-62) -- hysteresis bands, not simple
-        // crossings, so a charge value bouncing right at a boundary
-        // doesn't chatter between tiers. Configurable (2026-08-05,
-        // project owner) rather than fixed -- these were always
-        // somewhat-arbitrary defaults (the IC10 build itself never
-        // confirmed 90/93/10/13 as anything more than a reasonable
-        // starting guess), and different builds may want different
-        // sensitivity without recompiling. Settable properties, not
-        // constructor parameters, so a host can wire these to Console
-        // settings later without this class needing to know anything
-        // about "settings" as a concept -- defaults match the values
-        // this project already validated, so a host that never touches
-        // them gets identical behavior to before this change.
-        //
-        // Invariant this class assumes but doesn't enforce (keep the
-        // host/settings UI honest instead, not worth the bloat of
-        // runtime validation here): LowToNormal > NormalToLow, and
-        // CriticalToLow > LowToCritical -- the hysteresis bands need
-        // to not invert, or Tier will oscillate every tick at the
-        // boundary.
-        public float NormalToLowThreshold { get; set; } = 90f;
-        public float LowToNormalThreshold { get; set; } = 93f;
-        public float LowToCriticalThreshold { get; set; } = 10f;
-        public float CriticalToLowThreshold { get; set; } = 13f;
-
         // Ticks to hold downstream power on after the last qualifying
         // event, before Deep Idle can cut it again. Unconfirmed cadence
         // -- same flag the IC10 build carries for this exact constant
         // (ic10_airlock_setup_guide.md section 7: "20 is an unvalidated
-        // starting guess"). Configurable for the same reason as the
-        // Tier thresholds above.
+        // starting guess"). Configurable, same reasoning as
+        // ReidleDelayTicks below.
         public int WakeHoldTicks { get; set; } = 20;
+
+        // Ticks to wait, once the chamber reads empty again after
+        // having been occupied, before actually returning to the
+        // evacuate-and-idle sequence (2026-08-07, project owner's
+        // "short wait" after someone leaves). Unvalidated starting
+        // guess, same status as WakeHoldTicks -- configurable rather
+        // than fixed so a host can tune this without recompiling.
+        public int ReidleDelayTicks { get; set; } = 20;
 
         public Tier CurrentTier { get; private set; } = Tier.Normal;
 
+        private enum LowPowerPhase
+        {
+            // Powered off (subject to WakeHoldTicks), doors closed,
+            // locked, then unlocked, vents running toward vacuum --
+            // every tick, same as the old Critical tier always did.
+            Idle,
+
+            // Woken: power held on unconditionally, the requested
+            // door opened, waiting for the chamber to be entered and
+            // then vacated again before returning to Idle.
+            Active,
+        }
+
         private readonly IAirlockHost host;
         private int wakeHoldRemaining;
+        private LowPowerPhase lowPowerPhase = LowPowerPhase.Idle;
+        private bool hasBeenOccupiedSinceWake;
+        private int reidleCountdown;
 
-        // Tracks whether the *previous* tick was relying on
-        // AllowPowerDownWhilePropped to skip forcing power on (i.e.
-        // matched, saving-mode on, power possibly idle). Needed so a
-        // later mismatch can be recognized as "the propped state just
-        // broke" and force a wake, without treating every ordinary
-        // not-matched tick (the ordinary majority case, propped-open
-        // aside entirely) as a wake reason -- that would defeat Deep
-        // Idle for everyone, not just people using this option.
-        private bool wasIdlingWhileProppedOpen;
-
-        // Broader than wasIdlingWhileProppedOpen above -- true whenever
-        // HoldBothDoorsOpen() was called on the PREVIOUS tick, in
-        // either Normal or Low, regardless of power state. Used purely
-        // to detect "Propped-Open just broke" as its own event (for
-        // exit-ordering, below), separate from the narrower Deep-Idle
-        // wake question the field above exists for.
+        // True whenever HoldBothDoorsOpen() was called on the PREVIOUS
+        // tick (Normal tier only, since the 2026-08-07 redesign -- Low
+        // tier no longer does propped-open handling at all). Used to
+        // detect "Propped-Open just broke" as its own event, for the
+        // exit-ordering decision below.
         private bool wasHoldingDoorsOpenLastTick;
 
         // Which door a presence sensor most recently saw someone at,
@@ -365,23 +376,21 @@ namespace AirlockCardMod
         // it afterward.
         public void UpdateTier()
         {
-            float charge = host.DedicatedBatteryChargeRatio;
+            bool brownout = host.BasePowerBrownout;
+            Tier newTier = brownout ? Tier.Low : Tier.Normal;
 
-            switch (CurrentTier)
+            // Reset Low tier's own sub-state whenever brownout clears
+            // entirely, so a later brownout always starts fresh from
+            // Idle (evacuate) rather than resuming mid-Active as if
+            // nothing happened -- deliberately conservative, matching
+            // "treat every entry as maximally urgent."
+            if (CurrentTier == Tier.Low && newTier == Tier.Normal)
             {
-                case Tier.Normal:
-                    if (charge <= NormalToLowThreshold) CurrentTier = Tier.Low;
-                    break;
-
-                case Tier.Low:
-                    if (charge >= LowToNormalThreshold) CurrentTier = Tier.Normal;
-                    else if (charge <= LowToCriticalThreshold) CurrentTier = Tier.Critical;
-                    break;
-
-                case Tier.Critical:
-                    if (charge > CriticalToLowThreshold) CurrentTier = Tier.Low;
-                    break;
+                lowPowerPhase = LowPowerPhase.Idle;
+                hasBeenOccupiedSinceWake = false;
             }
+
+            CurrentTier = newTier;
         }
 
         // Ported from cycle.ic10's tierCrit/checkProp branches (lines
@@ -412,83 +421,22 @@ namespace AirlockCardMod
             // HasWakeButtons is true (see below) -- the confirmed-safe
             // button reads, plus secondary sources that only ever add
             // wake opportunities, never remove the button-based
-            // guarantee. PropAtmosphereMatched is included here too
-            // (2026-08-05 design pass): whether this can ever actually
-            // be true during Deep Idle is entirely a function of where
-            // the end user physically wires their Gas Sensors, and
-            // that's exactly the intended behavior, not something this
-            // class needs to special-case:
-            //   - Gas Sensors on the switched downstream circuit (need
-            //     power) -> can only ever read true while downstream
-            //     power is already on, so this can never force a wake
-            //     from a truly Deep-Idle state on its own -- Propped-
-            //     Open stays implicitly powered-state-only, same as the
-            //     original IC10 design's reasoning, just no longer
-            //     enforced by a Tier check.
-            //   - Gas Sensors on the always-on circuit (confirmed to
-            //     work unpowered, same as Buttons) -> can read true
-            //     even while downstream power is off, so a genuine
-            //     atmosphere match becomes its own wake reason, keeping
-            //     the doors held open across Low tier the way buttons
-            //     do. This is the intended behavior for that wiring
-            //     choice, not a gap.
-            // AllowPowerDownWhilePropped only removes a STEADY match as
-            // a wake reason -- a match that just broke (mismatchJustAppeared)
-            // still forces a wake regardless of the setting, so a real
-            // leak or reopened mismatch always gets caught. See
-            // AllowPowerDownWhilePropped's doc comment above and
-            // wasIdlingWhileProppedOpen's doc comment on the field.
-            bool matchForcesWake = host.PropAtmosphereMatched && !host.AllowPowerDownWhilePropped;
-            bool mismatchJustAppeared = wasIdlingWhileProppedOpen && !host.PropAtmosphereMatched;
-
-            // Separate from mismatchJustAppeared above (that one's
-            // scoped to the Deep-Idle wake question specifically) --
-            // this is the broader "was Propped-Open active at all last
-            // tick, in any tier, and did it just break" check that
-            // drives the exit-ordering decision (2026-08-05, project
-            // owner). See CloseNonPreferredDoor() below.
-            bool propOpenJustBroke = wasHoldingDoorsOpenLastTick && !host.PropAtmosphereMatched;
-
+            // guarantee. PropAtmosphereMatched dropped from this list
+            // (2026-08-07 redesign) -- Low tier no longer does any
+            // propped-open handling, so it's Normal-tier-only now (see
+            // that branch below); no longer a Low-tier wake source
+            // either, kept simple rather than half-relevant.
             bool wakeRequested =
                 host.ButtonEHeld || host.ButtonIHeld || host.ButtonCHeld ||
-                host.VanillaCycleRequested || host.PresenceDetected ||
-                matchForcesWake || mismatchJustAppeared;
+                host.VanillaCycleRequested || host.PresenceDetected;
+
+            // Exit-ordering support (2026-08-05, project owner) -- only
+            // meaningful for Normal tier's own propped-open handling
+            // now, see that branch below.
+            bool propOpenJustBroke = wasHoldingDoorsOpenLastTick && !host.PropAtmosphereMatched;
 
             switch (CurrentTier)
             {
-                case Tier.Critical:
-                    // watcher.ic10: Tier == Critical always forces the
-                    // gate on ("beq r0 2 forceHold"), zero button press
-                    // needed -- the forced evacuation has to be able to
-                    // run the Vent and unlock the doors regardless of
-                    // whether anyone's there to press anything.
-                    UpdateDownstreamPower(forceOn: true);
-                    wasIdlingWhileProppedOpen = false; // doors are being closed, tracking no longer applies
-                    wasHoldingDoorsOpenLastTick = false; // ForceEvacuate() (below) closes both doors itself -- exit-ordering doesn't apply here
-
-                    // cycle.ic10: "bnez r8 endLoop" -- Button C held
-                    // skips the forced evacuation this tick, matching
-                    // the documented override behavior (someone caught
-                    // inside gets to cancel the lockdown attempt). Power
-                    // stays on either way -- only the evacuate/unlock
-                    // action itself is skipped.
-                    if (host.ButtonCHeld) return;
-
-                    // Evacuating (relieving chamber pressure) is always
-                    // safe regardless of temperature, so it's
-                    // unconditional. UNLOCKING is the step that matters
-                    // -- a player or the next cycle could walk straight
-                    // into whatever's on the other side, so that's the
-                    // one gated on SafeToUnlockTemperature (2026-08-05,
-                    // project owner: pressure matching alone doesn't
-                    // protect against an extreme-temperature
-                    // environment). Doors stay evacuated-but-locked
-                    // until temperature is confirmed safe, rechecked
-                    // every tick this branch runs.
-                    host.ForceEvacuate();
-                    if (host.SafeToUnlockTemperature) host.UnlockDoors();
-                    break;
-
                 case Tier.Normal:
                     // watcher.ic10: Tier == Normal also forces the gate
                     // on continuously ("beq r0 0 forceHold") -- NOT
@@ -497,15 +445,7 @@ namespace AirlockCardMod
                     // *not* Deep Idle behavior, and shouldn't idle
                     // off"). Only Low tier below actually idles down.
                     UpdateDownstreamPower(forceOn: true);
-                    wasIdlingWhileProppedOpen = false; // power's unconditionally on in Normal, not idling
 
-                    // Diverges from cycle.ic10 here (2026-08-05 design
-                    // pass, project owner decision): the original
-                    // script only checked this in Tier 0/Normal. Now
-                    // also checked in Low (below) -- see wakeRequested's
-                    // comment above for why that's safe and intentional
-                    // rather than a drift from the port. Never checked
-                    // in Critical, in either version.
                     if (host.PropAtmosphereMatched)
                     {
                         host.HoldBothDoorsOpen();
@@ -525,61 +465,116 @@ namespace AirlockCardMod
                     break;
 
                 case Tier.Low:
-                    // Deep Idle needs BOTH a confirmed-safe wake
-                    // mechanism (HasWakeButtons -- is it SAFE to idle)
-                    // and something to actually switch
-                    // (HasDownstreamController -- is it even POSSIBLE
-                    // to idle). Missing either one -> hold downstream
-                    // power on continuously, same as Normal, rather
-                    // than gambling on an unconfirmed vanilla behavior
-                    // or calling SetDownstreamPower with nothing on the
-                    // other end of it.
+                    // Redesigned 2026-08-07 (project owner): Low tier no
+                    // longer means "battery getting low" -- it means "a
+                    // base-power brownout is happening right now,"
+                    // treated with the same maximum urgency the old
+                    // Critical tier reserved for a confirmed near-total
+                    // failure (see BasePowerBrownout's doc comment for
+                    // why graceful staging isn't possible in vanilla).
+                    // PropAtmosphereMatched (the Normal-tier propped-open
+                    // convenience) is deliberately NOT consulted here --
+                    // during a real brownout the chamber should be at
+                    // vacuum, not held open matched to atmosphere, so
+                    // that field is left alone for Normal tier's own use.
+                    wasHoldingDoorsOpenLastTick = false;
+
+                    // Same graceful-degradation fallback as before:
+                    // can't safely idle without both a confirmed-safe
+                    // wake mechanism and something to actually switch,
+                    // so just hold power on and don't attempt the
+                    // evacuate sequence -- matches vanilla with no
+                    // fail-safe layer at all, not a false lockdown.
                     if (!host.HasWakeButtons || !host.HasDownstreamController)
                     {
                         UpdateDownstreamPower(forceOn: true);
-                        wasIdlingWhileProppedOpen = false; // not actually idle-capable, so not "idling while propped" either
-                        if (host.PropAtmosphereMatched)
-                        {
-                            host.HoldBothDoorsOpen();
-                            wasHoldingDoorsOpenLastTick = true;
-                        }
-                        else
-                        {
-                            if (propOpenJustBroke) CloseNonPreferredDoor();
-                            wasHoldingDoorsOpenLastTick = false;
-                        }
                         break;
                     }
 
-                    // watcher.ic10: the only tier where the gate isn't
-                    // unconditionally forced on -- a wake event resets
-                    // the WakeHold countdown, otherwise it ticks down
-                    // and cuts downstream power once it reaches zero.
-                    // This is the actual Deep Idle power saving.
-                    // wakeRequested already folds in matchForcesWake and
-                    // mismatchJustAppeared (see their comments above),
-                    // so a genuine atmosphere match (or a mismatch that
-                    // just broke a prior AllowPowerDownWhilePropped
-                    // state) keeps this branch awake on its own -- no
-                    // separate condition needed here.
-                    UpdateDownstreamPower(forceOn: wakeRequested);
-                    if (host.PropAtmosphereMatched)
+                    switch (lowPowerPhase)
                     {
-                        host.HoldBothDoorsOpen();
-                    }
-                    else
-                    {
-                        if (propOpenJustBroke) CloseNonPreferredDoor();
-                    }
+                        case LowPowerPhase.Idle:
+                            UpdateDownstreamPower(forceOn: wakeRequested);
 
-                    // Recorded AFTER acting on PropAtmosphereMatched this
-                    // tick, so next tick's mismatchJustAppeared/
-                    // propOpenJustBroke checks compare against what was
-                    // actually true here, not a stale value from before
-                    // this tick's HoldBothDoorsOpen call.
-                    wasIdlingWhileProppedOpen =
-                        host.PropAtmosphereMatched && host.AllowPowerDownWhilePropped;
-                    wasHoldingDoorsOpenLastTick = host.PropAtmosphereMatched;
+                            // cycle.ic10 lineage: Button C held skips
+                            // the forced lockdown this tick -- someone
+                            // caught inside gets to cancel it. Power
+                            // stays on either way (the call above
+                            // already ran) -- only evacuate/lock/unlock
+                            // is skipped.
+                            if (!host.ButtonCHeld)
+                            {
+                                // Evacuating is always safe regardless
+                                // of temperature, so unconditional.
+                                // UNLOCKING is gated on
+                                // SafeToUnlockTemperature -- a player or
+                                // the next cycle could walk straight
+                                // into whatever's on the other side.
+                                // Unlocked (not just closed) specifically
+                                // so a fully depowered chamber can still
+                                // be crowbarred open by a player with no
+                                // tools (project owner, 2026-08-07) --
+                                // the intended manual fallback once this
+                                // mod's own safety margin runs out.
+                                host.ForceEvacuate();
+                                if (host.SafeToUnlockTemperature) host.UnlockDoors();
+                            }
+
+                            if (wakeRequested)
+                            {
+                                // Re-lock before opening -- vanilla's own
+                                // IsOperable requires both doors locked
+                                // before its Pressurizing/Depressurizing
+                                // cycling will run at all, so this gives
+                                // a normal cycle its best chance once
+                                // the player is inside. NOT yet
+                                // confirmed in-game whether this alone
+                                // is sufficient -- see LockDoors()'s doc
+                                // comment.
+                                host.LockDoors();
+                                if (host.ButtonEHeld) host.OpenDoor(DoorSide.Exterior);
+                                if (host.ButtonIHeld) host.OpenDoor(DoorSide.Interior);
+                                lowPowerPhase = LowPowerPhase.Active;
+                                hasBeenOccupiedSinceWake = false;
+                                reidleCountdown = ReidleDelayTicks;
+                            }
+                            break;
+
+                        case LowPowerPhase.Active:
+                            // Awake and (expected to be) in use --
+                            // power held on unconditionally so vanilla's
+                            // own cycling can actually run; this design
+                            // doesn't drive the traversal itself once
+                            // the requested door is open. Watching the
+                            // occupancy sensor rather than a fixed
+                            // timer for when it's safe to return to
+                            // Idle -- a real cycle can take longer than
+                            // any fixed hold, and cutting power mid-use
+                            // is exactly the outcome this whole design
+                            // exists to avoid.
+                            UpdateDownstreamPower(forceOn: true);
+
+                            if (host.PresenceDetected)
+                            {
+                                hasBeenOccupiedSinceWake = true;
+                                reidleCountdown = ReidleDelayTicks;
+                            }
+                            else if (hasBeenOccupiedSinceWake)
+                            {
+                                // Someone genuinely entered and has now
+                                // left -- short wait (ReidleDelayTicks)
+                                // before actually returning to Idle,
+                                // rather than snapping back the instant
+                                // the sensor clears.
+                                if (reidleCountdown > 0) reidleCountdown--;
+                                if (reidleCountdown <= 0) lowPowerPhase = LowPowerPhase.Idle;
+                            }
+                            // else: woken but chamber never confirmed
+                            // occupied yet (e.g. button just pressed,
+                            // door still opening) -- stay Active and
+                            // keep waiting, don't re-idle prematurely.
+                            break;
+                    }
                     break;
             }
         }

@@ -9,7 +9,7 @@ namespace AirlockCardMod.Tests;
 // mocking framework.
 public sealed class FakeAirlockHost : IAirlockHost
 {
-    public float DedicatedBatteryChargeRatio { get; set; } = 100f;
+    public bool BasePowerBrownout { get; set; }
     public bool ButtonEHeld { get; set; }
     public bool ButtonIHeld { get; set; }
     public bool ButtonCHeld { get; set; }
@@ -20,14 +20,15 @@ public sealed class FakeAirlockHost : IAirlockHost
     public bool PropAtmosphereMatched { get; set; }
     public bool ExteriorPresenceDetected { get; set; }
     public bool InteriorPresenceDetected { get; set; }
-    public bool AllowPowerDownWhilePropped { get; set; }
     public bool MaintenanceModeEnabled { get; set; }
     public bool SafeToUnlockTemperature { get; set; } = true;
 
     public int ForceEvacuateCalls;
     public int UnlockDoorsCalls;
+    public int LockDoorsCalls;
     public int HoldBothDoorsOpenCalls;
     public List<DoorSide> ClosedDoors { get; } = new();
+    public List<DoorSide> OpenedDoors { get; } = new();
     public List<Tier> WarningIndicatorHistory { get; } = new();
     public List<bool> DownstreamPowerHistory { get; } = new();
     public List<DoorSide> VentReliefCalls { get; } = new();
@@ -37,8 +38,10 @@ public sealed class FakeAirlockHost : IAirlockHost
 
     public void ForceEvacuate() => ForceEvacuateCalls++;
     public void UnlockDoors() => UnlockDoorsCalls++;
+    public void LockDoors() => LockDoorsCalls++;
     public void HoldBothDoorsOpen() => HoldBothDoorsOpenCalls++;
     public void CloseDoor(DoorSide side) => ClosedDoors.Add(side);
+    public void OpenDoor(DoorSide side) => OpenedDoors.Add(side);
     public void SetWarningIndicator(Tier tier) => WarningIndicatorHistory.Add(tier);
     public void SetDownstreamPower(bool on) => DownstreamPowerHistory.Add(on);
     public void ExtendVentRelief(DoorSide side) => VentReliefCalls.Add(side);
