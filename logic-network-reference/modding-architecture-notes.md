@@ -107,15 +107,43 @@ it — recorded honestly, gap included:**
 |---|---|---|---|
 | Glass Door | 0W | 10W (standby, just sitting there) | — |
 | LED Light | 0W | 25W | — |
-| Cable Analyzer | — | 0W (draws nothing from the network it monitors) | — |
+| Cable Analyzer | — | 0W (see below — it's a pure passive monitor) | — |
 | Gas Sensor | — | **0W observed** (wiki states ~1W) | — |
 | Active Vent | 0W | — | **100W while pumping** |
 
-Doors, the LED, and the Cable Analyzer match what the static trace
-below predicts. **Gas Sensor and Active Vent don't, or aren't fully
-explained by it** — worth understanding as a real limit of this
-project's decompilation reach, not a settled fact to build on
-uncritically.
+Doors and the LED match what the static trace below predicts. **Gas
+Sensor and Active Vent don't, or aren't fully explained by it** —
+worth understanding as a real limit of this project's decompilation
+reach, not a settled fact to build on uncritically.
+
+**Cable Analyzer, corrected**: it always draws `0W` itself (a passive
+monitor, not a load), but displays **three distinct readings** for
+whatever network it's watching, project owner's own explanation —
+worth understanding for any future mod touching power:
+- **`Required`** — total power every device on the network is
+  currently asking for (this is almost certainly what
+  `Device.GetUsedPower`'s returned value feeds into, network-wide).
+- **`Potential`** — what's actually available to supply right now.
+- **`Actual`** — what's actually being delivered/consumed.
+
+If `Required > Potential`, the network **browns out** (can't meet
+demand, things don't get full power) as long as the shortfall stays
+under the physical cable's own rating; if `Required` exceeds what the
+**cable itself** can carry (a hardware rating, separate from
+generation/battery capacity), it causes a **cable fault** instead —
+two different failure modes for two different kinds of shortfall
+(supply-side vs. wire-rating-side). **This likely explains the Active
+Vent gap above**: the static `GetUsedPower` trace found a flat
+`Required`-side calculation (matches "the vent always *asks* for its
+full rated wattage whenever switched on"), but what the project owner
+observed with a live meter was almost certainly `Actual` — and
+`Actual` staying at 0 while idle-but-on, only jumping to 100W while
+genuinely pumping, points at network-level demand/delivery balancing
+elsewhere in the simulation (not inside `Device`/`ElectricalInputOutput`'s
+own `GetUsedPower`, which is the "how much do I want" side, not the
+"how much am I actually getting" side). **Still not confirmed exactly
+where that balancing logic lives** — flagged as the more precise
+version of the still-open question, not fully resolved.
 
 The base `Device` class (`Assets.Scripts.Objects.Pipes.Device`)
 declares `public float UsedPower = 10f` and:
