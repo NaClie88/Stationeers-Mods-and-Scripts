@@ -138,6 +138,43 @@ guidance found earlier) — but no longer for climbing past a hard
 temperature ceiling, since the side this design actually needs to get
 hot doesn't have one.
 
+### AC efficiency vs. temperature differential — real, but curve unconfirmed
+
+Project owner's follow-up (2026-08-07): AC units also have a real
+limitation on how much heat each one can move efficiently, remembered
+as roughly a 40° gap before major inefficiency sets in. **Confirmed
+real** — the AC exposes three efficiency multipliers on its own
+in-game info panel: **OTE** (Operational Temperature Efficiency),
+**TDE** (Temperature Differential Efficiency), **PE** (Pressure
+Efficiency). If any hits near zero, the AC does essentially nothing.
+TDE specifically is the input-vs-waste temperature gap — and can
+exceed 100% when the gap is already working in the AC's favor, so
+it's a real curve, not a flat cutoff. Community guidance: **~50°C per
+unit** as a sizing rule of thumb (close to the ~40° remembered here),
+with one patch note mentioning the useful curve was extended out to
+"~200 degrees difference."
+
+**The exact formula/curve shape is NOT confirmed** — wiki pages and a
+Steam Workshop code listing that might have had it are both blocked
+in this environment the same way they've been all session, and
+there's no decompiled assembly available here to check directly.
+This one genuinely needs in-game observation (the OTE/TDE/PE readouts
+are visible on the unit itself) rather than more web research.
+
+**Sizing implication worth flagging now, before any build happens:**
+if furnace waste gas arrives a few hundred K above whatever cool
+target the controlled side is driven toward, bridging that *entire*
+gap through AC stages alone at ~40-50°C per unit could mean a large
+number of units — a real materials/space cost, not a minor detail.
+This reinforces leaning on the **passive** Heat Exchanger (no
+differential penalty, since it's not an active pump) for the bulk of
+the temperature drop, with AC stages reserved for the final trim past
+where passive exchange plateaus, rather than trying to cover the
+whole gap with AC units. Exact stage count depends on the still-
+unmeasured furnace waste-gas temperature (see Open Items) and the
+still-unconfirmed efficiency curve above — not computable yet, flagged
+so it isn't assumed away.
+
 **Cross-branch flag, sharper now than the first pass:** `phase-change-
 separator/two-chamber-system/separator_ac_driver.ic10` (on `main`,
 already shipped) targets 2500K for Sodium Chloride by driving `Self
@@ -263,3 +300,11 @@ furnace or cools.
    Real bug, low practical impact — not worth fixing ahead of things
    that actually get used. Left as-is; see `condensation_reference.md`
    for the same note added there.
+9. **AC efficiency-vs-differential curve (OTE/TDE/PE) — real, exact
+   shape unconfirmed.** See "AC efficiency vs. temperature
+   differential" above. Needs in-game observation of the AC's own
+   info panel at various differentials, not more web research — wiki
+   and a Workshop code listing that might have had the formula are
+   both blocked in this environment. Directly determines how many AC
+   stages the design actually needs, which isn't computable until
+   this and item 7 (furnace waste-gas temperature) are both measured.
