@@ -32,26 +32,43 @@ namespace AirlockCardMod
         // Finds AreaPowerControl ("Power Controller"/"Area Power
         // Controller" -- confirmed the same class,
         // logic-network-reference/devices/power-controller.md)
-        // instances wired to this card's own data network. First one
-        // found = dedicated battery (always-on side, for Tier
-        // monitoring); a second, distinct one = the downstream APC
-        // (switched side, for Deep Idle). This mirrors the exact
-        // "first found / second found" role-assignment pattern
-        // AdvancedAirlockControl itself already uses for
-        // ExteriorPoweredVent/InteriorPoweredVent -- not an invented
-        // shortcut, the same convention this game already uses
-        // elsewhere. No explicit UI to assign roles yet: wire one
-        // Power Controller for battery monitoring only, or two (first
-        // = battery, second = downstream) for the full Deep Idle
-        // behavior once buttons are wired too. Revisit once a Console
-        // settings surface exists (see console-ui-mod).
+        // instances reachable on the Console's own data network.
+        //
+        // CORRECTED, 2026-08-06 (in-game): the first version of this
+        // scanned AdvancedAirlockControl.LinkedDevices -- confirmed
+        // empirically in-game to always find nothing, even with real
+        // Power Controllers correctly data-cabled to the Console.
+        // Traced why via decompilation: LinkedDevices is populated
+        // through AirlockControlBase.CanDeviceLink(Device device) =>
+        // device is IAirlockDevice, a hard filter. Confirmed
+        // IAirlockDevice is implemented only by Console, GasSensor,
+        // Speaker, ActiveVent, PoweredVent, Door, WallLight --
+        // AreaPowerControl was never going to pass this filter no
+        // matter how it was wired, so this wasn't a wiring problem.
+        // The real, unfiltered device list -- the same one IC10 chips
+        // themselves read from -- is
+        // Motherboard.ParentComputer.DeviceList() (IComputer's own
+        // API, public field ParentComputer set by the Console the
+        // card is installed in). Same "first found / second found"
+        // role-assignment pattern as before (mirroring
+        // AdvancedAirlockControl's own ExteriorPoweredVent/
+        // InteriorPoweredVent assignment), just against the right
+        // list this time. No explicit UI to assign roles yet: wire
+        // one Power Controller for battery monitoring only, or two
+        // (first = battery, second = downstream) for the full Deep
+        // Idle behavior once buttons are wired too. Revisit once a
+        // Console settings surface exists (see console-ui-mod).
         private void FindPowerControllers(out AreaPowerControl battery, out AreaPowerControl downstream)
         {
             battery = null;
             downstream = null;
-            foreach (var device in _control.LinkedDevices)
+
+            var deviceList = _control.ParentComputer?.DeviceList();
+            if (deviceList == null) return;
+
+            foreach (var logicable in deviceList)
             {
-                if (!(device is AreaPowerControl apc)) continue;
+                if (!(logicable is AreaPowerControl apc)) continue;
                 if (battery == null) battery = apc;
                 else if (downstream == null)
                 {

@@ -18,23 +18,50 @@ extends `Motherboard`. The older non-Advanced airlock is a sibling,
 
 ## What to find, per `IAirlockHost` member
 
-- **`DedicatedBatteryChargeRatio`** — **WIRED, 2026-08-06.** Confirmed
-  no vanilla equivalent, as originally found (`AdvancedAirlockControl`/
+- **`DedicatedBatteryChargeRatio`** — **WIRED, 2026-08-06 — first
+  version tested wrong in-game, corrected same day.** Confirmed no
+  vanilla equivalent, as originally found (`AdvancedAirlockControl`/
   `AirlockControlBase`/`AirlockControl` track Doors, Gas Sensors,
   `IPoweredVent`s, `WallLight`s, and Speakers; nothing about their own
-  power source). Rather than a new Console setting, `AdvancedAirlockControlHost`
-  auto-discovers a linked `AreaPowerControl` from
-  `AdvancedAirlockControl.LinkedDevices` (public `List<Device>`,
-  confirmed via decompiling `Motherboard.cs` — `AreaPowerControl : ElectricalInputOutput
-  : Device`, so it's a valid member) — first one found = the dedicated
-  battery, mirroring the exact "first found / second found" role-
-  assignment pattern vanilla's own `OnDeviceListChanged` already uses
-  for `ExteriorPoweredVent`/`InteriorPoweredVent`. Reads
-  `battery.Battery.PowerRatio * 100f` (`BatteryCell.PowerRatio`, a
-  real public property — cleaner than round-tripping through
-  `GetLogicValue(LogicType.Ratio)`). No battery linked, or no
-  `BatteryCell` inserted in its slot → safe default `100f`, matching
-  `IAirlockHost`'s own documented graceful-degradation behavior.
+  power source).
+
+  **First version scanned `AdvancedAirlockControl.LinkedDevices`
+  for a linked `AreaPowerControl` — tested in-game against a real,
+  correctly-data-cabled Power Controller and found nothing, every
+  time.** Traced why via decompilation rather than assuming a wiring
+  mistake: `LinkedDevices` is populated through
+  `AirlockControlBase.CanDeviceLink(Device device) => device is
+  IAirlockDevice` — a hard filter. Confirmed `IAirlockDevice` is
+  implemented only by `Console`, `GasSensor`, `Speaker`, `ActiveVent`,
+  `PoweredVent`, `Door`, `WallLight` (full-project grep for
+  "IAirlockDevice" across every decompiled file) — `AreaPowerControl`
+  was never going to pass this filter no matter how it was physically
+  wired. Another instance of this project's "verify empirically,
+  don't trust a plausible-looking static reading" pattern (see
+  `README.md`'s Milestone 2 section) — this time the static reading
+  itself (LinkedDevices is a `List<Device>`, AreaPowerControl is a
+  Device, should work) was accurate as far as it went, it just missed
+  a filter one level up.
+
+  **Corrected target**: `Motherboard.ParentComputer` (public field,
+  type `IComputer` — the Console structure the card is installed in)
+  exposes `DeviceList()`, returning every `ILogicable` reachable on
+  that Console's actual data-cable network — the same unfiltered list
+  IC10 chips themselves read from (`ProgrammableChip`'s `lb`/`lbn`
+  handlers call the equivalent `CircuitHousing.GetBatchOutput()`).
+  `AdvancedAirlockControlHost` now scans
+  `_control.ParentComputer?.DeviceList()` instead of `LinkedDevices` —
+  first `AreaPowerControl` found = the dedicated battery, mirroring
+  the same "first found / second found" role-assignment pattern
+  vanilla's own `OnDeviceListChanged` already uses for
+  `ExteriorPoweredVent`/`InteriorPoweredVent`, just against the right
+  list this time. Reads `battery.Battery.PowerRatio * 100f`
+  (`BatteryCell.PowerRatio`, a real public property — cleaner than
+  round-tripping through `GetLogicValue(LogicType.Ratio)`). No battery
+  found, or no `BatteryCell` inserted in its slot → safe default
+  `100f`, matching `IAirlockHost`'s own documented graceful-degradation
+  behavior. **Not yet re-verified in-game against the corrected
+  target.**
 - **`ButtonEHeld`/`ButtonIHeld`/`ButtonCHeld`** — **CONFIRMED: no
   vanilla equivalent, and the likely-looking hook is a dead end.**
   Vanilla's button input is entirely Console UI `Button` components
@@ -158,18 +185,23 @@ extends `Motherboard`. The older non-Advanced airlock is a sibling,
   tracking is visible in-game; a real LED/Console indicator is still
   follow-up work.
 - **`SetDownstreamPower(bool)`/`HasDownstreamController`** —
-  **WIRED, 2026-08-06.** Confirmed no vanilla equivalent, as originally
-  found. `AreaPowerControl` confirmed the same device as "Power
-  Controller"/"Area Power Controller" (`logic-network-reference`'s
-  `devices/power-controller.md`), and its explicit in-game purpose is
-  a battery buffer/charge circuit plus power cutoff switch (project
-  owner, 2026-08-06) — `On` is the correct field, matching every other
-  powered device. `AdvancedAirlockControlHost` finds the *second*
-  linked `AreaPowerControl` (the first is the dedicated battery, see
-  above) and writes `On` via `OnServer.Interact(downstream.InteractOnOff,
-  on ? 1 : 0)` — the same universal write mechanism confirmed in
+  **WIRED, 2026-08-06, same `LinkedDevices` → `ParentComputer.DeviceList()`
+  correction as `DedicatedBatteryChargeRatio` above applies here too**
+  (they share the same `FindPowerControllers` lookup). Confirmed no
+  vanilla equivalent, as originally found. `AreaPowerControl` confirmed
+  the same device as "Power Controller"/"Area Power Controller"
+  (`logic-network-reference`'s `devices/power-controller.md`), and its
+  explicit in-game purpose is a battery buffer/charge circuit plus
+  power cutoff switch (project owner, 2026-08-06) — `On` is the
+  correct field, matching every other powered device.
+  `AdvancedAirlockControlHost` finds the *second* `AreaPowerControl`
+  on `ParentComputer.DeviceList()` (the first is the dedicated
+  battery, see above) and writes `On` via
+  `OnServer.Interact(downstream.InteractOnOff, on ? 1 : 0)` — the same
+  universal write mechanism confirmed in
   `logic-network-reference/base-behavior.md`. `HasDownstreamController`
-  is just "was a second one found." **Safety note on this first
+  is just "was a second one found." **Not yet re-verified in-game
+  against the corrected target. Safety note on this first
   wiring pass**: with `HasWakeButtons` still hardcoded `false`,
   `FailsafeController`'s own Low-tier branch always forces
   `SetDownstreamPower(true)` regardless of Tier (Deep Idle specifically
