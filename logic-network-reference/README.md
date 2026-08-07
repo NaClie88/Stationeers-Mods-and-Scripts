@@ -34,6 +34,14 @@ incrementally.
 
 ## Structure
 
+- **[`modding-architecture-notes.md`](modding-architecture-notes.md)**
+  — not LogicType data at all; the broader engineering lessons from
+  actually building `airlock-card-mod` (device-network discovery,
+  power/data cable topology, Harmony patch verification discipline,
+  toolchain gotchas). Read this before writing a new Harmony patch or
+  reasoning about what a mod can/can't see on the network — it
+  includes real corrections to things this project itself got wrong
+  mid-session, not just clean facts.
 - **[`device-index.md`](device-index.md)** — the broad framework: every
   vanilla device's name and the LogicType *names* it exposes, for all
   499 devices in one table. **Community-sourced, unverified** — a
