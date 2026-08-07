@@ -15,7 +15,7 @@ alias LED d1
 alias Gate d2
 alias Transmitter d3
 
-define BtnHash -1591419276
+define BtnHash 491845673
 define BtnEName HASH("AirlockBtnE")
 define BtnIName HASH("AirlockBtnI")
 define BtnCName HASH("AirlockBtnC")

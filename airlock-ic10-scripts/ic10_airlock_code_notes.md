@@ -279,13 +279,15 @@ Watcher now drives the LED's actual color per Tier: green in Normal,
 yellow in Low, red in Critical — closer to the three visually-distinct
 states the original design wanted than a plain on/off ever could be,
 and through a mechanism that's confirmed to exist rather than one that
-wasn't. **`ColorGreen`/`ColorYellow`/`ColorRed` (2/5/4) are not yet
-independently confirmed** — sourced from aggregated search results
-citing the Community Wiki's "Data Network Colors" page, which has
-resisted every direct fetch attempt this project has tried. Verify
-against that page (or in-game trial) before trusting the exact values;
-the branching structure that picks a color per Tier is solid regardless
-of what the three numbers turn out to be.
+wasn't. **`ColorGreen`/`ColorYellow`/`ColorRed` (2/5/4) — CONFIRMED,
+2026-08-06.** A temporary BepInEx research patch (`airlock-mod-card`
+branch) dumped `GameManager.CustomColors` live from a running game:
+`0=Blue, 1=Gray, 2=Green, 3=Orange, 4=Red, 5=Yellow, 6=White, 7=Black,
+8=Brown, 9=Khaki, 10=Pink, 11=Purple, 12=Obsidian, 13=Silver,
+14=Bronze, 15=Gold`. The three values already in this script are
+exactly right — no code change needed, just closing out the caveat.
+The Community Wiki's "Data Network Colors" page (blocked all session)
+is no longer needed to verify this.
 
 **Footnote — the simpler on/off version, kept for posterity.** Before
 settling on the LED/Color approach, this fix was implemented as a
@@ -297,14 +299,29 @@ values above turn out to be wrong and a quick fix is needed, this
 three-line swap is the fallback — real, tested, just less informative
 than the color version.
 
-**`BtnHash` (`-1591419276`)** is a community-sourced Logic Switch
-structure hash, found from a single search result rather than
-cross-confirmed — treat it as a strong lead, not a certainty, and
-double-check it against your own Stationpedia entry. Same caveat for
-the exact LogicType that gates a Power Controller's own output
-(assumed `On`, matching every other powered device confirmed in this
-project, but not independently verified — flagged for an in-game Logic
-Reader check).
+**`BtnHash` — CONFIRMED WRONG, fixed 2026-08-06.** The value
+`-1591419276` (a single-sourced guess, community-cited as "SwitchStructure")
+**does not match any real prefab hash at all** — confirmed by the same
+live BepInEx dump above, which also enumerated every registered prefab
+in a running game whose name contains "switch," "button," or "lever."
+That value appears nowhere in the results. The real, live-confirmed
+hash for the actual device this design wants — a momentary push
+button, matching the `Activate` LogicType this script reads, not a
+toggle — is `491845673` = `StructureLogicButton`. This is the exact
+same value this project's own `SOURCES.md` already cited from the
+Custom Airlock V2 production script (`lb r9 491845673 Activate Sum`)
+— the correct number was already sourced correctly once, just never
+made it into `BtnHash` itself. **Fixed in `watcher.ic10`: `define
+BtnHash 491845673`.** (For reference, the live dump also found
+`StructureLogicSwitch` = `1220484876` and `StructureLogicSwitch2` =
+`321604921` — real toggle switches/levers, confirmed genuinely
+different devices from the Button this design actually wants, not
+just a wrong number for the same one.)
+
+Same caveat for the exact LogicType that gates a Power Controller's
+own output (assumed `On`, matching every other powered device
+confirmed in this project, but not independently verified — flagged
+for an in-game Logic Reader check).
 
 **Real bug, found 2026-08-05 via direct decompilation of
 `Assembly-CSharp.dll` (on the `airlock-mod-card` branch, cross-checked
@@ -560,12 +577,6 @@ switch — confirmed directly, no in-game test needed. `Gate`/`On` in
 `watcher.ic10` was already written this way; nothing to change in code.
 
 **Genuinely still open:**
-- `BtnHash` — single-sourced, not cross-confirmed.
-- `ColorGreen`/`ColorYellow`/`ColorRed` (2/5/4) — sourced from
-  aggregated search results citing the Community Wiki's "Data Network
-  Colors" page, which blocked every direct fetch attempt. The
-  color-per-Tier branching logic itself is solid regardless of the
-  exact numbers.
 - The pack/unpack encoding (`BtnC*1000 + BtnI*100 + BtnE*10 + Tier`) is
   dry-run verified as internally consistent — Watcher's packer and
   Cycle's unpacker agree with each other — but the actual wireless
@@ -588,19 +599,21 @@ propped" from "ordinary single-door cycle in progress with the flag
 happening to read 0" — without it, this logic would misfire during
 completely normal cycling.
 
-**Roadmap to 1.0 (agreed with project owner, 2026-08-06):** step 1 —
-the Charge/Ratio bug is now fixed, and the `brdns`/stall-handling/
-exit-ordering gaps above are all closed too. All that's left for step
-1: `BtnHash` and the Color enum, both needing the
-`logic-network-reference` branch's `ilspycmd` decompilation toolchain
-against a real `Assembly-CSharp.dll` (the same approach that already
-resolved the Charge/Ratio question and the Logic Transmitter `Setting`
-mechanism there) — that toolchain isn't available in every environment
-working on this repo, so this step is blocked on whichever session has
-the actual game install. Once those two are closed, that's a genuinely
-no-known-issues IC10-only 1.0. Steps 2-3 (real mod
-hardware wiring, then a full rename) continue on `airlock-mod-card` —
-see that branch's `README.md` for the full sequence.
+**Roadmap to 1.0 (agreed with project owner, 2026-08-06): step 1
+COMPLETE.** The Charge/Ratio bug, `brdns`/stall-handling/exit-ordering
+gaps, `BtnHash`, and the Color enum are all resolved now — the last
+two via a live BepInEx research dump run from the machine with the
+actual game install (`airlock-mod-card` branch's temporary
+`TempResearchDump.cs`), not just decompilation, since both turned out
+to be Unity Inspector-serialized runtime data rather than something
+in the compiled IL (confirmed there's no way to get `PrefabHash`
+values or the `CustomColors` palette order from `Assembly-CSharp.dll`
+alone). **This is now a genuinely no-known-issues IC10-only 1.0**,
+except for the wireless Active/Passive Transmitter live-test noted
+above (an in-game confirmation, not a research gap — the design itself
+isn't in question). Steps 2-3 (real mod hardware wiring, then a full
+rename) continue on `airlock-mod-card` — see that branch's `README.md`
+for the full sequence.
 
 **Resolved in-game (2026-08-04):** a standard Light — and separately,
 the "battery backup" Light variant — have no `Setting` LogicType at

@@ -18,6 +18,17 @@ CREDITS/SOURCES file without hunting back through chat history.
 - Search-aggregated result, `sbn` instruction signature — confirms `sbn prefabHash nameHash LogicType value`, example `sbn LEDHASH HASH("L1") Setting 1`; resolved the Chip C addressing bug described in the prototype-code doc
 - Search-aggregated result, `lbn` instruction signature — confirms `lbn targetRegister prefabHash nameHash LogicType batchMode`, example `lbn r0 HASH("StructureGasSensor") HASH("Sensor 1") Temperature Average`; both `lbn`/`sbn` are described as letting a build "bypass the 6-pin limit on IC housing device assignments" — the basis for moving all three airlock Buttons off pins in Chip B (2026-08-04)
 - Search-aggregated result, `HASH()` macro and Logic Switch structure hash — confirms batch instructions address devices via `HASH("PrefabName")` or a hash copied from Stationpedia; one example gives `define SwitchStructure -1591419276` for a switch structure's type hash, used as `BtnHash` in Chip B — **found from a single search result, not cross-confirmed against a second source or the wiki directly (blocked by Cloudflare)**, flagged in the prototype doc as a lead to verify against your own Stationpedia rather than a certainty
+  **SUPERSEDED, 2026-08-06 — CONFIRMED WRONG, via a live BepInEx
+  research dump run from an actual Stationeers install (`airlock-mod-card`
+  branch, `Prefab.AllPrefabs`, every registered prefab in a running
+  game).** `-1591419276` doesn't match any real prefab hash at all.
+  The real, live-confirmed hash for the device this design actually
+  wants — `StructureLogicButton`, a momentary push button matching the
+  `Activate` LogicType `watcher.ic10` reads — is `491845673`, already
+  independently cited from the Custom Airlock V2 production script
+  entry directly above (`lb r9 491845673 Activate Sum`), it just never
+  got reused for `BtnHash` itself until now. Fixed in `watcher.ic10`.
+  Kept here for the correction trail, not deleted.
 - GitHub, Zappes/Stationeers — https://github.com/Zappes/Stationeers
   (notes in-game Workshop script publishing is broken, why community code lives on GitHub instead)
 - GitHub, drclaw1188/stationeers_ic10 — https://github.com/drclaw1188/stationeers_ic10
@@ -115,6 +126,15 @@ CREDITS/SOURCES file without hunting back through chat history.
 - **Neither Light variant exposes a `Setting` LogicType — confirmed via in-game Logic panel screenshots, 2026-08-04.** Standard Light: `Power`, `Lock`, `On`, `RequiredPower`, `PrefabHash`, `ReferenceId`, `NameHash`. "Battery backup" Light: same set plus `Mode`. Neither has any free-form writable field. This invalidated a project-wide assumption present since before this session's work began (writing an arbitrary value to a Light's `Setting` as an inter-chip signal flag) — see `ic10_airlock_code_notes.md` for the fix (Tier moved to the Logic Transmitter, packed alongside button state).
 - **The LED (`StructureDiode`, 25W) has a `Color` LogicType (Read/Write) that neither Light variant does — confirmed via in-game Logic panel screenshot, 2026-08-04.** Full field list: `Power`, `Lock`, `On`, `RequiredPower`, `Color`, `PrefabHash`, `ReferenceId`, `NameHash`. Used to drive a real three-color (green/yellow/red) Tier indicator instead of a plain on/off, restoring the visually-distinct-per-state design intent the (nonexistent) Light `Setting` write was originally meant to provide.
 - Search-aggregated result, Color LogicType enum values — **not resolved by research.** Every source pointed back to the Community Wiki's "Data Network Colors" page, which blocked every direct fetch attempt this session. Aggregated search results suggest `0=Blue, 1=Grey, 2=Green, 3=Orange, 4=Red, 5=Yellow, 6=White, 7=Black, 8=Brown, 9=Khaki, 10=Pink, 11=Purple` — used in the prototype code as `ColorGreen=2`/`ColorYellow=5`/`ColorRed=4`, explicitly flagged unconfirmed pending the project owner's own check of that page (or in-game trial).
+  **CONFIRMED, 2026-08-06, via the same live BepInEx research dump
+  (`GameManager.CustomColors`, read directly from a running game) —
+  exact match.** Full live order: `0=Blue, 1=Gray, 2=Green, 3=Orange,
+  4=Red, 5=Yellow, 6=White, 7=Black, 8=Brown, 9=Khaki, 10=Pink,
+  11=Purple, 12=Obsidian, 13=Silver, 14=Bronze, 15=Gold` (the aggregated
+  search result's guess was right for the first 12 — it just didn't
+  know about 4 newer colors added since). `ColorGreen=2`/`ColorYellow=5`/
+  `ColorRed=4` in `watcher.ic10` were already correct; no code change
+  needed. The Community Wiki page is no longer needed to verify this.
 - **Community Wiki, "Logic Transmitter" page — resolved 2026-08-05 via a locally-saved copy the live page had blocked all session.** Confirms the actual device (`StructureLogicTransmitter`, 50W, Prefab Hash `-693235651`) — not a "Logic Transmitter/Receiver" pair as this project assumed throughout. There is exactly one structure, used in Active or Passive `Mode` (0=Passive, 1=Active); a "receiver" is just a second unit in Passive mode. Data Parameters: `On` (bool), `Mode` (bool), `Setting` (type "Any" — the one value field, not eight numbered channels). Pairing is physical and in-game: the Passive unit's dial is tuned to the Active unit's name, no numeric channel setting exists. This invalidated the project's Channel0–Channel7 assumption (see the superseded entry above) — fixed by packing all four signaled values (Tier + 3 button states) into the single `Setting` field.
 
 ---
