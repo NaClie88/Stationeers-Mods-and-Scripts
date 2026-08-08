@@ -251,13 +251,12 @@ implemented in `src/FailsafeController.cs`/
   trustworthy where an APC's inserted battery cell wasn't (see
   "Design history" below). Costs a second grid: Power IN and Power OUT
   can't share a network.
-- **A Cable Analyser on the always-on backbone, for an immediate
-  brownout override only.** Drives `IAirlockHost.BasePowerBrownout` —
-  `Required > Potential` on that segment forces `Tier.Critical`
-  immediately, on top of whatever the Station Battery's hysteresis
-  chain would otherwise decide. Never removed once percentage staging
-  came back; a real demand-exceeds-supply event right now is signal a
-  slowly-drifting percentage can't provide.
+- **No Cable Analyser role anymore** — a brief secondary Critical
+  override (`IAirlockHost.BasePowerBrownout`, `Required > Potential` on
+  the always-on backbone) was tried and then reverted (2026-08-08, see
+  "Design history" below): too aggressive once the Station Battery gave
+  a trustworthy reading on its own, forcing a full evacuate-and-lock
+  event on transient blips a healthy battery could easily absorb.
 - **The Console's own power is not separately monitored or switched by
   this mod at all.** It's assumed to just have continuous power,
   wired however the player chooses — the same baseline requirement
@@ -284,8 +283,7 @@ one** — see `HasDownstreamController` on `IAirlockHost` in
 `src/FailsafeController.cs`, and "Graceful degradation" below for what
 happens if none is found. Same graceful-degradation treatment applies
 to the Station Battery (`StationBatteryChargeRatio` defaults to 100,
-always Normal) and the Cable Analyser (`BasePowerBrownout` defaults
-false, never overrides).
+always Normal).
 
 **Naming note:** the Community Wiki's "Area Power Controller" page
 redirects to its "Power Controller" page — the same in-game device
@@ -317,7 +315,15 @@ each file's own doc comments, not repeated here):
    APC — its independent Power IN/Power OUT/Data IO ports sidestep the
    visibility problem that killed the original approach. The Cable
    Analyser stayed in as a secondary override rather than being
-   removed. This is the current design described above.
+   removed, at this point.
+4. **2026-08-08, reverted the Cable Analyser override entirely.** Once
+   the Station Battery proved out as a genuinely trustworthy reading,
+   forcing `Critical` on every transient demand/supply blip turned out
+   to be actively too aggressive — a brief brownout a healthy battery
+   could easily absorb still slammed the airlock into a full
+   evacuate-and-lock event. `BasePowerBrownout` removed entirely
+   (interface member, host discovery, tests) rather than left
+   unused. This is the current design described above.
 
 ## Cross-network visibility for the downstream side
 
@@ -420,22 +426,14 @@ first).
 - **No Presence/Motion Sensor.** `PresenceDetected` defaults false — no
   auto-cycling, Console UI and/or hardware buttons work exactly as
   before, nothing else changes.
-- **`AllowPowerDownWhilePropped` left off (the default).** No behavior
-  change at all from everything else already described — Propped-Open
-  keeps forcing power on for as long as the match holds, same as
-  before this setting existed. Turning it on is an explicit,
-  deliberate choice with its own placement requirement (see
-  `STATE_TABLE.md`'s "New" callout on the Low tier) — never something
-  a host silently opts into.
+- **`AllowPowerDownWhilePropped` — removed entirely** (2026-08-07),
+  along with the propped-open-while-idling behavior it gated. Low tier
+  no longer does any propped-open handling at all (that's Normal-tier
+  only now) — see `STATE_TABLE.md`'s Low tier section.
 - **No Station Battery wired at all.** `StationBatteryChargeRatio`
   should default to 100 (always Normal), not 0 — a host with nothing
   to monitor should behave like vanilla with no fail-safe layer, not
   like vanilla stuck falsely believing it's always in a power crisis.
-- **No Cable Analyser wired.** `BasePowerBrownout` defaults false —
-  the immediate Critical override never fires, Tier is driven purely
-  by the Station Battery's percentage chain. Independent of the bullet
-  above; either device can be missing without the other's behavior
-  changing.
 - **No APC/Power Controller found on the downstream side at all
   (2026-08-05, project owner) → Deep Idle doesn't run, same as no
   buttons.** `HasDownstreamController` gates Low tier exactly the way

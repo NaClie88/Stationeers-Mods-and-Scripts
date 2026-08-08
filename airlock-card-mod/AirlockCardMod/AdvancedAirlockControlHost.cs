@@ -6,24 +6,23 @@ using Assets.Scripts.Objects.Motherboards;
 namespace AirlockCardMod
 {
     // Milestone 2, real-hardware wiring. Downstream controller/buttons
-    // (2026-08-06) are confirmed working in-game. This pass (2026-08-07,
-    // second one today) restores percentage-based Tier staging on top of
-    // the brownout-triggered redesign from earlier the same day: a
-    // dedicated Station Battery (Assets.Scripts.Objects.Electrical.Battery
-    // -- ground truth confirmed, logic-network-reference/
-    // ground-truth-database.md's Battery entry) now drives
-    // StationBatteryChargeRatio, with the Cable Analyser's BasePowerBrownout
-    // kept as a secondary immediate-override signal rather than removed --
-    // see FailsafeController.cs's IAirlockHost interface for the full
-    // reasoning on both. PresenceDetected (Occupancy Sensor) and the
+    // (2026-08-06) are confirmed working in-game. Percentage-based Tier
+    // staging runs on a dedicated Station Battery
+    // (Assets.Scripts.Objects.Electrical.Battery -- ground truth
+    // confirmed, logic-network-reference/ground-truth-database.md's
+    // Battery entry), driving StationBatteryChargeRatio -- see
+    // FailsafeController.cs's IAirlockHost interface for the full
+    // reasoning. A Cable Analyser-driven brownout override
+    // (BasePowerBrownout) was tried as a secondary immediate-escalation
+    // signal and then reverted (2026-08-08, project owner) -- too
+    // aggressive once the Station Battery gave a genuinely trustworthy
+    // reading on its own. PresenceDetected (Occupancy Sensor) and the
     // door/vent primitives ForceEvacuate/UnlockDoors/LockDoors/OpenDoor/
-    // CloseDoor are unchanged from that same pass. The door/vent primitives
-    // are built from decompiled evidence of vanilla's own
+    // CloseDoor are built from decompiled evidence of vanilla's own
     // AdvancedAirlockControl (Pressurizing/Depressurizing/WaitDoorClose/
-    // AirlockControlState's IsOperable check) but have NOT been exercised
-    // in-game yet -- flagged per-method below where confidence is lower
-    // than the already-proven patterns (buttons, power controller
-    // discovery).
+    // AirlockControlState's IsOperable check) -- confirmed working
+    // in-game (2026-08-07/08) via RequestCycleToward's vanilla-button
+    // pass-through, still watch for edge cases per STATE_TABLE.md.
     internal sealed class AdvancedAirlockControlHost : IAirlockHost
     {
         // Mirrors AdvancedAirlockControl's own private DefaultPressureMax
@@ -90,70 +89,15 @@ namespace AirlockCardMod
             }
         }
 
-        // BasePowerBrownout -- see FailsafeController.cs's IAirlockHost
-        // interface for the full reasoning (2026-08-07, project owner).
-        // Short version: a Cable Analyser placed on the always-on
-        // backbone itself (same network as the Console -- no bridging
-        // needed) exposes RequiredLoad/PotentialLoad for that whole
-        // segment (Assets.Scripts.Objects.Electrical.CableAnalyser,
-        // confirmed via decompile: single-cable-clamp device, no
-        // separate connector, so it's only logic-readable from whatever
-        // network it's physically clamped to -- must be the backbone,
-        // not the true upstream base-power segment, or the Console
-        // can't see it at all). Required > Potential means that segment
-        // can't currently get enough power to meet its own demand. Kept
-        // wired even after percentage staging came back (below) as a
-        // secondary, immediate Critical override -- see
-        // FailsafeController.UpdateTier.
-        private void FindCableAnalyser(out CableAnalyser analyser)
-        {
-            analyser = null;
-            var deviceList = _control.ParentComputer?.DeviceList();
-            if (deviceList == null) return;
-
-            foreach (var logicable in deviceList)
-            {
-                if (logicable is CableAnalyser found)
-                {
-                    analyser = found;
-                    break;
-                }
-            }
-
-            LogAnalyserDiscoveryOnce(analyser);
-        }
-
-        private bool _loggedAnalyserDiscovery;
-
-        private void LogAnalyserDiscoveryOnce(CableAnalyser analyser)
-        {
-            if (_loggedAnalyserDiscovery) return;
-            _loggedAnalyserDiscovery = true;
-            string info = analyser == null
-                ? "none found (BasePowerBrownout will always read false -- the immediate Critical override can never trigger, only the Station Battery percentage chain can)"
-                : analyser.DisplayName;
-            UnityEngine.Debug.Log("[Salty's Advanced Airlock]: ANALYSER -- " + info);
-        }
-
-        private bool _lastBrownout;
-
-        public bool BasePowerBrownout
-        {
-            get
-            {
-                FindCableAnalyser(out var analyser);
-                if (analyser == null) return false;
-
-                bool brownout = analyser.RequiredLoad > analyser.PotentialLoad;
-                if (brownout != _lastBrownout)
-                {
-                    _lastBrownout = brownout;
-                    UnityEngine.Debug.Log("[Salty's Advanced Airlock]: Base power brownout " + (brownout ? "STARTED" : "cleared")
-                        + " (required=" + analyser.RequiredLoad.ToString("F1") + "W, potential=" + analyser.PotentialLoad.ToString("F1") + "W)");
-                }
-                return brownout;
-            }
-        }
+        // REMOVED, 2026-08-08 (project owner) -- a Cable Analyser-driven
+        // BasePowerBrownout (FindCableAnalyser + the RequiredLoad >
+        // PotentialLoad check) briefly lived here as a secondary,
+        // immediate Critical override. Reverted: now that the Station
+        // Battery below gives a genuinely trustworthy early-warning
+        // charge reading, forcing Critical on every transient
+        // demand/supply blip was too aggressive -- see
+        // IAirlockHost.StationBatteryChargeRatio's doc comment and
+        // GAP_ANALYSIS.md's "Design history" for the full reasoning.
 
         // Finds the dedicated Station Battery ("Station Battery" in-game,
         // real class Assets.Scripts.Objects.Electrical.Battery -- ground

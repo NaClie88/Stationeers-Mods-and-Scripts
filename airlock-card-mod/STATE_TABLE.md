@@ -27,16 +27,15 @@ a boundary from chattering between tiers every tick — same reasoning
 as the original IC10 `watcher.ic10` port. One tier per call, same as
 before (`Normal` can't jump straight to `Critical` in one tick).
 
-**Then, unconditionally, after the table above**: `if
-(host.BasePowerBrownout) newTier = Tier.Critical;` — the Cable
-Analyser's `Required > Potential` reading on the always-on backbone is
-an immediate escalation to `Critical`, regardless of what the charge
-percentage says this tick. Never *downgrades* a tier the charge chain
-already reached — strictly an escalation on top. See
-`IAirlockHost.BasePowerBrownout`'s doc comment for why both signals
-exist together (a downstream Station Battery gives graceful staging;
-the Analyser catches a real supply/demand mismatch immediately,
-without waiting for the battery to visibly reflect it).
+**No secondary override anymore.** A Cable Analyser-driven
+`BasePowerBrownout` (`Required > Potential` on the always-on backbone,
+forcing an immediate escalation to `Critical`) existed briefly here and
+was reverted (2026-08-08, project owner) — too aggressive once the
+Station Battery gave a genuinely trustworthy early-warning reading on
+its own: a brief demand/supply blip a healthy battery could easily
+absorb was still slamming the airlock into a full evacuate-and-lock
+event every time. The charge-based table above is the only thing that
+decides `CurrentTier` now.
 
 **Leaving `Low` tier in either direction resets its own sub-state**
 (`lowPowerPhase` → `Idle`, `hasBeenOccupiedSinceWake` → `false`) — a
@@ -223,9 +222,15 @@ build's own indicator, reused here.
 
 ## Changelog
 
+- **2026-08-08:** Removed `BasePowerBrownout` (the Cable Analyser
+  secondary Critical override) entirely — reverted as too aggressive
+  now that the Station Battery gives a trustworthy reading on its own.
+  Also fixed a real in-game bug: Low tier's `Active` phase wasn't
+  routing further button presses to any door action after the initial
+  wake, breaking both "cancel the current step" and "send it back to
+  the other side" once already awake.
 - **2026-08-07 (this rewrite):** Full rewrite for the day's redesign —
-  three-tier staging restored on a Station Battery, `BasePowerBrownout`
-  demoted to a secondary Critical override, Low tier split into
+  three-tier staging restored on a Station Battery, Low tier split into
   Idle/Active, buttons wired into every tier via `RequestCycleToward`/
   `OpenDoor`, `LED` indicator added, `AllowPowerDownWhilePropped` and
   the `wasIdlingWhileProppedOpen` machinery removed (dead code once Low

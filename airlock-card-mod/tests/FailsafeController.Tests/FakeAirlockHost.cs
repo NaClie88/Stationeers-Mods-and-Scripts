@@ -10,7 +10,6 @@ namespace AirlockCardMod.Tests;
 public sealed class FakeAirlockHost : IAirlockHost
 {
     public float StationBatteryChargeRatio { get; set; } = 100f;
-    public bool BasePowerBrownout { get; set; }
     public bool ButtonEHeld { get; set; }
     public bool ButtonIHeld { get; set; }
     public bool ButtonCHeld { get; set; }

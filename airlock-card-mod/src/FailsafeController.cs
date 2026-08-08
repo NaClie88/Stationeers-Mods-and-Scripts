@@ -25,12 +25,13 @@ using System;
 namespace AirlockCardMod
 {
     // Three tiers again (2026-08-07, project owner): restores the
-    // percentage-based staging the 2026-08-07 brownout redesign gave up
-    // on, now that a Station Battery -- not an AreaPowerControl -- is
-    // the charge source. See StationBatteryChargeRatio's doc comment on
-    // IAirlockHost for why that swap makes graceful staging trustworthy
-    // again, and BasePowerBrownout's doc comment for its new role
-    // (an immediate Critical override, not the sole trigger).
+    // percentage-based staging an earlier brownout-only redesign gave
+    // up on, now that a Station Battery -- not an AreaPowerControl --
+    // is the charge source. See StationBatteryChargeRatio's doc comment
+    // on IAirlockHost for why that swap makes graceful staging
+    // trustworthy again. A brief Cable Analyser brownout override was
+    // also tried and then reverted (2026-08-08) -- see
+    // GAP_ANALYSIS.md's "Design history" for the full arc.
     public enum Tier
     {
         Normal = 0,
@@ -84,23 +85,20 @@ namespace AirlockCardMod
         // closed into permanent false Critical-tier lockdowns.
         float StationBatteryChargeRatio { get; }
 
-        // Kept from the brownout redesign as a secondary, immediate
-        // override (2026-08-07, project owner) rather than removed
-        // outright: a Cable Analyser on the always-on backbone reports
-        // Required > Potential the instant that segment can't meet its
-        // own demand right now, which is real signal a slowly-drifting
-        // percentage reading can't provide -- worth keeping as a
-        // safety net even though it's no longer the sole trigger. See
-        // FailsafeController.UpdateTier: true here always forces
-        // Critical for that tick, regardless of what
-        // StationBatteryChargeRatio's hysteresis chain would otherwise
-        // have decided, and never downgrades a tier the charge-based
-        // chain already reached on its own.
-        //
-        // Safe default if no Cable Analyser is wired at all: false
-        // (never trigger) -- same graceful-degradation convention as
-        // everywhere else on this interface.
-        bool BasePowerBrownout { get; }
+        // REMOVED, 2026-08-08 (project owner) -- a Cable Analyser
+        // brownout override (BasePowerBrownout) briefly existed here as
+        // a secondary, immediate escalation to Critical on top of the
+        // charge-based chain above. Reverted: now that
+        // StationBatteryChargeRatio gives a genuinely trustworthy early
+        // warning (the whole reason the brownout override existed in
+        // the first place was that the old AreaPowerControl-based
+        // charge reading couldn't be trusted), forcing Critical on
+        // every transient demand/supply blip was actively too
+        // aggressive -- a brief brownout that a healthy battery could
+        // easily absorb would still slam the airlock into a full
+        // evacuate-and-lock event. See git history (commit range
+        // introducing/removing this) and GAP_ANALYSIS.md's "Design
+        // history" for the full reasoning arc.
 
         // Button reads. All three are confirmed elsewhere in this
         // project to work fully unpowered (SOURCES.md, Logic Switch
@@ -489,15 +487,6 @@ namespace AirlockCardMod
                     break;
             }
 
-            // Brownout override (2026-08-07, project owner) -- see
-            // BasePowerBrownout's doc comment. A real demand-exceeds-
-            // supply event right now is itself confirmation of crisis
-            // regardless of what the battery's percentage happens to
-            // read this tick, so it always escalates to Critical. Never
-            // downgrades a tier the charge-based chain above already
-            // reached on its own -- this is strictly an escalation.
-            if (host.BasePowerBrownout) newTier = Tier.Critical;
-
             // Reset Low tier's own Idle/Active sub-state whenever we
             // leave Low tier in either direction, so a later Low-tier
             // entry always starts fresh from Idle rather than resuming
@@ -718,12 +707,12 @@ namespace AirlockCardMod
                 case Tier.Critical:
                     // Restored (2026-08-07, project owner) as its own
                     // tier again -- this is exactly the behavior Low's
-                    // Idle phase absorbed during the brownout redesign
-                    // (ported originally from cycle.ic10's tierCrit
-                    // branch), moved back out now that percentage
-                    // staging -- or an immediate BasePowerBrownout
-                    // override, see UpdateTier -- can distinguish "a
-                    // real crisis" from "just getting low" again.
+                    // Idle phase absorbed during a brief brownout-only
+                    // redesign (ported originally from cycle.ic10's
+                    // tierCrit branch), moved back out once percentage
+                    // staging on a trustworthy Station Battery could
+                    // distinguish "a real crisis" from "just getting
+                    // low" again.
                     // Deliberately no Idle/Active wake distinction here,
                     // unlike Low: this tier doesn't offer a "wake and
                     // hold open" option at all, since the whole point is

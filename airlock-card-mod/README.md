@@ -338,21 +338,21 @@ this mod. Agreed order, next session onward:
    the first two), not further research from this branch. Goal: a
    genuinely no-known-issues IC10-only 1.0.
 2. **Real hardware wiring, back on this branch — IN PROGRESS.** Button
-   and downstream-Power-Controller discovery are confirmed working
-   in-game (2026-08-06/07). **Revised 2026-08-07**: the original plan
-   to wire a second, dedicated Power Controller as a "battery reference"
-   was scrapped — see GAP_ANALYSIS.md's "Power architecture" section
-   for why. No custom power infrastructure needed at all: the airlock's
-   always-on backbone just needs to share a network with the player's
-   ordinary **Station Battery** (`ThingStructureBattery`, the normal
-   base backup-power device most builds already have), and a Cable
-   Analyser on that same backbone is what the mod actually reads
-   (`Required > Potential` = a real brownout) — not the battery's own
-   charge, which reads as artificially healthy for too long to give any
-   real advance warning. See `src/FailsafeController.cs`'s
-   `IAirlockHost.BasePowerBrownout`. Door/vent control (evacuate, lock,
-   open a specific side) is written from decompiled evidence but not
-   yet confirmed in-game — next session's first task.
+   and downstream-Power-Controller discovery, the LED tier indicator,
+   and door/vent control (evacuate, lock, open a specific side, routed
+   through vanilla's own cycle button) are all confirmed working
+   in-game (2026-08-06 through 2026-08-08). Power architecture settled,
+   after two revisions — see GAP_ANALYSIS.md's "Power architecture"
+   section for the full history: no custom power infrastructure needed
+   at all, the airlock's always-on backbone just needs to share a
+   network with the player's ordinary **Station Battery**
+   (`ThingStructureBattery`, the normal base backup-power device most
+   builds already have), whose independently-wired Data IO gives a
+   genuinely trustworthy charge reading (`IAirlockHost.
+   StationBatteryChargeRatio`) driving Normal/Low/Critical staging. A
+   Cable Analyser-based immediate brownout override was tried and then
+   reverted (2026-08-08) — too aggressive once the Station Battery
+   proved trustworthy on its own.
 3. **Full rename sweep, right before this branch's own 1.0 publish**
    to GitHub/Steam Workshop specifically — folder, namespace, `.csproj`/
    `.sln`, plugin GUID, branch name, every doc reference. Deliberately

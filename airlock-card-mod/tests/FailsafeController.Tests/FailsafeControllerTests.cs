@@ -89,34 +89,6 @@ public class TierStagingTests
     }
 
     [Fact]
-    public void Brownout_forcesCritical_regardlessOfHealthyCharge()
-    {
-        // BasePowerBrownout is a secondary, immediate override
-        // (2026-08-07) kept from the brownout redesign -- see
-        // IAirlockHost.BasePowerBrownout's doc comment.
-        var host = new FakeAirlockHost { StationBatteryChargeRatio = 100f, BasePowerBrownout = true };
-        var ctrl = new FailsafeController(host);
-        ctrl.UpdateTier();
-        Assert.Equal(Tier.Critical, ctrl.CurrentTier);
-    }
-
-    [Fact]
-    public void BrownoutClearing_fallsBackToWhatChargeAloneWouldGive()
-    {
-        var host = new FakeAirlockHost { StationBatteryChargeRatio = 100f, BasePowerBrownout = true };
-        var ctrl = new FailsafeController(host);
-        ctrl.UpdateTier();
-        Assert.Equal(Tier.Critical, ctrl.CurrentTier);
-
-        // From Critical, the charge-based chain alone (100 > CriticalToLow)
-        // would step to Low, not Normal -- the brownout override only ever
-        // escalates a tick's result, it doesn't fast-forward recovery.
-        host.BasePowerBrownout = false;
-        ctrl.UpdateTier();
-        Assert.Equal(Tier.Low, ctrl.CurrentTier);
-    }
-
-    [Fact]
     public void LeavingLowTier_resetsToIdlePhase_notResumedActive()
     {
         var host = new FakeAirlockHost { StationBatteryChargeRatio = 50f };
@@ -275,18 +247,21 @@ public class NormalTierTests
 public class CriticalTierTests
 {
     // Restored as its own tier (2026-08-07, project owner) -- this is
-    // exactly the evacuate/unlock/Button-C-override behavior the
-    // brownout redesign had temporarily folded into Low tier's Idle
-    // phase, moved back out now that percentage staging (or an
-    // immediate BasePowerBrownout override) can distinguish "a real
-    // crisis" from "just getting low" again. Uses BasePowerBrownout to
-    // enter Critical directly in one tick -- simplest setup, and
-    // exercises the override path at the same time.
+    // exactly the evacuate/unlock/Button-C-override behavior a brief
+    // brownout-only redesign had temporarily folded into Low tier's
+    // Idle phase, moved back out once percentage staging on a
+    // trustworthy Station Battery could distinguish "a real crisis"
+    // from "just getting low" again. Reaches Critical via the charge
+    // chain directly -- one tick to Low, one more to Critical, same
+    // one-tier-per-tick rule as everywhere else (a standalone Cable
+    // Analyser brownout override existed briefly for a faster path in
+    // here, then was reverted, 2026-08-08).
     private static (FakeAirlockHost, FailsafeController) MakeInCritical()
     {
-        var host = new FakeAirlockHost { BasePowerBrownout = true };
+        var host = new FakeAirlockHost { StationBatteryChargeRatio = 5f };
         var ctrl = new FailsafeController(host);
-        ctrl.UpdateTier();
+        ctrl.UpdateTier(); // Normal -> Low
+        ctrl.UpdateTier(); // Low -> Critical
         Assert.Equal(Tier.Critical, ctrl.CurrentTier);
         return (host, ctrl);
     }
