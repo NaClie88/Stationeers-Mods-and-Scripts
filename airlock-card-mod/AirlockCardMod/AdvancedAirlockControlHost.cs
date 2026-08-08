@@ -286,11 +286,103 @@ namespace AirlockCardMod
         }
 
         public bool VanillaCycleRequested => false;
-        public bool PropAtmosphereMatched => false;
+
+        // Outer/Inner Gas Sensor pair -- same DisplayName-substring
+        // convention already used for buttons (this build names
+        // devices "Outer"/"Inner", not exact hashes). Both feed
+        // PropAtmosphereMatched AND SafeToUnlockTemperature below --
+        // GasSensor's own LogicType surface includes Temperature
+        // directly alongside Pressure (logic-network-reference/
+        // device-index.md), so no separate temperature sensor is
+        // needed, confirmed 2026-08-08 (project owner).
+        private void FindGasSensors(out GasSensor outer, out GasSensor inner)
+        {
+            outer = null;
+            inner = null;
+            var deviceList = _control.ParentComputer?.DeviceList();
+            if (deviceList == null) return;
+
+            foreach (var logicable in deviceList)
+            {
+                if (!(logicable is GasSensor sensor)) continue;
+                string name = sensor.DisplayName ?? "";
+                if (outer == null && name.IndexOf("Outer", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    outer = sensor;
+                else if (inner == null && name.IndexOf("Inner", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    inner = sensor;
+            }
+        }
+
+        // Ported from airlock-ic10-scripts/gas_sensor.ic10's tolerance
+        // chain (Custom Airlock V2 lineage) -- same fields, same
+        // tolerances, not re-derived: Pressure (0.1), Temperature
+        // (0.02), RatioOxygen/RatioPollutant/RatioMethane/
+        // RatioNitrousOxide (0.005 each). RatioMethane confirmed the
+        // real LogicType name via decompile (value 18) despite
+        // device-index.md listing it as "RatioVolatiles" -- that's a
+        // display-name/enum-name mismatch in that source, not a
+        // different field. No sensor found on either side -> false,
+        // same graceful degradation as everywhere else (matches
+        // skipping gas_sensor.ic10's chip entirely in the IC10 build).
+        public bool PropAtmosphereMatched
+        {
+            get
+            {
+                FindGasSensors(out var outer, out var inner);
+                if (outer == null || inner == null) return false;
+
+                return WithinTolerance(outer, inner, LogicType.Pressure, 0.1)
+                    && WithinTolerance(outer, inner, LogicType.Temperature, 0.02)
+                    && WithinTolerance(outer, inner, LogicType.RatioOxygen, 0.005)
+                    && WithinTolerance(outer, inner, LogicType.RatioPollutant, 0.005)
+                    && WithinTolerance(outer, inner, LogicType.RatioMethane, 0.005)
+                    && WithinTolerance(outer, inner, LogicType.RatioNitrousOxide, 0.005);
+            }
+        }
+
+        private static bool WithinTolerance(GasSensor a, GasSensor b, LogicType type, double tolerance) =>
+            System.Math.Abs(a.GetLogicValue(type) - b.GetLogicValue(type)) <= tolerance;
+
+        // Reasonable default safe-to-open range in Kelvin (~-73C to
+        // ~77C) -- NOT sourced from a specific vanilla safety
+        // threshold, a rough starting guess same status as this
+        // project's other unvalidated defaults (WakeHoldTicks,
+        // ReidleDelayTicks). Settable so a build with a genuine thermal
+        // hazard nearby can tune it without recompiling.
+        public double MinSafeTemperatureKelvin { get; set; } = 200.0;
+        public double MaxSafeTemperatureKelvin { get; set; } = 350.0;
+
+        // Only gates Critical tier's UNLOCK step, never the
+        // evacuate/depressurize step -- see IAirlockHost.
+        // SafeToUnlockTemperature's doc comment. Checks whichever Gas
+        // Sensors are actually found (same Outer/Inner pair
+        // PropAtmosphereMatched uses) -- both need to be in range if
+        // both are wired; a missing sensor just isn't checked (not
+        // treated as unsafe), matching graceful degradation elsewhere.
+        // Defaults true (original unconditional-unlock behavior) only
+        // if NEITHER sensor is found at all.
+        public bool SafeToUnlockTemperature
+        {
+            get
+            {
+                FindGasSensors(out var outer, out var inner);
+                if (outer == null && inner == null) return true;
+
+                bool outerSafe = outer == null || InSafeRange(outer);
+                bool innerSafe = inner == null || InSafeRange(inner);
+                return outerSafe && innerSafe;
+            }
+        }
+
+        private bool InSafeRange(GasSensor sensor)
+        {
+            double t = sensor.GetLogicValue(LogicType.Temperature);
+            return t >= MinSafeTemperatureKelvin && t <= MaxSafeTemperatureKelvin;
+        }
+
         public bool ExteriorPresenceDetected => false;
         public bool InteriorPresenceDetected => false;
         public bool MaintenanceModeEnabled => false;
-        public bool SafeToUnlockTemperature => true;
 
         // NOT YET VERIFIED IN-GAME (2026-08-07) -- built from decompiled
         // evidence of vanilla's own Depressurizing()/WaitDoorClose(),
