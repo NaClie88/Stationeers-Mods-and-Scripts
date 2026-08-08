@@ -287,8 +287,16 @@ namespace AirlockCardMod
         // redesign) -- the wake-from-idle behavior only opens whichever
         // side's button was pressed, not both, unlike HoldBothDoorsOpen
         // below which is a Normal-tier convenience for a confirmed
-        // atmosphere match. The other door isn't touched, same
-        // "leave the rest alone" convention as CloseDoor.
+        // atmosphere match.
+        //
+        // UNLIKE CloseDoor's "leave the other alone" convention --
+        // confirmed via a real in-game bug (2026-08-07, project owner):
+        // the implementation MUST close the opposite door first,
+        // unconditionally, before opening this one. Opening a door
+        // without checking the other side isn't safe -- a player
+        // approaching with the far door still open who presses the near
+        // side's button must not end up with both doors open at once,
+        // connecting both sides straight through the chamber.
         void OpenDoor(DoorSide side);
 
         // Requests a normal, vanilla-driven cycle toward the given side

@@ -425,15 +425,28 @@ namespace AirlockCardMod
             SetDoorState(DoorForSide(side), open: false, locked: null);
         }
 
-        // NOT YET VERIFIED IN-GAME -- OnServer.Interact(door.InteractOpen,
-        // 1), the same call vanilla's own Pressurizing() uses to open
-        // whichever side just finished its cycle. Called directly,
+        // FIXED, 2026-08-07 (real in-game bug, project owner): closes
+        // the OPPOSITE door first, unconditionally, before opening the
+        // requested one -- opening a door without checking the other
+        // side is not safe the way CloseDoor's "leave the other alone"
+        // is. Confirmed live: a player approaching with the far door
+        // still open, pressing the near side's button, opened the near
+        // door too -- both open at once, connecting both sides straight
+        // through the chamber, mixing gas. Vanilla's own Pressurizing()
+        // never hits this case because it only ever runs after
+        // WaitDoorClose() has already closed both doors; OpenDoor is
+        // called directly (Low/Critical's wake path), bypassing that
+        // guarantee, so it has to enforce it itself.
+        //
+        // Uses OnServer.Interact(door.InteractOpen, ...) directly,
         // bypassing player-interaction validation (InteractWith's own
         // IsLocked check) the same way vanilla's own system-driven calls
-        // do -- so this works regardless of the door's current lock
+        // do -- so this works regardless of either door's current lock
         // state.
         public void OpenDoor(DoorSide side)
         {
+            DoorSide opposite = side == DoorSide.Exterior ? DoorSide.Interior : DoorSide.Exterior;
+            SetDoorState(DoorForSide(opposite), open: false, locked: null);
             SetDoorState(DoorForSide(side), open: true, locked: null);
         }
 
