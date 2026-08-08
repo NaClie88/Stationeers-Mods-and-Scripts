@@ -787,25 +787,36 @@ namespace AirlockCardMod
         // pressure across every single cycle with nothing to bleed it
         // off, eventually reaching a dangerous over-pressure state.
         //
-        // Runs the SAME-side vent briefly in "pressurize" mode
-        // (Mode=0, InteractMode -- confirmed via decompile/EvacuateVent
-        // above that Mode=1 is depressurize/evacuate, so Mode=0 is the
-        // other direction: draws FROM the network/tank INTO the
-        // chamber) right after that door opens. Matches the design
-        // note this interface member always carried (GAP_ANALYSIS.md):
-        // relieving pressure at a moment that's already safe by
-        // construction -- the door is open, so venting excess into the
-        // now-connected room is harmless regardless of how much excess
-        // there is -- beats trying to read live tank pressure, which
-        // isn't confirmed readable at all. Runs unconditionally, not
-        // gated on any threshold.
+        // REVISED same day, target-driven instead of a blind fixed-
+        // duration pulse: the original design note (GAP_ANALYSIS.md)
+        // assumed live tank pressure wasn't readable at all -- wrong,
+        // confirmed via decompile that ActiveVent (the real class
+        // behind IPoweredVent) exposes it directly via
+        // LogicType.PressureOutput (reads
+        // ConnectedPipeNetwork.Atmosphere.PressureGassesAndLiquids).
+        // Project owner explicitly wants elevated tank pressure
+        // preserved for faster cycling, only relieved down to a safe
+        // cap, not drained blindly on every door-open regardless of
+        // whether it's even needed -- so this now checks first, only
+        // engages the vent if actually over MaxSafeTankPressureKPa
+        // (10 MPa, project owner, comfortably under the game's actual
+        // structural burst limit of ~60.8 MPa / MAXPressureGasPipe),
+        // and keeps relieving (checking periodically, not just once)
+        // until back at or below it. MaxVentReliefDurationMs is a
+        // safety bound so this can't run forever if something
+        // unexpected happens (door closes again, network changes) --
+        // not expected to normally be hit.
         //
-        // Fire-and-forget UniTaskVoid, same async pattern vanilla's own
-        // LogicButton.WaitThenStop() uses for a timed pulse -- turns
-        // the vent back off after VentReliefDurationMs regardless of
-        // whether the tank actually had excess to relieve (idempotent,
-        // harmless if it didn't).
-        public double VentReliefDurationMs { get; set; } = 3000.0;
+        // Runs the SAME-side vent in "pressurize" mode (Mode=0,
+        // InteractMode -- confirmed via decompile/EvacuateVent above
+        // that Mode=1 is depressurize/evacuate, so Mode=0 is the other
+        // direction: draws FROM the network/tank INTO the chamber),
+        // same reasoning as before for why this moment is safe
+        // regardless of magnitude: the door is open, venting excess
+        // into the now-connected room is harmless.
+        public double MaxSafeTankPressureKPa { get; set; } = 10000.0; // 10 MPa
+        public int VentReliefCheckIntervalMs { get; set; } = 500;
+        public int MaxVentReliefDurationMs { get; set; } = 30000;
 
         public void ExtendVentRelief(DoorSide side)
         {
@@ -816,9 +827,23 @@ namespace AirlockCardMod
 
         private async UniTaskVoid RelieveVentAsync(Assets.Scripts.Objects.Pipes.IPoweredVent vent)
         {
+            if (!(vent is Assets.Scripts.Objects.Pipes.ILogicable logicable)) return;
+
+            double tankPressure = logicable.GetLogicValue(LogicType.PressureOutput);
+            if (tankPressure <= MaxSafeTankPressureKPa) return;
+
             OnServer.Interact(vent.InteractMode, 0);
             OnServer.Interact(vent.InteractOnOff, 1);
-            await UniTask.Delay((int)VentReliefDurationMs, ignoreTimeScale: false);
+
+            int elapsedMs = 0;
+            while (elapsedMs < MaxVentReliefDurationMs)
+            {
+                await UniTask.Delay(VentReliefCheckIntervalMs, ignoreTimeScale: false);
+                elapsedMs += VentReliefCheckIntervalMs;
+                tankPressure = logicable.GetLogicValue(LogicType.PressureOutput);
+                if (tankPressure <= MaxSafeTankPressureKPa) break;
+            }
+
             OnServer.Interact(vent.InteractOnOff, 0);
         }
     }
