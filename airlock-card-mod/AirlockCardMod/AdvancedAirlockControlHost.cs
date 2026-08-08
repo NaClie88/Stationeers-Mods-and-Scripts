@@ -492,8 +492,25 @@ namespace AirlockCardMod
         public void RequestCycleToward(DoorSide side)
         {
             var state = _control.AirlockControlState;
-            if (side == DoorSide.Exterior && state == AdvancedAirlockState.PressurizedExternal) return;
-            if (side == DoorSide.Interior && state == AdvancedAirlockState.PressurizedInternal) return;
+            bool blocked = (side == DoorSide.Exterior && state == AdvancedAirlockState.PressurizedExternal)
+                || (side == DoorSide.Interior && state == AdvancedAirlockState.PressurizedInternal);
+
+            // TEMP DIAGNOSTIC (2026-08-07) -- multiple confounding
+            // factors reported ("nothing happens" on a press): possible
+            // IsOperable/lock-state gate, empty inline tanks stalling
+            // the vent physics, a possible async race in vanilla's own
+            // Depressurizing/Pressurizing coroutines. Logging the real
+            // state on every call instead of guessing among them.
+            UnityEngine.Debug.Log("[Salty's Advanced Airlock]: CYCLE-REQUEST side=" + side
+                + " state=" + state
+                + " blocked=" + blocked
+                + " IsOperable=" + _control.IsOperable
+                + " extLocked=" + (_control.ExteriorAirlock?.IsLocked.ToString() ?? "null")
+                + " intLocked=" + (_control.InteriorAirlock?.IsLocked.ToString() ?? "null")
+                + " extOpen=" + (_control.ExteriorAirlock?.IsOpen.ToString() ?? "null")
+                + " intOpen=" + (_control.InteriorAirlock?.IsOpen.ToString() ?? "null"));
+
+            if (blocked) return;
             _control.ButtonCycleAirlock();
         }
 
