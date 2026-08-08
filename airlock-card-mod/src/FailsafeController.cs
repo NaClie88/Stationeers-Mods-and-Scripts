@@ -299,19 +299,32 @@ namespace AirlockCardMod
         // connecting both sides straight through the chamber.
         void OpenDoor(DoorSide side);
 
-        // Requests a normal, vanilla-driven cycle toward the given side
-        // (2026-08-07, project owner: "the button should open the door
-        // on that side no matter the power tier"). NOT a raw door open
-        // -- Normal tier's chamber pressure isn't guaranteed to match
-        // either side the way Low/Critical's evacuate-first sequence
-        // guarantees vacuum, so this is expected to drive vanilla's own
-        // pressurize/depressurize cycle (reusing its existing
-        // pressure-matching/timing) rather than bypass it, matching
-        // this whole project's standing preference for calling into
-        // vanilla's own machinery over reimplementing it. Only meant to
-        // be called from Normal tier -- Low/Critical already have their
-        // own safe (evacuate-first) direct-open path via OpenDoor
-        // above, unchanged by this addition.
+        // Requests a normal, vanilla-driven cycle (2026-08-07, project
+        // owner: "the button should open the door on that side no
+        // matter the power tier"). NOT a raw door open -- chamber
+        // pressure isn't always guaranteed to already match the
+        // requested side, so this drives vanilla's own pressurize/
+        // depressurize cycle (reusing its existing pressure-matching/
+        // timing and, called again mid-transition, its own confirmed
+        // cancel/reverse behavior) rather than bypass it, matching this
+        // whole project's standing preference for calling into
+        // vanilla's own machinery over reimplementing it.
+        //
+        // `side` is informational only, not a real target parameter
+        // (REVISED 2026-08-07, project owner) -- vanilla's own cycle
+        // button has no directional concept either, and with exactly
+        // two possible sides there's no ambiguity for it to need
+        // resolving: calling it from a Pressurized* state always moves
+        // toward the *other* side, which is by definition the side that
+        // wasn't just requested. This also means pressing your OWN
+        // side's button while already there is a real, wanted action --
+        // a courtesy send-back, cycling the airlock away for the next
+        // person waiting on the other side -- not a no-op. An earlier
+        // version gated this call to block exactly that case; removed.
+        //
+        // Called from Normal tier directly, and from OpenDoor above
+        // whenever the chamber isn't already safely sealed (both doors
+        // closed) for a direct open.
         void RequestCycleToward(DoorSide side);
 
         void SetWarningIndicator(Tier tier);

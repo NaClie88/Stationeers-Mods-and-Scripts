@@ -470,47 +470,33 @@ namespace AirlockCardMod
             }
         }
 
-        // NOT YET VERIFIED IN-GAME -- reuses vanilla's own
-        // ButtonCycleAirlock() (the exact method the Console UI's own
-        // cycle button calls, confirmed via decompile) rather than
-        // forcing a door open directly, since chamber pressure isn't
-        // always guaranteed to already match the requested side (see
-        // OpenDoor above). Gate NARROWED 2026-08-07 (project owner:
-        // "make sure one can cancel each step... separately just like
-        // the kit console button") -- only blocks the call when
-        // already fully arrived at the requested side (Pressurized*),
-        // not for the whole "heading that way" set. Vanilla's own
-        // button, called again mid-transition, CANCELS/REVERSES that
-        // transition (confirmed via decompile) -- that's the intended
-        // per-step cancel behavior, so repeated presses during a
-        // transition need to keep reaching ButtonCycleAirlock(), not be
-        // suppressed. (An earlier version's broader gate blocked exactly
-        // this.) Relies on the caller (FailsafeController) to already be
-        // edge-triggering presses -- see buttonEPressed/buttonIPressed
-        // in ApplyTierEffects -- so this doesn't need its own
-        // once-per-press bookkeeping.
+        // REVISED, 2026-08-07 (project owner) -- no gate at all now,
+        // every edge-triggered press just forwards straight to
+        // vanilla's own ButtonCycleAirlock() (the exact method the
+        // Console UI's own cycle button calls). The previous "blocked
+        // if already at the requested side" check was wrong: pressing
+        // your own side's button while already there is a real,
+        // wanted action -- a courtesy send-back, cycling the airlock
+        // away toward the other side for the next person waiting
+        // there. Vanilla's own switch already does exactly the right
+        // thing from every state with no help needed: from a
+        // Pressurized* state it starts moving away (the send-back);
+        // mid-transition it cancels/reverses that step (confirmed via
+        // decompile) -- this is genuinely just "press the button,"
+        // full stop, matching the real Console button 1:1.
         public void RequestCycleToward(DoorSide side)
         {
-            var state = _control.AirlockControlState;
-            bool blocked = (side == DoorSide.Exterior && state == AdvancedAirlockState.PressurizedExternal)
-                || (side == DoorSide.Interior && state == AdvancedAirlockState.PressurizedInternal);
-
-            // TEMP DIAGNOSTIC (2026-08-07) -- multiple confounding
-            // factors reported ("nothing happens" on a press): possible
-            // IsOperable/lock-state gate, empty inline tanks stalling
-            // the vent physics, a possible async race in vanilla's own
-            // Depressurizing/Pressurizing coroutines. Logging the real
-            // state on every call instead of guessing among them.
+            // TEMP DIAGNOSTIC (2026-08-07) -- kept from the previous
+            // pass while a separate "rapid re-press" question is still
+            // open (does edge-detection miss fast repeated clicks).
             UnityEngine.Debug.Log("[Salty's Advanced Airlock]: CYCLE-REQUEST side=" + side
-                + " state=" + state
-                + " blocked=" + blocked
+                + " state=" + _control.AirlockControlState
                 + " IsOperable=" + _control.IsOperable
                 + " extLocked=" + (_control.ExteriorAirlock?.IsLocked.ToString() ?? "null")
                 + " intLocked=" + (_control.InteriorAirlock?.IsLocked.ToString() ?? "null")
                 + " extOpen=" + (_control.ExteriorAirlock?.IsOpen.ToString() ?? "null")
                 + " intOpen=" + (_control.InteriorAirlock?.IsOpen.ToString() ?? "null"));
 
-            if (blocked) return;
             _control.ButtonCycleAirlock();
         }
 
