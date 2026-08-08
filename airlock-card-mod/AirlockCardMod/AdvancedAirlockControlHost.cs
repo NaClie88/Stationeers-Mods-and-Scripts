@@ -478,14 +478,49 @@ namespace AirlockCardMod
             if (locked.HasValue) OnServer.Interact(door, InteractableType.Lock, locked.Value ? 1 : 0);
         }
 
+        // ColorGreen/ColorYellow/ColorRed = 2/5/4 -- confirmed live
+        // (2026-08-06) from GameManager.CustomColors while closing out
+        // the IC10 build's own LED indicator (airlock-ic10-scripts/
+        // ic10_airlock_code_notes.md), same ordinals reused here, not
+        // re-derived. Diode is the LED's real class (confirmed via
+        // in-game NETDUMP, PrefabHash 1944485013) -- Color is part of
+        // the shared DynamicThing write surface every device has
+        // (base-behavior.md), not something specific to Diode, so no
+        // separate decompile needed to confirm the write itself works.
+        private void FindLed(out Assets.Scripts.Objects.Structures.Diode led)
+        {
+            led = null;
+            var deviceList = _control.ParentComputer?.DeviceList();
+            if (deviceList == null) return;
+            foreach (var logicable in deviceList)
+            {
+                if (logicable is Assets.Scripts.Objects.Structures.Diode found)
+                {
+                    led = found;
+                    return;
+                }
+            }
+        }
+
         public void SetWarningIndicator(Tier tier)
         {
-            // Real indicator wiring is follow-up work. Logged on
-            // change (not every tick) so real Tier tracking is
-            // visible/verifiable in-game.
+            // Logged on change (not every tick) so real Tier tracking is
+            // visible/verifiable in-game via the log too, not just the
+            // LED.
             if (_lastLoggedTier == tier) return;
             _lastLoggedTier = tier;
             UnityEngine.Debug.Log("[Salty's Advanced Airlock]: Tier changed to " + tier);
+
+            FindLed(out var led);
+            if (led == null) return;
+            double color = tier switch
+            {
+                Tier.Normal => 2.0,   // Green
+                Tier.Low => 5.0,      // Yellow
+                Tier.Critical => 4.0, // Red
+                _ => 2.0,
+            };
+            led.SetLogicValue(LogicType.Color, color);
         }
 
         public void SetDownstreamPower(bool on)
