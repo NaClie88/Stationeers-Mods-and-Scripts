@@ -670,16 +670,27 @@ namespace AirlockCardMod
                         case LowPowerPhase.Active:
                             // Awake and (expected to be) in use --
                             // power held on unconditionally so vanilla's
-                            // own cycling can actually run; this design
-                            // doesn't drive the traversal itself once
-                            // the requested door is open. Watching the
-                            // occupancy sensor rather than a fixed
-                            // timer for when it's safe to return to
-                            // Idle -- a real cycle can take longer than
-                            // any fixed hold, and cutting power mid-use
-                            // is exactly the outcome this whole design
-                            // exists to avoid.
+                            // own cycling can actually run.
                             UpdateDownstreamPower(forceOn: true);
+
+                            // FIXED, 2026-08-07 (real in-game bug,
+                            // project owner) -- only the very first
+                            // press (the one that woke this phase from
+                            // Idle, via OpenDoor above) was ever routed
+                            // anywhere; every press after that was
+                            // tracked for occupancy only and had no
+                            // door effect at all. That meant neither
+                            // "press again to cancel the current step"
+                            // nor "press again to send it back to the
+                            // other side" worked once already Active --
+                            // confirmed broken for both cases live.
+                            // Buttons need to keep working the whole
+                            // time the airlock is awake, not just the
+                            // one press that woke it -- same
+                            // vanilla-button pass-through Normal tier
+                            // already uses.
+                            if (buttonEPressed) host.RequestCycleToward(DoorSide.Exterior);
+                            if (buttonIPressed) host.RequestCycleToward(DoorSide.Interior);
 
                             if (host.PresenceDetected)
                             {

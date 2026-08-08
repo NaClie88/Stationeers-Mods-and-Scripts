@@ -482,6 +482,27 @@ public class LowTierWakeAndReidleTests
     }
 
     [Fact]
+    public void WhileActive_furtherButtonPresses_stillRequestACycle()
+    {
+        // Real in-game bug, 2026-08-07: only the wake-triggering press
+        // was ever routed anywhere; every press after that (while
+        // already Active) had no door effect at all, breaking both
+        // "cancel the current step" and "send it back to the other
+        // side" once awake.
+        var (host, ctrl) = MakeInLow();
+        host.ButtonEHeld = true;
+        ctrl.ApplyTierEffects(); // wake -> Active
+        host.ButtonEHeld = false;
+        ctrl.ApplyTierEffects(); // release sampled
+        host.RequestedCycles.Clear();
+
+        host.ButtonIHeld = true;
+        ctrl.ApplyTierEffects(); // a second, later press while Active
+        Assert.Single(host.RequestedCycles);
+        Assert.Equal(DoorSide.Interior, host.RequestedCycles[0]);
+    }
+
+    [Fact]
     public void OnceActive_powerStaysOn_regardlessOfButtonState_untilChamberVacatedAndDelayExpires()
     {
         var (host, ctrl) = MakeInLow();
