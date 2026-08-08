@@ -311,6 +311,19 @@ namespace AirlockCardMod
                 else if (inner == null && name.IndexOf("Inner", System.StringComparison.OrdinalIgnoreCase) >= 0)
                     inner = sensor;
             }
+
+            LogGasSensorDiscoveryOnce(outer, inner);
+        }
+
+        private bool _loggedGasSensorDiscovery;
+
+        private void LogGasSensorDiscoveryOnce(GasSensor outer, GasSensor inner)
+        {
+            if (_loggedGasSensorDiscovery) return;
+            _loggedGasSensorDiscovery = true;
+            string outerInfo = outer == null ? "none found" : outer.DisplayName;
+            string innerInfo = inner == null ? "none found" : inner.DisplayName;
+            UnityEngine.Debug.Log("[Salty's Advanced Airlock]: GAS SENSORS -- Outer: " + outerInfo + " | Inner: " + innerInfo);
         }
 
         // Ported from airlock-ic10-scripts/gas_sensor.ic10's tolerance
@@ -324,6 +337,8 @@ namespace AirlockCardMod
         // different field. No sensor found on either side -> false,
         // same graceful degradation as everywhere else (matches
         // skipping gas_sensor.ic10's chip entirely in the IC10 build).
+        private bool? _lastPropMatched;
+
         public bool PropAtmosphereMatched
         {
             get
@@ -331,17 +346,42 @@ namespace AirlockCardMod
                 FindGasSensors(out var outer, out var inner);
                 if (outer == null || inner == null) return false;
 
-                return WithinTolerance(outer, inner, LogicType.Pressure, 0.1)
-                    && WithinTolerance(outer, inner, LogicType.Temperature, 0.02)
-                    && WithinTolerance(outer, inner, LogicType.RatioOxygen, 0.005)
-                    && WithinTolerance(outer, inner, LogicType.RatioPollutant, 0.005)
-                    && WithinTolerance(outer, inner, LogicType.RatioMethane, 0.005)
-                    && WithinTolerance(outer, inner, LogicType.RatioNitrousOxide, 0.005);
+                // TEMP DIAGNOSTIC (2026-08-08) -- first live test showed
+                // Normal tier not entering Propped-Open with matched
+                // atmosphere; logging each field's diff on any
+                // true/false transition so a real tolerance failure is
+                // visible instead of a flat "didn't happen."
+                (bool ok, double diff)[] checks =
+                {
+                    (WithinTolerance(outer, inner, LogicType.Pressure, 0.1, out var dP), dP),
+                    (WithinTolerance(outer, inner, LogicType.Temperature, 0.02, out var dT), dT),
+                    (WithinTolerance(outer, inner, LogicType.RatioOxygen, 0.005, out var dO2), dO2),
+                    (WithinTolerance(outer, inner, LogicType.RatioPollutant, 0.005, out var dPo), dPo),
+                    (WithinTolerance(outer, inner, LogicType.RatioMethane, 0.005, out var dMe), dMe),
+                    (WithinTolerance(outer, inner, LogicType.RatioNitrousOxide, 0.005, out var dN2O), dN2O),
+                };
+                bool matched = checks[0].ok && checks[1].ok && checks[2].ok && checks[3].ok && checks[4].ok && checks[5].ok;
+
+                if (matched != _lastPropMatched)
+                {
+                    _lastPropMatched = matched;
+                    UnityEngine.Debug.Log("[Salty's Advanced Airlock]: PROP-MATCH=" + matched
+                        + " Pressure(diff=" + checks[0].diff.ToString("F3") + ",ok=" + checks[0].ok + ")"
+                        + " Temperature(diff=" + checks[1].diff.ToString("F3") + ",ok=" + checks[1].ok + ")"
+                        + " O2(diff=" + checks[2].diff.ToString("F4") + ",ok=" + checks[2].ok + ")"
+                        + " Pollutant(diff=" + checks[3].diff.ToString("F4") + ",ok=" + checks[3].ok + ")"
+                        + " Methane(diff=" + checks[4].diff.ToString("F4") + ",ok=" + checks[4].ok + ")"
+                        + " N2O(diff=" + checks[5].diff.ToString("F4") + ",ok=" + checks[5].ok + ")");
+                }
+                return matched;
             }
         }
 
-        private static bool WithinTolerance(GasSensor a, GasSensor b, LogicType type, double tolerance) =>
-            System.Math.Abs(a.GetLogicValue(type) - b.GetLogicValue(type)) <= tolerance;
+        private static bool WithinTolerance(GasSensor a, GasSensor b, LogicType type, double tolerance, out double diff)
+        {
+            diff = System.Math.Abs(a.GetLogicValue(type) - b.GetLogicValue(type));
+            return diff <= tolerance;
+        }
 
         // Reasonable default safe-to-open range in Kelvin (~-73C to
         // ~77C) -- NOT sourced from a specific vanilla safety
@@ -446,8 +486,15 @@ namespace AirlockCardMod
         // the 2026-08-07 redesign) -- doesn't suppress any vanilla
         // auto-close timer, that's still an open question per
         // PATCH_PLAN.md.
+        private bool _loggedHoldBothDoorsOpen;
+
         public void HoldBothDoorsOpen()
         {
+            if (!_loggedHoldBothDoorsOpen)
+            {
+                _loggedHoldBothDoorsOpen = true;
+                UnityEngine.Debug.Log("[Salty's Advanced Airlock]: HoldBothDoorsOpen() called for the first time");
+            }
             SetDoorState(_control.ExteriorAirlock, open: true, locked: null);
             SetDoorState(_control.InteriorAirlock, open: true, locked: null);
         }
