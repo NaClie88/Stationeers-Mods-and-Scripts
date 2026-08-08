@@ -362,7 +362,14 @@ namespace AirlockCardMod
 
         // Still relative/configurable, not absolute -- see the redesign
         // note above for why pressure specifically stays this way.
+        // Hysteresis pair, not a single cutoff (2026-08-08, real
+        // in-game bug: confirmed chattering true/false every tick or
+        // two with the diff sitting right at a hard boundary) --
+        // PressureMatchTolerance is the narrower "enter" threshold,
+        // PressureUnmatchTolerance the wider "exit" one, same
+        // enter-narrow/exit-wide shape as the Tier hysteresis bands.
         public double PressureMatchTolerance { get; set; } = 2.0;
+        public double PressureUnmatchTolerance { get; set; } = 4.0;
 
         private bool? _lastPropMatched;
 
@@ -393,7 +400,20 @@ namespace AirlockCardMod
 
                 bool outerSafe = IsSideSafeForSuitlessPlayer(outer, out var outerReason);
                 bool innerSafe = IsSideSafeForSuitlessPlayer(inner, out var innerReason);
-                bool pressureMatches = WithinTolerance(outer, inner, LogicType.Pressure, PressureMatchTolerance, out var pDiff);
+
+                // Hysteresis, not a hard cutoff (2026-08-08, real
+                // in-game bug: confirmed chattering true/false/true
+                // every tick or two with the pressure diff sitting
+                // right at the PressureMatchTolerance boundary, which
+                // likely never let the doors visually finish opening
+                // before being told to close again). Enter propped-open
+                // at PressureMatchTolerance; once active, stay active
+                // until the diff grows past PressureUnmatchTolerance
+                // instead -- same "enter narrow, exit wide" shape as
+                // the Tier hysteresis bands, just for this check.
+                double diff = System.Math.Abs(outer.GetLogicValue(LogicType.Pressure) - inner.GetLogicValue(LogicType.Pressure));
+                double tolerance = (_lastPropMatched == true) ? PressureUnmatchTolerance : PressureMatchTolerance;
+                bool pressureMatches = diff <= tolerance;
                 bool matched = outerSafe && innerSafe && pressureMatches;
 
                 if (matched != _lastPropMatched)
@@ -402,7 +422,7 @@ namespace AirlockCardMod
                     UnityEngine.Debug.Log("[Salty's Advanced Airlock]: PROP-MATCH=" + matched
                         + " outerSafe=" + outerSafe + "(" + outerReason + ")"
                         + " innerSafe=" + innerSafe + "(" + innerReason + ")"
-                        + " pressureDiff=" + pDiff.ToString("F2") + ",ok=" + pressureMatches);
+                        + " pressureDiff=" + diff.ToString("F2") + ",tolerance=" + tolerance.ToString("F1") + ",ok=" + pressureMatches);
                 }
                 return matched;
             }
@@ -426,12 +446,6 @@ namespace AirlockCardMod
             if (!InSafeTemperatureRange(sensor)) { reason = "temperature out of range"; return false; }
             reason = "safe";
             return true;
-        }
-
-        private static bool WithinTolerance(GasSensor a, GasSensor b, LogicType type, double tolerance, out double diff)
-        {
-            diff = System.Math.Abs(a.GetLogicValue(type) - b.GetLogicValue(type));
-            return diff <= tolerance;
         }
 
         // UNCONFIRMED (2026-08-08) -- unlike the oxygen/toxicity
