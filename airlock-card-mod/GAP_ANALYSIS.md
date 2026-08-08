@@ -58,8 +58,10 @@ This is the actual scope of new work — everything else above, we
 inherit for free by patching instead of replacing.
 
 1. **Tier-based power monitoring with hysteresis** (Normal/Low/Critical,
-   driven by a dedicated Power Controller's `Charge`/`Maximum`).
-   Nothing found in vanilla's documented behavior resembles this — the
+   driven by a dedicated Station Battery's `Ratio` — see "Power
+   architecture" below for the current device roles and how this
+   design got here). Nothing found in vanilla's documented behavior
+   resembles this — the
    "lock persists through power loss" property is passive (a
    mechanical fact about the door), not an active monitored response
    with staged behavior. This is `watcher.ic10`'s entire job, and it's
@@ -223,120 +225,99 @@ substitute for testing the real patched path once it exists.
 
 ## Power architecture
 
-**REVISED 2026-08-07 — the "second, dedicated Power Controller" concept
-described in this section's original text (below, kept for history)
-turned out to be the wrong shape entirely, confirmed via real in-game
-topology testing.** Short version of what changed and why, written for
-a GitHub reader who hasn't followed the whole investigation:
+**Current design (2026-08-07) — three device roles, none of them
+overlapping.** This went through two redesigns to get here (compressed
+history at the end of this section); this is what's actually
+implemented in `src/FailsafeController.cs`/
+`AirlockCardMod/AdvancedAirlockControlHost.cs` today.
 
-An `AreaPowerControl` ("Power Controller"/"Area Power Controller," the
-same device) only exposes its own logic on the side that *feeds it*
-power — never on the side it distributes power *to*. In a real
-multi-tier build (a switchable Power Controller feeding the doors,
-itself fed from a backbone network upstream), that means the mod's
-Console can only ever see the *one* Power Controller directly above it
-— never a separate, more-upstream one, no matter how it's wired. So a
-second, purpose-built "dedicated Power Controller" sitting between the
-Console and the true power source doesn't actually solve the
-survive-a-power-loss problem this section originally set out to solve
-— it just becomes one more thing that reads as artificially healthy
-for as long as anything upstream is still supplying it.
+- **The traditional Area Power Controller, feeding doors, Vents, and
+  the chamber Gas Sensor** — same single-APC layout vanilla already
+  uses (see "Reusing vanilla's Skip" above), reused as-is. The card
+  switches it on/off — `SetDownstreamPower(bool)` on
+  `FailsafeController`, `FindDownstreamController`/
+  `HasDownstreamController` on the host — reproducing the IC10 build's
+  zone-gate. **This is the only device role a switched circuit
+  actually depends on.**
+- **A dedicated Station Battery, wired separately, for charge
+  monitoring only — no power-feeding role at all.** Drives
+  `IAirlockHost.StationBatteryChargeRatio`, the input to the
+  Normal/Low/Critical hysteresis chain in `FailsafeController.UpdateTier`.
+  Confirmed real device, `Assets.Scripts.Objects.Electrical.Battery`
+  (`logic-network-reference/ground-truth-database.md`). Its Power IN,
+  Power OUT, and Data IO are three independent ports — Data IO can sit
+  on the Console's own data network regardless of which power segment
+  Power IN actually taps, which is what makes its `Ratio` reading
+  trustworthy where an APC's inserted battery cell wasn't (see
+  "Design history" below). Costs a second grid: Power IN and Power OUT
+  can't share a network.
+- **A Cable Analyser on the always-on backbone, for an immediate
+  brownout override only.** Drives `IAirlockHost.BasePowerBrownout` —
+  `Required > Potential` on that segment forces `Tier.Critical`
+  immediately, on top of whatever the Station Battery's hysteresis
+  chain would otherwise decide. Never removed once percentage staging
+  came back; a real demand-exceeds-supply event right now is signal a
+  slowly-drifting percentage can't provide.
+- **The Console's own power is not separately monitored or switched by
+  this mod at all.** It's assumed to just have continuous power,
+  wired however the player chooses — the same baseline requirement
+  vanilla itself already has for the Console to function. This is the
+  one role from the original two-Power-Controller plan (below) that
+  never actually got built the way that plan described; monitoring
+  duty moved to the Station Battery, a device with no power-feeding
+  role for anything.
 
-**The actual fix needs nothing custom at all: just the player's
-ordinary Station Battery** (`ThingStructureBattery` — the same large
-battery bank most Stationeers bases already build for backup power,
-not a bespoke "second APC"). Wire the airlock's always-on backbone
-(Console, buttons, sensors, Vents) to the same network the Station
-Battery already supplies, the same way any other base-critical load
-would be. No second Power Controller, no special naming, no
-airlock-specific power infrastructure — the airlock just becomes one
-more thing on the base's existing backup circuit.
+**Wiring detail, still true for the traditional APC above: it only
+exposes its logic to its power-SOURCE side, not its downstream/output
+side.** The network downstream of an APC is isolated (matches the
+earlier research finding: "used to segregate power into their own
+subnetworks") and doesn't carry the APC's own control interface. A
+real multi-tier power chain only ever exposes the *one* nearest APC to
+the Console's own data network this way — confirmed via live NETDUMP —
+which is exactly the visibility limit that made this device unsuitable
+for charge monitoring (see "Design history" below) even though it's
+still perfectly fine for its remaining role, switching the downstream
+circuit from the source side.
 
-**Detecting an actual power problem doesn't come from reading the
-Station Battery's own charge, either** — same reachability limit as
-above, plus a deeper one: a battery reads as healthy for as long as
-anything upstream is charging it, so waiting for its charge to visibly
-drop gives almost no advance warning before a real failure. Instead, a
-Cable Analyser placed on that same always-on backbone (fully reachable
-by the Console, no bridging needed) reads `Required`/`Potential` for
-the whole segment directly — `Required > Potential` is a live brownout,
-a much more direct signal that whatever's supplying the backbone
-(Station Battery included) can no longer keep up with demand right
-now, not an inference from a lagging charge percentage. See
-`src/FailsafeController.cs`'s `IAirlockHost.BasePowerBrownout` for the
-implementation.
-
-**Original text, 2026-08-05, kept for history — describes the
-now-superseded "second Power Controller" design:**
-
-**Two Power Controllers, not one — this build adds a second one beyond
-the traditional layout.** The traditional set (see "Reusing vanilla's
-Skip" above) has exactly *one* Area Power Controller, feeding
-everything inside the chamber — Console, both Vents, the chamber Gas
-Sensor, the chip, implicitly the doors too. That's sufficient for
-vanilla, which has no Tier monitoring to keep alive through a power
-loss in the first place. This design's whole fail-safe premise
-requires something vanilla doesn't need: the Console (running the
-patched logic) has to keep running *through* a loss of that main
-circuit, in order to detect the loss and respond to it. That's only
-possible if the Console is fed from somewhere else.
-
-So, confirmed by project owner (2026-08-05), the design needs two
-separate Power Controllers, mapping onto three roles — same shape as
-the IC10 build's Watcher/Gate split, just without a second chip:
-
-- **A second, dedicated Power Controller — new, not part of the
-  traditional set — feeding only the Console (running the patched
-  logic).** Must stay on a circuit that's *never* switched off, same
-  requirement as Watcher never being power-gated in the IC10 build. If
-  the Console itself lost power, nothing could decide when to turn the
-  downstream circuit back on. This is the same "isolated, physically
-  swappable dedicated battery" concept the original IC10 design already
-  required for the identical reason — not a new pattern, just applied
-  again here.
-- **Buttons** — power-agnostic. Confirmed elsewhere in this project
-  (`SOURCES.md`, Logic Switch entry) to function fully unpowered, only
-  their indicator light needs power — so it doesn't matter whether
-  they're wired to the always-on side or the switched side.
-- **Everything else (doors, Vents, chamber Gas Sensor) — stays on the
-  traditional Area Power Controller**, which the card now switches
-  on/off, reproducing the IC10 build's zone-gate exactly.
-  `SetDownstreamPower(bool)` on `FailsafeController` is this switch.
-  Effectively, the traditional single-APC layout becomes the switched
-  "downstream" circuit, and the new second Power Controller becomes the
-  always-on one.
-
-**Wiring detail that affects Milestone 1.5, project owner (2026-08-05):
-an APC only exposes its logic to its power-SOURCE side, not its
-downstream/output side.** The network downstream of an APC is isolated
-(matches the earlier research finding: "used to segregate power into
-their own subnetworks") and doesn't carry the APC's own control
-interface. Concretely: the card's data connection for reading/writing
-the traditional Area Power Controller's `On` field has to come from the
-source side — which, given the architecture above, is naturally where
-the card and the new dedicated Power Controller already sit. This
-isn't a new wiring requirement so much as a confirmation that the
-already-planned architecture is wired the only way that could work —
-worth stating explicitly so Milestone 1.5 doesn't waste time looking
-for a control hook on the downstream side.
-
-**This also means the card should detect whether an APC is present at
-all, not assume one** (project owner, 2026-08-05) — see
-`HasDownstreamController` on `IAirlockHost` in
+**The card detects whether an APC is present at all, not assumes
+one** — see `HasDownstreamController` on `IAirlockHost` in
 `src/FailsafeController.cs`, and "Graceful degradation" below for what
-happens if none is found.
+happens if none is found. Same graceful-degradation treatment applies
+to the Station Battery (`StationBatteryChargeRatio` defaults to 100,
+always Normal) and the Cable Analyser (`BasePowerBrownout` defaults
+false, never overrides).
 
-**Naming question, working assumption as of 2026-08-05:** a search
-turned up the Community Wiki's "Area Power Controller" page redirecting
-to its "Power Controller" page — suggestive that "APC" and "Power
-Controller" are the same in-game device under two names. Project owner
-confirms this matches their own understanding, so treating it as likely
-true from here on — still worth a Stationpedia glance during Milestone
-1.5 to fully close it out, but not blocking. If it holds, this
-architecture isn't new territory at all: it's the same device (and the
-same `On` LogicType — resolved 2026-08-06, see `PATCH_PLAN.md`) as the
-zone gate in `airlock-ic10-scripts/watcher.ic10`, just wired the same
-way again.
+**Naming note:** the Community Wiki's "Area Power Controller" page
+redirects to its "Power Controller" page — the same in-game device
+under two names, confirmed via decompile
+(`logic-network-reference/devices/power-controller.md`). Same device
+(and the same `On` LogicType) as the zone gate in
+`airlock-ic10-scripts/watcher.ic10`.
+
+**Design history, compressed** (full detail lives in git history and
+each file's own doc comments, not repeated here):
+
+1. **2026-08-05, original plan.** Two Area Power Controllers: the
+   traditional one for doors/Vents/Gas Sensor, plus a second, dedicated
+   one whose sole job was feeding the Console *and* being monitored for
+   Tier via its `Charge`/`Maximum` fields — the same "isolated,
+   physically swappable dedicated battery" concept the original IC10
+   design used for the identical reason (Watcher had to survive a
+   downstream power loss to detect and respond to it).
+2. **2026-08-06/07, real-hardware wiring exposed a problem.** A real
+   multi-tier APC chain only shows the Console's data network the one
+   nearest APC (confirmed via live NETDUMP) — so a percentage read off
+   that device's battery reads as artificially healthy for as long as
+   anything upstream is still supplying it, giving almost no advance
+   warning before a real failure. Commit `9ed9699` dropped
+   percentage-based staging entirely in favor of a Cable Analyser's
+   binary `Required > Potential` brownout signal.
+3. **2026-08-07, same day, second pass.** Restored three-tier
+   percentage staging on a dedicated Station Battery instead of an
+   APC — its independent Power IN/Power OUT/Data IO ports sidestep the
+   visibility problem that killed the original approach. The Cable
+   Analyser stayed in as a secondary override rather than being
+   removed. This is the current design described above.
 
 ## Cross-network visibility for the downstream side
 
@@ -372,7 +353,7 @@ that shared instance, no bridge required for that part at all.
   / `SetDownstreamPower`) — addressed above ("Power architecture"),
   reachable from the source side without a bridge, assuming the Card
   and the APC's source-side connection point end up on the same
-  network as the new dedicated Power Controller.
+  network as the Console.
 - Anything downstream the vanilla instance *doesn't* already hold a
   reference to and that our new logic needs directly — not yet
   identified as a concrete case, but can't be ruled out until
@@ -446,10 +427,15 @@ first).
   deliberate choice with its own placement requirement (see
   `STATE_TABLE.md`'s "New" callout on the Low tier) — never something
   a host silently opts into.
-- **No dedicated Power Controller at all.** `DedicatedBatteryChargeRatio`
+- **No Station Battery wired at all.** `StationBatteryChargeRatio`
   should default to 100 (always Normal), not 0 — a host with nothing
   to monitor should behave like vanilla with no fail-safe layer, not
   like vanilla stuck falsely believing it's always in a power crisis.
+- **No Cable Analyser wired.** `BasePowerBrownout` defaults false —
+  the immediate Critical override never fires, Tier is driven purely
+  by the Station Battery's percentage chain. Independent of the bullet
+  above; either device can be missing without the other's behavior
+  changing.
 - **No APC/Power Controller found on the downstream side at all
   (2026-08-05, project owner) → Deep Idle doesn't run, same as no
   buttons.** `HasDownstreamController` gates Low tier exactly the way
