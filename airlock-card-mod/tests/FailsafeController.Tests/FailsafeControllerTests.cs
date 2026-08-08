@@ -213,6 +213,31 @@ public class NormalTierTests
     }
 
     [Fact]
+    public void ButtonHeldAcrossMultipleTicks_requestsCycleOnlyOnce()
+    {
+        // A LogicButton's Activate pulse can span more than one
+        // ApplyTierEffects tick -- must not fire the cycle request
+        // again on every tick the button still reads held, only on the
+        // rising edge (2026-08-07, project owner: repeated ticks within
+        // one physical press shouldn't double-fire vanilla's cycle
+        // button, since a second real call mid-transition cancels it).
+        var (host, ctrl) = Make();
+        host.ButtonEHeld = true;
+        ctrl.UpdateTier();
+        ctrl.ApplyTierEffects();
+        ctrl.ApplyTierEffects();
+        ctrl.ApplyTierEffects();
+        Assert.Single(host.RequestedCycles);
+
+        // Release and press again -- a genuinely new press should fire again.
+        host.ButtonEHeld = false;
+        ctrl.ApplyTierEffects();
+        host.ButtonEHeld = true;
+        ctrl.ApplyTierEffects();
+        Assert.Equal(2, host.RequestedCycles.Count);
+    }
+
+    [Fact]
     public void PropBreaking_closesTheNonPreferredDoor_defaultsToExterior()
     {
         var (host, ctrl) = Make();

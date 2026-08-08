@@ -400,6 +400,12 @@ namespace AirlockCardMod
         private bool hasBeenOccupiedSinceWake;
         private int reidleCountdown;
 
+        // Previous tick's button levels, for edge-detecting a fresh
+        // physical press out of ButtonEHeld/ButtonIHeld's raw level
+        // reads -- see buttonEPressed/buttonIPressed in ApplyTierEffects.
+        private bool prevButtonEHeld;
+        private bool prevButtonIHeld;
+
         // True whenever HoldBothDoorsOpen() was called on the PREVIOUS
         // tick (Normal tier only, since the 2026-08-07 redesign -- Low
         // tier no longer does propped-open handling at all). Used to
@@ -529,6 +535,22 @@ namespace AirlockCardMod
                 host.ButtonEHeld || host.ButtonIHeld || host.ButtonCHeld ||
                 host.VanillaCycleRequested || host.PresenceDetected;
 
+            // Edge-triggered, separate from the level-based reads above
+            // (2026-08-07, project owner: repeated presses need to reach
+            // vanilla's own cancel/reverse behavior, "just like the kit
+            // console button"). A LogicButton's Activate pulse lasts up
+            // to ~550ms (LogicButton.WaitThenStop), which can span more
+            // than one ApplyTierEffects tick at this project's ~250ms
+            // check interval -- using the raw level for an action
+            // trigger (not just a level-based gate like wakeRequested
+            // above) would fire that action twice for one physical
+            // press. Only used for the door-action call sites below;
+            // wakeRequested above is unaffected and stays level-based.
+            bool buttonEPressed = host.ButtonEHeld && !prevButtonEHeld;
+            bool buttonIPressed = host.ButtonIHeld && !prevButtonIHeld;
+            prevButtonEHeld = host.ButtonEHeld;
+            prevButtonIHeld = host.ButtonIHeld;
+
             // Exit-ordering support (2026-08-05, project owner) -- only
             // meaningful for Normal tier's own propped-open handling
             // now, see that branch below.
@@ -553,8 +575,8 @@ namespace AirlockCardMod
                     // RequestCycleToward's doc comment for why Normal
                     // tier specifically can't reuse Low/Critical's
                     // evacuate-first-then-open approach safely.
-                    if (host.ButtonEHeld) host.RequestCycleToward(DoorSide.Exterior);
-                    if (host.ButtonIHeld) host.RequestCycleToward(DoorSide.Interior);
+                    if (buttonEPressed) host.RequestCycleToward(DoorSide.Exterior);
+                    if (buttonIPressed) host.RequestCycleToward(DoorSide.Interior);
 
                     if (host.PropAtmosphereMatched)
                     {
@@ -624,8 +646,8 @@ namespace AirlockCardMod
                                 // is sufficient -- see LockDoors()'s doc
                                 // comment.
                                 host.LockDoors();
-                                if (host.ButtonEHeld) host.OpenDoor(DoorSide.Exterior);
-                                if (host.ButtonIHeld) host.OpenDoor(DoorSide.Interior);
+                                if (buttonEPressed) host.OpenDoor(DoorSide.Exterior);
+                                if (buttonIPressed) host.OpenDoor(DoorSide.Interior);
                                 lowPowerPhase = LowPowerPhase.Active;
                                 hasBeenOccupiedSinceWake = false;
                                 reidleCountdown = ReidleDelayTicks;

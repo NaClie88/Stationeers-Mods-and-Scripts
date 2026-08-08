@@ -443,41 +443,57 @@ namespace AirlockCardMod
         // IsLocked check) the same way vanilla's own system-driven calls
         // do -- so this works regardless of either door's current lock
         // state.
+        // REVISED, 2026-08-07 (real in-game bug, project owner): a raw
+        // "close opposite, open requested" swap isn't actually safe --
+        // it prevents both doors being open at once, but doesn't
+        // guarantee the chamber's current pressure matches the
+        // requested side at all (e.g. Low tier's Idle phase no longer
+        // evacuates on its own -- that moved to Critical -- so there's
+        // no guarantee the chamber is at vacuum when a wake fires).
+        // Only safe to open directly when BOTH doors are already
+        // closed (Critical's own every-tick evacuate keeps this true
+        // there; Low tier may or may not have it depending on what the
+        // doors were doing before the wake). Otherwise, defer to
+        // RequestCycleToward below, which drives vanilla's own
+        // pressure-matching cycle instead of a blind swap.
         public void OpenDoor(DoorSide side)
         {
-            DoorSide opposite = side == DoorSide.Exterior ? DoorSide.Interior : DoorSide.Exterior;
-            SetDoorState(DoorForSide(opposite), open: false, locked: null);
-            SetDoorState(DoorForSide(side), open: true, locked: null);
+            bool bothClosed = !(_control.ExteriorAirlock?.IsOpen ?? false)
+                && !(_control.InteriorAirlock?.IsOpen ?? false);
+            if (bothClosed)
+            {
+                SetDoorState(DoorForSide(side), open: true, locked: null);
+            }
+            else
+            {
+                RequestCycleToward(side);
+            }
         }
 
         // NOT YET VERIFIED IN-GAME -- reuses vanilla's own
         // ButtonCycleAirlock() (the exact method the Console UI's own
         // cycle button calls, confirmed via decompile) rather than
-        // forcing a door open directly, since Normal tier's chamber
-        // pressure isn't guaranteed to match either side the way
-        // Low/Critical's evacuate-first sequence guarantees vacuum.
-        // Gated so it only actually presses "cycle" when the current
-        // state isn't already at or heading toward the requested side
-        // -- vanilla's own button is a single toggle with no
-        // directional concept (confirmed via decompile: pressing it
-        // mid-transition CANCELS/REVERSES that transition, it doesn't
-        // skip ahead), so calling it unconditionally on every held tick
-        // would fight an already-correct in-progress cycle. First stage
-        // only (project owner, 2026-08-07) -- a follow-up "press again
-        // to skip/force" escalation is a separate, not-yet-designed
-        // feature, deliberately not attempted here.
+        // forcing a door open directly, since chamber pressure isn't
+        // always guaranteed to already match the requested side (see
+        // OpenDoor above). Gate NARROWED 2026-08-07 (project owner:
+        // "make sure one can cancel each step... separately just like
+        // the kit console button") -- only blocks the call when
+        // already fully arrived at the requested side (Pressurized*),
+        // not for the whole "heading that way" set. Vanilla's own
+        // button, called again mid-transition, CANCELS/REVERSES that
+        // transition (confirmed via decompile) -- that's the intended
+        // per-step cancel behavior, so repeated presses during a
+        // transition need to keep reaching ButtonCycleAirlock(), not be
+        // suppressed. (An earlier version's broader gate blocked exactly
+        // this.) Relies on the caller (FailsafeController) to already be
+        // edge-triggering presses -- see buttonEPressed/buttonIPressed
+        // in ApplyTierEffects -- so this doesn't need its own
+        // once-per-press bookkeeping.
         public void RequestCycleToward(DoorSide side)
         {
             var state = _control.AirlockControlState;
-            bool headingExterior = state == AdvancedAirlockState.PressurizingExternal
-                || state == AdvancedAirlockState.PressurizedExternal
-                || state == AdvancedAirlockState.DepressurizingInternal;
-            bool headingInterior = state == AdvancedAirlockState.PressurizingInternal
-                || state == AdvancedAirlockState.PressurizedInternal
-                || state == AdvancedAirlockState.DepressurizingExternal;
-
-            if (side == DoorSide.Exterior && headingExterior) return;
-            if (side == DoorSide.Interior && headingInterior) return;
+            if (side == DoorSide.Exterior && state == AdvancedAirlockState.PressurizedExternal) return;
+            if (side == DoorSide.Interior && state == AdvancedAirlockState.PressurizedInternal) return;
             _control.ButtonCycleAirlock();
         }
 
