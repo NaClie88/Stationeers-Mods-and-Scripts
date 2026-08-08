@@ -326,17 +326,44 @@ namespace AirlockCardMod
             UnityEngine.Debug.Log("[Salty's Advanced Airlock]: GAS SENSORS -- Outer: " + outerInfo + " | Inner: " + innerInfo);
         }
 
-        // Ported from airlock-ic10-scripts/gas_sensor.ic10's tolerance
-        // chain (Custom Airlock V2 lineage) -- same fields, same
-        // tolerances, not re-derived: Pressure (0.1), Temperature
-        // (0.02), RatioOxygen/RatioPollutant/RatioMethane/
-        // RatioNitrousOxide (0.005 each). RatioMethane confirmed the
-        // real LogicType name via decompile (value 18) despite
-        // device-index.md listing it as "RatioVolatiles" -- that's a
-        // display-name/enum-name mismatch in that source, not a
-        // different field. No sensor found on either side -> false,
-        // same graceful degradation as everywhere else (matches
-        // skipping gas_sensor.ic10's chip entirely in the IC10 build).
+        // REDESIGNED, 2026-08-08 (project owner, sourced real
+        // Stationeers safety mechanics) -- this is no longer "does the
+        // outer room's air match the inner room's air." Toxicity and
+        // breathability in this game are governed by PARTIAL PRESSURE
+        // (ratio x total pressure) against fixed physiological
+        // thresholds, not by whether two sides happen to have the same
+        // composition as each other. A room could "match" another room
+        // and still be unsafe for a suit-less player if both happen to
+        // be toxic together. So: pressure stays a *relative*,
+        // configurable check between the two sides (there's no single
+        // universal "safe" pressure -- different builds run at
+        // different setpoints, and the real risk here is a violent
+        // equalization, not the absolute number) -- everything else
+        // (oxygen, toxic gases, temperature) is now an *absolute*
+        // per-side safety check instead.
+        //
+        // Sourced thresholds (project owner, 2026-08-08):
+        // - Oxygen: safe to breathe without a suit at partial pressure
+        //   >= 16 kPa (12-16 kPa is a low-oxygen warning zone, not yet
+        //   damaging; below 5-6 kPa causes unconsciousness).
+        // - Pollutant: damage begins around 1 kPa partial pressure;
+        //   recommended zero-damage safety margin is below 0.5 kPa.
+        // - Volatiles (Methane's in-game classification): same
+        //   mechanic, damage above ~1 kPa partial pressure, 0.5 kPa
+        //   safety margin.
+        // - CO2 and Oxygen itself are NOT modeled as toxic in this
+        //   game (per project owner) -- not checked here. Nitrous
+        //   Oxide dropped entirely (2026-08-08) -- not in the sourced
+        //   toxic-gas list, the old IC10-ported ratio-matching check
+        //   for it no longer applies to anything.
+        public double MinSafeOxygenPartialPressureKPa { get; set; } = 16.0;
+        public double MaxSafePollutantPartialPressureKPa { get; set; } = 0.5;
+        public double MaxSafeVolatilesPartialPressureKPa { get; set; } = 0.5;
+
+        // Still relative/configurable, not absolute -- see the redesign
+        // note above for why pressure specifically stays this way.
+        public double PressureMatchTolerance { get; set; } = 2.0;
+
         private bool? _lastPropMatched;
 
         public bool PropAtmosphereMatched
@@ -346,35 +373,41 @@ namespace AirlockCardMod
                 FindGasSensors(out var outer, out var inner);
                 if (outer == null || inner == null) return false;
 
-                // TEMP DIAGNOSTIC (2026-08-08) -- first live test showed
-                // Normal tier not entering Propped-Open with matched
-                // atmosphere; logging each field's diff on any
-                // true/false transition so a real tolerance failure is
-                // visible instead of a flat "didn't happen."
-                (bool ok, double diff)[] checks =
-                {
-                    (WithinTolerance(outer, inner, LogicType.Pressure, 0.1, out var dP), dP),
-                    (WithinTolerance(outer, inner, LogicType.Temperature, 0.02, out var dT), dT),
-                    (WithinTolerance(outer, inner, LogicType.RatioOxygen, 0.005, out var dO2), dO2),
-                    (WithinTolerance(outer, inner, LogicType.RatioPollutant, 0.005, out var dPo), dPo),
-                    (WithinTolerance(outer, inner, LogicType.RatioMethane, 0.005, out var dMe), dMe),
-                    (WithinTolerance(outer, inner, LogicType.RatioNitrousOxide, 0.005, out var dN2O), dN2O),
-                };
-                bool matched = checks[0].ok && checks[1].ok && checks[2].ok && checks[3].ok && checks[4].ok && checks[5].ok;
+                bool outerSafe = IsSideSafeForSuitlessPlayer(outer, out var outerReason);
+                bool innerSafe = IsSideSafeForSuitlessPlayer(inner, out var innerReason);
+                bool pressureMatches = WithinTolerance(outer, inner, LogicType.Pressure, PressureMatchTolerance, out var pDiff);
+                bool matched = outerSafe && innerSafe && pressureMatches;
 
                 if (matched != _lastPropMatched)
                 {
                     _lastPropMatched = matched;
                     UnityEngine.Debug.Log("[Salty's Advanced Airlock]: PROP-MATCH=" + matched
-                        + " Pressure(diff=" + checks[0].diff.ToString("F3") + ",ok=" + checks[0].ok + ")"
-                        + " Temperature(diff=" + checks[1].diff.ToString("F3") + ",ok=" + checks[1].ok + ")"
-                        + " O2(diff=" + checks[2].diff.ToString("F4") + ",ok=" + checks[2].ok + ")"
-                        + " Pollutant(diff=" + checks[3].diff.ToString("F4") + ",ok=" + checks[3].ok + ")"
-                        + " Methane(diff=" + checks[4].diff.ToString("F4") + ",ok=" + checks[4].ok + ")"
-                        + " N2O(diff=" + checks[5].diff.ToString("F4") + ",ok=" + checks[5].ok + ")");
+                        + " outerSafe=" + outerSafe + "(" + outerReason + ")"
+                        + " innerSafe=" + innerSafe + "(" + innerReason + ")"
+                        + " pressureDiff=" + pDiff.ToString("F2") + ",ok=" + pressureMatches);
                 }
                 return matched;
             }
+        }
+
+        // Partial pressure = ratio x total pressure -- the actual
+        // mechanic governing toxicity/breathability, not the raw ratio
+        // alone (a low-pressure room can have a high toxic-gas ratio
+        // and still be safe; a high-pressure room can have a low ratio
+        // and still be lethal).
+        private bool IsSideSafeForSuitlessPlayer(GasSensor sensor, out string reason)
+        {
+            double pressure = sensor.GetLogicValue(LogicType.Pressure);
+            double o2Partial = sensor.GetLogicValue(LogicType.RatioOxygen) * pressure;
+            double pollutantPartial = sensor.GetLogicValue(LogicType.RatioPollutant) * pressure;
+            double volatilesPartial = sensor.GetLogicValue(LogicType.RatioMethane) * pressure;
+
+            if (o2Partial < MinSafeOxygenPartialPressureKPa) { reason = "O2 " + o2Partial.ToString("F1") + "kPa < min"; return false; }
+            if (pollutantPartial > MaxSafePollutantPartialPressureKPa) { reason = "Pollutant " + pollutantPartial.ToString("F2") + "kPa > max"; return false; }
+            if (volatilesPartial > MaxSafeVolatilesPartialPressureKPa) { reason = "Volatiles " + volatilesPartial.ToString("F2") + "kPa > max"; return false; }
+            if (!InSafeTemperatureRange(sensor)) { reason = "temperature out of range"; return false; }
+            reason = "safe";
+            return true;
         }
 
         private static bool WithinTolerance(GasSensor a, GasSensor b, LogicType type, double tolerance, out double diff)
@@ -383,12 +416,14 @@ namespace AirlockCardMod
             return diff <= tolerance;
         }
 
-        // Reasonable default safe-to-open range in Kelvin (~-73C to
-        // ~77C) -- NOT sourced from a specific vanilla safety
-        // threshold, a rough starting guess same status as this
-        // project's other unvalidated defaults (WakeHoldTicks,
-        // ReidleDelayTicks). Settable so a build with a genuine thermal
-        // hazard nearby can tune it without recompiling.
+        // UNCONFIRMED (2026-08-08) -- unlike the oxygen/toxicity
+        // thresholds above, this range was NOT sourced from the
+        // project owner, just a placeholder guess (~-73C to ~77C),
+        // same unvalidated status as this project's other configurable
+        // defaults (WakeHoldTicks, ReidleDelayTicks). Flag for
+        // correction if real numbers are available. Settable either
+        // way so a build with a genuine thermal hazard can tune it
+        // without recompiling.
         public double MinSafeTemperatureKelvin { get; set; } = 200.0;
         public double MaxSafeTemperatureKelvin { get; set; } = 350.0;
 
@@ -408,13 +443,13 @@ namespace AirlockCardMod
                 FindGasSensors(out var outer, out var inner);
                 if (outer == null && inner == null) return true;
 
-                bool outerSafe = outer == null || InSafeRange(outer);
-                bool innerSafe = inner == null || InSafeRange(inner);
+                bool outerSafe = outer == null || InSafeTemperatureRange(outer);
+                bool innerSafe = inner == null || InSafeTemperatureRange(inner);
                 return outerSafe && innerSafe;
             }
         }
 
-        private bool InSafeRange(GasSensor sensor)
+        private bool InSafeTemperatureRange(GasSensor sensor)
         {
             double t = sensor.GetLogicValue(LogicType.Temperature);
             return t >= MinSafeTemperatureKelvin && t <= MaxSafeTemperatureKelvin;

@@ -189,10 +189,21 @@ namespace AirlockCardMod
         // consumer of the same reading rather than a separate field.
         bool PresenceDetected { get; }
 
-        // True once Propped-Open's match condition is confirmed (see
-        // gas_sensor.ic10's tolerance checks). Optional -- a host that
-        // never sets this true just never enters Propped-Open, same as
-        // skipping the Gas Sensor chip in the IC10 build.
+        // True once it's genuinely SAFE to hold both doors open for a
+        // suit-less player -- REDESIGNED 2026-08-08 (project owner,
+        // sourced real Stationeers safety mechanics): not "the two
+        // sides happen to have matching air composition" (the
+        // original gas_sensor.ic10-ported approach), since two sides
+        // could match each other and still both be toxic. Real
+        // semantics now: both sides independently pass an absolute
+        // safety check (oxygen partial pressure high enough to
+        // breathe, toxic-gas partial pressure low enough to not cause
+        // damage, temperature in a safe range) AND the two sides'
+        // pressures are close enough to avoid a violent equalization
+        // when open together. See the host implementation for the
+        // exact thresholds. Optional -- a host that never sets this
+        // true just never enters Propped-Open, same graceful
+        // degradation as before.
         bool PropAtmosphereMatched { get; }
 
         // Optional, per-door presence tracking (2026-08-05, project
