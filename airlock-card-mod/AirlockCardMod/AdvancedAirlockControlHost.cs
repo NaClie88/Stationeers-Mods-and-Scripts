@@ -433,6 +433,27 @@ namespace AirlockCardMod
         // alone (a low-pressure room can have a high toxic-gas ratio
         // and still be safe; a high-pressure room can have a low ratio
         // and still be lethal).
+        // EXTRA fail-safe, not the primary safety mechanism (project
+        // owner, 2026-08-08): "the player should be engineering all
+        // their processes so this edge case does not happen... all we
+        // are doing with this is preserving resources of the gas still
+        // in the room." Catches a slow leak (cold snap, a ruptured
+        // pipe) that can leave a room numerically "safe" by the
+        // instantaneous checks above for a long time while still
+        // actively draining -- larger rooms leak slower for the same
+        // severity, so a fixed kPa/check threshold won't scale
+        // perfectly to every room size. Acceptable given this is
+        // explicitly secondary, not the primary engineering control,
+        // and by the time a build is using this convenience feature at
+        // all it's expected to be well-established rather than
+        // leak-prone. Tracked per-check (this project's own cadence,
+        // ~250ms at TicksPerCheck=15), not per real second, so it
+        // doesn't depend on simulation speed -- same convention as
+        // WakeHoldTicks/ReidleDelayTicks.
+        public double MaxSafePressureDeclineKPaPerCheck { get; set; } = 0.5;
+
+        private readonly System.Collections.Generic.Dictionary<GasSensor, double> _lastPressureBySensor = new();
+
         private bool IsSideSafeForSuitlessPlayer(GasSensor sensor, out string reason)
         {
             double pressure = sensor.GetLogicValue(LogicType.Pressure);
@@ -444,6 +465,22 @@ namespace AirlockCardMod
             if (pollutantPartial > MaxSafePollutantPartialPressureKPa) { reason = "Pollutant " + pollutantPartial.ToString("F2") + "kPa > max"; return false; }
             if (volatilesPartial > MaxSafeVolatilesPartialPressureKPa) { reason = "Volatiles " + volatilesPartial.ToString("F2") + "kPa > max"; return false; }
             if (!InSafeTemperatureRange(sensor)) { reason = "temperature out of range"; return false; }
+
+            if (_lastPressureBySensor.TryGetValue(sensor, out var lastPressure))
+            {
+                double decline = lastPressure - pressure;
+                _lastPressureBySensor[sensor] = pressure;
+                if (decline > MaxSafePressureDeclineKPaPerCheck)
+                {
+                    reason = "pressure dropping " + decline.ToString("F2") + "kPa/check (possible leak)";
+                    return false;
+                }
+            }
+            else
+            {
+                _lastPressureBySensor[sensor] = pressure;
+            }
+
             reason = "safe";
             return true;
         }
