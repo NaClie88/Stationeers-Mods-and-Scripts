@@ -179,6 +179,40 @@ public class NormalTierTests
     }
 
     [Fact]
+    public void ButtonE_requestsCycleTowardExterior()
+    {
+        var (host, ctrl) = Make();
+        host.ButtonEHeld = true;
+        ctrl.UpdateTier();
+        ctrl.ApplyTierEffects();
+        Assert.Single(host.RequestedCycles);
+        Assert.Equal(DoorSide.Exterior, host.RequestedCycles[0]);
+    }
+
+    [Fact]
+    public void ButtonI_requestsCycleTowardInterior()
+    {
+        var (host, ctrl) = Make();
+        host.ButtonIHeld = true;
+        ctrl.UpdateTier();
+        ctrl.ApplyTierEffects();
+        Assert.Single(host.RequestedCycles);
+        Assert.Equal(DoorSide.Interior, host.RequestedCycles[0]);
+    }
+
+    [Fact]
+    public void NoButtonsHeld_neverRequestsACycle()
+    {
+        var (host, ctrl) = Make();
+        for (int i = 0; i < 10; i++)
+        {
+            ctrl.UpdateTier();
+            ctrl.ApplyTierEffects();
+        }
+        Assert.Empty(host.RequestedCycles);
+    }
+
+    [Fact]
     public void PropBreaking_closesTheNonPreferredDoor_defaultsToExterior()
     {
         var (host, ctrl) = Make();

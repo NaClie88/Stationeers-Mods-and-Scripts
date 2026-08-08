@@ -30,6 +30,7 @@ public sealed class FakeAirlockHost : IAirlockHost
     public int HoldBothDoorsOpenCalls;
     public List<DoorSide> ClosedDoors { get; } = new();
     public List<DoorSide> OpenedDoors { get; } = new();
+    public List<DoorSide> RequestedCycles { get; } = new();
     public List<Tier> WarningIndicatorHistory { get; } = new();
     public List<bool> DownstreamPowerHistory { get; } = new();
     public List<DoorSide> VentReliefCalls { get; } = new();
@@ -43,6 +44,7 @@ public sealed class FakeAirlockHost : IAirlockHost
     public void HoldBothDoorsOpen() => HoldBothDoorsOpenCalls++;
     public void CloseDoor(DoorSide side) => ClosedDoors.Add(side);
     public void OpenDoor(DoorSide side) => OpenedDoors.Add(side);
+    public void RequestCycleToward(DoorSide side) => RequestedCycles.Add(side);
     public void SetWarningIndicator(Tier tier) => WarningIndicatorHistory.Add(tier);
     public void SetDownstreamPower(bool on) => DownstreamPowerHistory.Add(on);
     public void ExtendVentRelief(DoorSide side) => VentReliefCalls.Add(side);

@@ -437,6 +437,37 @@ namespace AirlockCardMod
             SetDoorState(DoorForSide(side), open: true, locked: null);
         }
 
+        // NOT YET VERIFIED IN-GAME -- reuses vanilla's own
+        // ButtonCycleAirlock() (the exact method the Console UI's own
+        // cycle button calls, confirmed via decompile) rather than
+        // forcing a door open directly, since Normal tier's chamber
+        // pressure isn't guaranteed to match either side the way
+        // Low/Critical's evacuate-first sequence guarantees vacuum.
+        // Gated so it only actually presses "cycle" when the current
+        // state isn't already at or heading toward the requested side
+        // -- vanilla's own button is a single toggle with no
+        // directional concept (confirmed via decompile: pressing it
+        // mid-transition CANCELS/REVERSES that transition, it doesn't
+        // skip ahead), so calling it unconditionally on every held tick
+        // would fight an already-correct in-progress cycle. First stage
+        // only (project owner, 2026-08-07) -- a follow-up "press again
+        // to skip/force" escalation is a separate, not-yet-designed
+        // feature, deliberately not attempted here.
+        public void RequestCycleToward(DoorSide side)
+        {
+            var state = _control.AirlockControlState;
+            bool headingExterior = state == AdvancedAirlockState.PressurizingExternal
+                || state == AdvancedAirlockState.PressurizedExternal
+                || state == AdvancedAirlockState.DepressurizingInternal;
+            bool headingInterior = state == AdvancedAirlockState.PressurizingInternal
+                || state == AdvancedAirlockState.PressurizedInternal
+                || state == AdvancedAirlockState.DepressurizingExternal;
+
+            if (side == DoorSide.Exterior && headingExterior) return;
+            if (side == DoorSide.Interior && headingInterior) return;
+            _control.ButtonCycleAirlock();
+        }
+
         private Assets.Scripts.Objects.Structures.Door DoorForSide(DoorSide side) =>
             side == DoorSide.Exterior ? _control.ExteriorAirlock : _control.InteriorAirlock;
 

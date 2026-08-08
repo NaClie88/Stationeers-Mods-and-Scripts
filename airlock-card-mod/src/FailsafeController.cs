@@ -291,6 +291,21 @@ namespace AirlockCardMod
         // "leave the rest alone" convention as CloseDoor.
         void OpenDoor(DoorSide side);
 
+        // Requests a normal, vanilla-driven cycle toward the given side
+        // (2026-08-07, project owner: "the button should open the door
+        // on that side no matter the power tier"). NOT a raw door open
+        // -- Normal tier's chamber pressure isn't guaranteed to match
+        // either side the way Low/Critical's evacuate-first sequence
+        // guarantees vacuum, so this is expected to drive vanilla's own
+        // pressurize/depressurize cycle (reusing its existing
+        // pressure-matching/timing) rather than bypass it, matching
+        // this whole project's standing preference for calling into
+        // vanilla's own machinery over reimplementing it. Only meant to
+        // be called from Normal tier -- Low/Critical already have their
+        // own safe (evacuate-first) direct-open path via OpenDoor
+        // above, unchanged by this addition.
+        void RequestCycleToward(DoorSide side);
+
         void SetWarningIndicator(Tier tier);
 
         // NEW capability, no vanilla equivalent (see GAP_ANALYSIS.md)
@@ -521,6 +536,17 @@ namespace AirlockCardMod
                     // *not* Deep Idle behavior, and shouldn't idle
                     // off"). Only Low tier below actually idles down.
                     UpdateDownstreamPower(forceOn: true);
+
+                    // Buttons work in every tier now, not just Low's
+                    // wake path (2026-08-07, project owner: "the button
+                    // should open the door on that side no matter the
+                    // power tier"). Routed through vanilla's own cycle
+                    // machinery here, not a direct door open -- see
+                    // RequestCycleToward's doc comment for why Normal
+                    // tier specifically can't reuse Low/Critical's
+                    // evacuate-first-then-open approach safely.
+                    if (host.ButtonEHeld) host.RequestCycleToward(DoorSide.Exterior);
+                    if (host.ButtonIHeld) host.RequestCycleToward(DoorSide.Interior);
 
                     if (host.PropAtmosphereMatched)
                     {
