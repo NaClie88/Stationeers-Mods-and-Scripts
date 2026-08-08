@@ -370,6 +370,24 @@ namespace AirlockCardMod
         {
             get
             {
+                // FIXED, 2026-08-08 -- real in-game bug: with no
+                // awareness of vanilla's own cycle state, this could
+                // fire (and HoldBothDoorsOpen() force both doors open)
+                // WHILE a vanilla Pressurizing/Depressurizing coroutine
+                // was actively pumping the chamber -- connecting the
+                // target room straight into the vent's draw and letting
+                // it keep pulling from the whole room instead of just
+                // the sealed chamber it was supposed to be limited to.
+                // Only ever consider propped-open once the airlock is
+                // genuinely settled (arrived at one side, or Disabled)
+                // -- never while actively mid-transition.
+                var state = _control.AirlockControlState;
+                bool cycleInProgress = state == AdvancedAirlockState.PressurizingInternal
+                    || state == AdvancedAirlockState.DepressurizingInternal
+                    || state == AdvancedAirlockState.PressurizingExternal
+                    || state == AdvancedAirlockState.DepressurizingExternal;
+                if (cycleInProgress) return false;
+
                 FindGasSensors(out var outer, out var inner);
                 if (outer == null || inner == null) return false;
 
