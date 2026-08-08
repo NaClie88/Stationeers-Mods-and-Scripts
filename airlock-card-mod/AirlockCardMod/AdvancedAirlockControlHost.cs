@@ -773,11 +773,48 @@ namespace AirlockCardMod
             led.SetLogicValue(LogicType.Color, color);
         }
 
+        private bool? _lastCommandedDownstreamPower;
+
+        // TEMP DIAGNOSTIC (2026-08-08) -- real in-game report: during a
+        // total power failure (Station Battery dead, project owner
+        // injecting emergency power directly into the always-on
+        // network via a separate APC), the Console/sensors/LED stayed
+        // responsive but the Sub APC itself never actually powered the
+        // downstream doors/vents circuit, even though Critical tier
+        // calls this with on=true every tick -- never finished a
+        // cycle, project owner got stuck. No prior visibility into
+        // whether the Interact call was even reaching a found
+        // controller, or reaching it but not taking effect (e.g. the
+        // Sub APC itself not having enough real power to actually
+        // switch its output, as opposed to just registering the
+        // command on its own logic side). Logs on change plus the
+        // downstream's own reported On/PowerPotential/PowerActual
+        // immediately after the command, so the next repro shows which
+        // one it actually is.
         public void SetDownstreamPower(bool on)
         {
             FindDownstreamController(out var downstream);
-            if (downstream == null) return;
+            if (downstream == null)
+            {
+                if (_lastCommandedDownstreamPower != null)
+                {
+                    _lastCommandedDownstreamPower = null;
+                    UnityEngine.Debug.Log("[Salty's Advanced Airlock]: SetDownstreamPower(" + on + ") -- no downstream controller found, no-op");
+                }
+                return;
+            }
+
             OnServer.Interact(downstream.InteractOnOff, on ? 1 : 0);
+
+            if (_lastCommandedDownstreamPower != on)
+            {
+                _lastCommandedDownstreamPower = on;
+                UnityEngine.Debug.Log("[Salty's Advanced Airlock]: SetDownstreamPower(" + on + ") on " + downstream.DisplayName
+                    + " -- reported On=" + downstream.GetLogicValue(LogicType.On)
+                    + " PowerPotential=" + downstream.GetLogicValue(LogicType.PowerPotential).ToString("F1")
+                    + " PowerActual=" + downstream.GetLogicValue(LogicType.PowerActual).ToString("F1")
+                    + " Charge=" + downstream.GetLogicValue(LogicType.Charge).ToString("F1"));
+            }
         }
 
         // FIXED, 2026-08-08 (real near-miss reported by project owner:
