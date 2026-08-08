@@ -2,6 +2,7 @@ using Assets.Scripts.Atmospherics;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.Objects.Motherboards;
+using Cysharp.Threading.Tasks;
 
 namespace AirlockCardMod
 {
@@ -721,24 +722,54 @@ namespace AirlockCardMod
             }
         }
 
+        // TEMP TROUBLESHOOTING (2026-08-08, project owner -- remove
+        // once Low tier's phase behavior is fully verified, or leave
+        // toggleable): flashes the LED while genuinely idling in Low
+        // tier (downstream power actually off, not just Tier==Low --
+        // Active phase also reports Tier.Low but keeps power on) so
+        // idle-vs-active is visible from across the room, not just via
+        // log. Set false to go back to a solid Tier color.
+        public bool FlashLedWhileIdling { get; set; } = true;
+
+        private bool _ledFlashOn;
+
         public void SetWarningIndicator(Tier tier)
         {
             // Logged on change (not every tick) so real Tier tracking is
             // visible/verifiable in-game via the log too, not just the
             // LED.
-            if (_lastLoggedTier == tier) return;
-            _lastLoggedTier = tier;
-            UnityEngine.Debug.Log("[Salty's Advanced Airlock]: Tier changed to " + tier);
+            if (_lastLoggedTier != tier)
+            {
+                _lastLoggedTier = tier;
+                UnityEngine.Debug.Log("[Salty's Advanced Airlock]: Tier changed to " + tier);
+            }
 
             FindLed(out var led);
             if (led == null) return;
-            double color = tier switch
+
+            bool idling = false;
+            if (FlashLedWhileIdling && tier == Tier.Low)
             {
-                Tier.Normal => 2.0,   // Green
-                Tier.Low => 5.0,      // Yellow
-                Tier.Critical => 4.0, // Red
-                _ => 2.0,
-            };
+                FindDownstreamController(out var downstream);
+                idling = downstream != null && downstream.GetLogicValue(LogicType.On) == 0.0;
+            }
+
+            double color;
+            if (idling)
+            {
+                _ledFlashOn = !_ledFlashOn;
+                color = _ledFlashOn ? 5.0 /* Yellow */ : 7.0 /* Black, i.e. off */;
+            }
+            else
+            {
+                color = tier switch
+                {
+                    Tier.Normal => 2.0,   // Green
+                    Tier.Low => 5.0,      // Yellow
+                    Tier.Critical => 4.0, // Red
+                    _ => 2.0,
+                };
+            }
             led.SetLogicValue(LogicType.Color, color);
         }
 
@@ -749,8 +780,46 @@ namespace AirlockCardMod
             OnServer.Interact(downstream.InteractOnOff, on ? 1 : 0);
         }
 
+        // FIXED, 2026-08-08 (real near-miss reported by project owner:
+        // "i genuinely almost blew up an in line tank"). Never
+        // implemented before this -- meant nothing was ever relieving
+        // each Active Vent's inline tank, so it just accumulated
+        // pressure across every single cycle with nothing to bleed it
+        // off, eventually reaching a dangerous over-pressure state.
+        //
+        // Runs the SAME-side vent briefly in "pressurize" mode
+        // (Mode=0, InteractMode -- confirmed via decompile/EvacuateVent
+        // above that Mode=1 is depressurize/evacuate, so Mode=0 is the
+        // other direction: draws FROM the network/tank INTO the
+        // chamber) right after that door opens. Matches the design
+        // note this interface member always carried (GAP_ANALYSIS.md):
+        // relieving pressure at a moment that's already safe by
+        // construction -- the door is open, so venting excess into the
+        // now-connected room is harmless regardless of how much excess
+        // there is -- beats trying to read live tank pressure, which
+        // isn't confirmed readable at all. Runs unconditionally, not
+        // gated on any threshold.
+        //
+        // Fire-and-forget UniTaskVoid, same async pattern vanilla's own
+        // LogicButton.WaitThenStop() uses for a timed pulse -- turns
+        // the vent back off after VentReliefDurationMs regardless of
+        // whether the tank actually had excess to relieve (idempotent,
+        // harmless if it didn't).
+        public double VentReliefDurationMs { get; set; } = 3000.0;
+
         public void ExtendVentRelief(DoorSide side)
         {
+            var vent = side == DoorSide.Exterior ? _control.ExteriorPoweredVent : _control.InteriorPoweredVent;
+            if (vent == null) return;
+            RelieveVentAsync(vent).Forget();
+        }
+
+        private async UniTaskVoid RelieveVentAsync(Assets.Scripts.Objects.Pipes.IPoweredVent vent)
+        {
+            OnServer.Interact(vent.InteractMode, 0);
+            OnServer.Interact(vent.InteractOnOff, 1);
+            await UniTask.Delay((int)VentReliefDurationMs, ignoreTimeScale: false);
+            OnServer.Interact(vent.InteractOnOff, 0);
         }
     }
 }
