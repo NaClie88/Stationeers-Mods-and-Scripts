@@ -61,10 +61,19 @@ sits nearer its low-density floor (~500 W-ish) — somewhat
 counterintuitively, the dense-atmosphere hot worlds (Venus/Vulcan, below)
 outperform Mars on wind.
 
+**Fuel availability:** Coal is confirmed present on Mars — this repo's
+own progression guide explicitly plans Night 1 fabrication around a
+~50g Coal yield for the first Steel batch, and `worlds.json` lists no
+mining restriction ("Standard mining list applies unmodified"). Ice is
+confirmed present too (`worlds.json` `ice_available: true`), so both
+Solid Fuel and Gas Fuel Generators have a confirmed local fuel source
+here — Mars is the one world in this set where neither fuel path needs a
+question mark.
+
 **Recommended stack:** Solar (primary) + battery bank sized for full
-night coverage + Solid Fuel Generator (Coal/Charcoal) as fallback.
-Standard Light Cable is fine unless a Gas Fuel Generator is added, in
-which case switch that circuit to Heavy Cable.
+night coverage + Solid Fuel Generator (Coal/Charcoal, confirmed
+available) as fallback. Standard Light Cable is fine unless a Gas Fuel
+Generator is added, in which case switch that circuit to Heavy Cable.
 
 ### Moon
 
@@ -84,10 +93,20 @@ reactions) and are the natural night/storm backup. Remember: Radiation
 Radiators only here (no convection in vacuum) — relevant for shedding any
 generator's waste heat, not just habitat cooling.
 
+**Fuel availability:** Ice is confirmed present on the Moon
+(`worlds.json` `ice_available: true`), so Gas Fuel Generator on
+Methane/Hydrogen has a confirmed local source. Coal isn't itemized as
+explicitly for the Moon as it is for Mars (no equivalent "expect ~50g on
+Night 1" figure in this repo) — `worlds.json`'s "standard mining list
+applies" phrasing implies it's present, but that's inferred, not
+first-party confirmed the way Mars's Coal yield is. Lean on Gas Fuel
+Generator (ice-fed, confirmed) over Solid Fuel Generator here if a choice
+has to be made.
+
 **Recommended stack:** Solar (primary, sized for full-night battery
-coverage) + Solid Fuel Generator (Coal/Charcoal — ice is present here per
-`worlds.json`, so Gas Fuel Generator on Methane/Hydrogen is also viable
-as the night/storm backup, not just Solid Fuel).
+coverage) + Gas Fuel Generator (Methane/Hydrogen, confirmed ice-fed) as
+the night/storm backup, with Solid Fuel Generator as a secondary option
+pending Coal confirmation.
 
 ### Europa
 
@@ -106,10 +125,15 @@ free. Not sourced directly — an inference from the Stirling Engine's
 known mechanism plus Europa's known thermal profile. Worth testing
 in-game, not assumed.
 
+**Fuel availability:** Ice is confirmed present on Europa (`worlds.json`
+`ice_available: true`), so Gas Fuel Generator has a confirmed local fuel
+source. Coal, same as the Moon, is only implied by "standard mining list
+applies" rather than itemized directly — treat as likely-available, not
+confirmed the way Mars's is.
+
 **Recommended stack:** Wind Turbine (primary — atmosphere confirmed
-present) + Solar (secondary) + Solid/Gas Fuel Generator as calm-weather
-backup (ice is present per `worlds.json`, so Methane/Hydrogen fuel is
-locally producible, not just Coal) + reuse Arc Furnace waste heat for
+present) + Solar (secondary) + Gas Fuel Generator as calm-weather backup
+(ice-fed, confirmed) + reuse Arc Furnace waste heat for
 base heating (already documented in `worlds.json`), which frees
 generator capacity that would otherwise go to space heaters.
 
@@ -226,20 +250,39 @@ written. Possible explanations, none confirmed:
 Mimas and read its logic output — before either doc's claim is trusted
 at face value. Logged to README Planned.
 
-What's solid regardless of that open question: no water ice (confirmed),
-so hydration and local fuel-gas production both need substitution
-anyway. Solid/Gas Fuel Generators work independent of atmosphere and are
-the safe default here until the Wind Turbine question resolves.
-Extremely low gravity and weak/distant solar (already in `worlds.json`)
-mean even a working Solar Panel should be budgeted as a low-output
-supplement, not a primary source, regardless of how the wind question
-shakes out.
+**Fuel availability here is worse than it first looks — this is not a
+"just fall back to fuel generators" world.** `worlds.json` confirms two
+separate constraints on the two fueled options:
+- **Solid Fuel Generator (Coal/Charcoal):** Coal is explicitly documented
+  as **"reduced compared to other worlds"** on Mimas (`worlds.json`
+  `mining_note`) — usable, but don't size a generator around Mars-level
+  Coal throughput.
+- **Gas Fuel Generator (Methane/Hydrogen via ice):** `worlds.json` only
+  confirms **water ice** is absent here ("removed from spawn resources").
+  It does **not** say whether Oxite or Volatiles/Methane ice — the ice
+  types that actually matter for a Gas Fuel Generator, per
+  `elemental_lifecycle.md` §2 — are present or absent. ❓ **unconfirmed
+  either way**, not safe to assume present just because water ice is
+  gone.
 
-**Recommended stack:** Solid/Gas Fuel Generator (primary — no water ice
-means substituting an imported/synthesized water source anyway, so plan
-fuel logistics around that same supply run) + Solar as a low-output
-supplement only. Hold off on the Wind Turbine as anything more than an
-experiment until the vacuum contradiction above is resolved in-game.
+So Mimas stacks three separate uncertainties on top of each other: Wind
+Turbine viability (⚠️ contradiction above), Coal quantity (confirmed
+reduced, not absent), and Methane/Hydrogen ice presence (❓ unconfirmed).
+Solar is the only source with no open question mark, but it's also
+confirmed weak (`worlds.json`: "weak solar, distant from the sun"). Net
+result: **this is the hardest world in this set to guarantee power on**,
+and calling any single source a "safe default" here would overstate what
+the sources actually support.
+
+**Recommended stack:** Solar as the one source with no unresolved
+question mark, sized as a low-output baseline, not a primary — plus
+Solid Fuel Generator as a *supplementary*, not primary, backup (Coal
+works, just don't over-provision around it, same caution `worlds.json`
+already gives for Steel production here). Before committing to a
+build order, resolve in-game: (1) whether Oxite/Volatiles ice exists on
+Mimas at all, and (2) the Wind Turbine contradiction above — both change
+this recommendation materially, and neither is answered by research
+alone.
 
 ---
 
