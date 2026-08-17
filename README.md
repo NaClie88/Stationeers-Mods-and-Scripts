@@ -20,6 +20,14 @@ stands on its own.
   Brutal starts), a Minimum Viable Base milestone, room-standard tiers,
   environment-specific priority shifts per world, high-pressure
   structural guidance, and more.
+- `elemental_lifecycle.md` — where every element/substance in the game
+  actually comes from and goes to (ore/ice acquisition, smelting,
+  electrolysis, phase change, combustion, recycling, farming), confirming
+  mass is conserved everywhere except one documented vanilla soft spot
+  (farming/composting). Tags every claim as locked-in, new-since-the
+  2026-03-19 Gases Update, a known abstraction, unconfirmed, or explicit
+  speculation. Has three open follow-ups (Silanol/Ozone/Hydrochloric Acid
+  acquisition — see its own §9) — see "Planned" below.
 
 ### `airlock-ic10-scripts/`
 - `ic10_failsafe_airlock_requirements.md` — full requirements spec for a
@@ -159,6 +167,14 @@ rather than presented as uniformly finished.
   published alongside the code
 - Fill in the resource-cost database enough to actually run the
   generator end-to-end
+- `guide/elemental_lifecycle.md` open follow-ups (added 2026-08-17):
+  confirm the actual acquisition/synthesis method for **Silanol** and
+  **Ozone** (hypothesis: player-synthesized rather than mined — not yet
+  confirmed either way), and confirm whether **Hydrochloric Acid** (source
+  already confirmed: Venus's atmosphere) has any crafting use beyond being
+  a hazard gas. Wiki pages to check are listed in that doc's §9 — needs
+  either an in-game Stationpedia check or the same decompile treatment
+  this project already gave `Furnace`/`Ore.Smelt`/`Centrifuge`.
 
 ## In progress: `console-UI-mod`
 
