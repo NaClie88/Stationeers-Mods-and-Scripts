@@ -84,6 +84,11 @@ reactions) and are the natural night/storm backup. Remember: Radiation
 Radiators only here (no convection in vacuum) — relevant for shedding any
 generator's waste heat, not just habitat cooling.
 
+**Recommended stack:** Solar (primary, sized for full-night battery
+coverage) + Solid Fuel Generator (Coal/Charcoal — ice is present here per
+`worlds.json`, so Gas Fuel Generator on Methane/Hydrogen is also viable
+as the night/storm backup, not just Solid Fuel).
+
 ### Europa
 
 Atmosphere is present, so the Wind Turbine actually functions here — and
@@ -102,9 +107,11 @@ known mechanism plus Europa's known thermal profile. Worth testing
 in-game, not assumed.
 
 **Recommended stack:** Wind Turbine (primary — atmosphere confirmed
-present) + Solar (secondary) + reuse Arc Furnace waste heat for base
-heating (already documented in `worlds.json`), which frees generator
-capacity that would otherwise go to space heaters.
+present) + Solar (secondary) + Solid/Gas Fuel Generator as calm-weather
+backup (ice is present per `worlds.json`, so Methane/Hydrogen fuel is
+locally producible, not just Coal) + reuse Arc Furnace waste heat for
+base heating (already documented in `worlds.json`), which frees
+generator capacity that would otherwise go to space heaters.
 
 ### Venus
 
@@ -130,6 +137,14 @@ cold/vacuum worlds, not better, despite "temperature differential"
 sounding like it should favor an extreme-temperature world generally —
 the differential needs a genuinely *cold* sink, not just a hot source.
 
+**Recommended stack:** Solar + Wind Turbine as co-primary sources (both
+independently confirmed strong here). Solid Fuel Generator as backup if
+Coal is available (❓ not explicitly confirmed present on Venus — verify
+before relying on it); Gas Fuel Generator is not locally fuelable
+(no ice) unless fuel is imported via `trade_economy.md`. Skip the
+Stirling Engine here per the heat-rejection caveat above unless testing
+it specifically.
+
 ### Vulcan
 
 Solar is present but orbit-dependent — confirmed range **500 W to 1.2 kW**
@@ -149,6 +164,13 @@ dense-atmosphere-implies-strong-wind logic doesn't automatically carry
 over — Vulcan's atmosphere is only described as "hot, planet-specific
 composition" in this repo's own `worlds.json`, with no density figure.
 Verify in-game before relying on wind as a primary source here.
+
+**Recommended stack:** Solar (primary, battery sized for the *low* end of
+the 500 W–1.2 kW orbital swing) + Solid Fuel Generator (Coal, if
+confirmed present — same ❓ as Venus) as the dependable backup, since Gas
+Fuel Generator needs imported fuel (no ice) and carries the extra
+autoignition hazard noted above. Treat Wind Turbine as a bonus to test
+for, not something to plan the base around, until confirmed.
 
 ### Space / Orbit / Asteroid Belt
 
@@ -176,6 +198,12 @@ independent of vacuum, and the Asteroid start's pre-filled Liquid Oxygen
 literally generator fuel sitting in the starting inventory, not just
 rocket fuel — a Gas Fuel Generator could run on those tanks directly
 before any mining happens. Radiation Radiators only, same as Moon.
+
+**Recommended stack:** Gas Fuel Generator (primary — run directly off the
+Asteroid start's pre-filled Liquid Oxygen + Liquid Volatiles tanks before
+anything else exists) + Solar as a to-be-tested supplement once the
+day/night question above is resolved. Don't build a Wind Turbine here
+under any circumstances (confirmed zero output).
 
 ### Mimas
 
@@ -206,6 +234,12 @@ Extremely low gravity and weak/distant solar (already in `worlds.json`)
 mean even a working Solar Panel should be budgeted as a low-output
 supplement, not a primary source, regardless of how the wind question
 shakes out.
+
+**Recommended stack:** Solid/Gas Fuel Generator (primary — no water ice
+means substituting an imported/synthesized water source anyway, so plan
+fuel logistics around that same supply run) + Solar as a low-output
+supplement only. Hold off on the Wind Turbine as anything more than an
+experiment until the vacuum contradiction above is resolved in-game.
 
 ---
 
