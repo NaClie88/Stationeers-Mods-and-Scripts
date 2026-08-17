@@ -28,6 +28,15 @@ stands on its own.
   2026-03-19 Gases Update, a known abstraction, unconfirmed, or explicit
   speculation. Has three open follow-ups (Silanol/Ozone/Hydrochloric Acid
   acquisition — see its own §9) — see "Planned" below.
+- `trade_economy.md` — companion to the above: which trader actually buys
+  what (traders don't buy back what they sell — matching goods to the
+  right sink matters more than the intuitive trader name), a
+  fuel-first → mining → refining profit progression sourced from a
+  community quantitative case study, the landing-pad-size bulk-multiplier
+  lever, and the post-Gases-Update sell-list additions (Salt, Helium,
+  Hydrogen, Silanol, Ozone, and four new liquids) most guides predate.
+  Several trader buy/sell details are flagged ❓ unconfirmed — see its own
+  §2 — and see "Planned" below for the automated-selling follow-up.
 
 ### `airlock-ic10-scripts/`
 - `ic10_failsafe_airlock_requirements.md` — full requirements spec for a
@@ -175,6 +184,18 @@ rather than presented as uniformly finished.
   a hazard gas. Wiki pages to check are listed in that doc's §9 — needs
   either an in-game Stationpedia check or the same decompile treatment
   this project already gave `Furnace`/`Ore.Smelt`/`Centrifuge`.
+- `guide/trade_economy.md` open follow-ups (added 2026-08-17): confirm
+  in-game what the **Ore Trader** actually buys (research only confirmed
+  its sell side), and the buy/sell specifics for the **Food, Hydroponic/
+  Seed, Hardware, Consumable, and Appliance Traders** (all five came up
+  empty in research — see that doc's §2 table). Also unconfirmed: whether
+  **Far-tier trades pay better than Close-tier**, or whether any
+  reputation/unlock system affects pricing over time. Longer-term: build
+  an actual **automated IC10 trade-terminal script** (see that doc's §3 —
+  a community case study found manual selling unsustainable at the volumes
+  that matter), which would also be the natural place to benchmark whether
+  Hydrogen's new liquefied/clean-combustion profile beats the classic
+  Methane fuel-trade route referenced in that doc.
 
 ## In progress: `console-UI-mod`
 
