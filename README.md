@@ -37,6 +37,16 @@ stands on its own.
   Hydrogen, Silanol, Ozone, and four new liquids) most guides predate.
   Several trader buy/sell details are flagged ❓ unconfirmed — see its own
   §2 — and see "Planned" below for the automated-selling follow-up.
+- `power_generation.md` — every generator's mechanism/output/requirements
+  (Solar, Wind, Solid/Gas Fuel Generators, Stirling Engine, and why
+  Uranium/"nuclear" isn't actually a vanilla power source — corrects an
+  earlier claim in `elemental_lifecycle.md`), plus a per-world
+  recommended stack extending `database/worlds.json`'s existing hazard
+  profiles. Confirms Wind Turbines produce **zero output in true
+  vacuum** (Moon, Space), which directly contradicts two existing claims
+  — this project's own Mimas Wind Turbine note and the Space/Asteroid
+  "prioritize wind" guidance — both flagged, neither silently fixed. See
+  "Planned" below for the resulting follow-ups.
 
 ### `airlock-ic10-scripts/`
 - `ic10_failsafe_airlock_requirements.md` — full requirements spec for a
@@ -196,6 +206,30 @@ rather than presented as uniformly finished.
   that matter), which would also be the natural place to benchmark whether
   Hydrogen's new liquefied/clean-combustion profile beats the classic
   Methane fuel-trade route referenced in that doc.
+- `guide/power_generation.md` open follow-ups (added 2026-08-17), roughly
+  priority order:
+  1. **Mimas Wind Turbine contradiction** — `worlds.json` says Mimas's
+     atmosphere is `"vacuum"` and separately says its Brutal start
+     includes a Wind Turbine "because solar is unreliable"; confirmed
+     Wind Turbine mechanics say vacuum = zero output. Needs an in-game
+     test (place the kit, read its logic output) to find out which claim
+     is actually wrong.
+  2. **Space/Asteroid solar guidance** — `stationeers_progression.md`
+     currently tells players to prioritize non-solar power there, but two
+     of its three suggested alternatives (nuclear, wind) don't exist as
+     real options; whether Solar itself is good or bad depends on whether
+     that "world" has a day/night cycle at all, which wasn't confirmed
+     either way.
+  3. **Vulcan Wind Turbine viability** — unconfirmed; Venus's
+     dense-atmosphere-means-good-wind finding doesn't automatically carry
+     over since Vulcan's atmospheric density isn't documented anywhere in
+     this repo yet.
+  4. **RTG survival-mode availability** — wiki phrasing contradicts
+     itself on whether an 800 W survival RTG exists or it's creative-mode
+     only; check the in-game build menu directly.
+  5. Minor: confirm whether the **Turbine Generator** (pressure-
+     differential, ~90 W) still exists post-Gases-Update, and whether a
+     **"Super Heavy" cable tier** exists beyond Heavy Cable's 100 kW cap.
 
 ## In progress: `console-UI-mod`
 

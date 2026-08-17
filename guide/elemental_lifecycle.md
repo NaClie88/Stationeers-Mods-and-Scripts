@@ -61,7 +61,7 @@ plant+composter loops that produce net-positive water, and a community mod
 | Lead | solid ore | Lead Ingot (1:1) | + Iron → Solder |
 | Silicon | solid ore | Silicon Ingot (1:1) | electronics/glass |
 | Cobalt | solid ore | **no base ingot** | alloy-only ingredient (Astroloy, Hastelloy) |
-| Uranium | solid ore | Uranium Ingot (1:1) | reactor fuel |
+| Uranium | solid ore | Uranium Ingot (1:1) | ~~reactor fuel~~ **CORRECTED 2026-08-17**: not a power source in vanilla — no nuclear reactor exists in-game (planned by devs, not implemented); Uranium's actual use is off-gassing Pollutant (used as coolant) when heated. The "reactor fuel" claim above was wrong, sourced from a single ambiguous wiki snippet; two independent community sources now confirm the correction. Kept struck through rather than deleted, per this project's correction-trail convention. |
 | Coal | solid | (not smelted alone) | reagent for Steel |
 | Salt 🆕 | solid ore | — | new in Gases Update; feeds Liquid Sodium Chloride chain; added to Ore Trader sell list |
 
