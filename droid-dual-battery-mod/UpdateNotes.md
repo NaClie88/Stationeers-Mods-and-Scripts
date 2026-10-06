@@ -199,3 +199,9 @@ Implemented the user's design: **"<localized Battery> α"** on #5 and **"<locali
 - α/β were verified in the installed DLL. The decompiler printed bytes 0xE0/0xE1, which are α/β in the console's CP437 code page.
 
 Installed (MD5 `bff37231…`). In-game check pending: labels read "Battery α / Battery β" in English.
+
+## 2026-10-06: Bug hunt
+
+- **Multiplayer slot creation: checked, not a bug.** A mid-session spawn reaches clients via `Thing.DeserializeNew` → `Create` → `DeserializeOnJoin` → `Human.DeserializeOnJoin` → `UpdateCosmeticIdentity`. That's the same synchronous path as joining, so a client's copy of a new droid gets slot β before any battery is placed in it. (`HumanIdentityMessage` doesn't re-run `SetSpeciesSpecificSlots`, but it's only used for cosmetic changes on existing bodies, which never change species.)
+- **FIXED: the Disposable Battery Charger couldn't charge a dead α while β had charge.** `DisposableBatteryCharger.GetTargetBattery` targets `human.RobotBattery` (which is β whenever α is empty) and falls back to the suit battery. It's the same blind spot the sleeper had. New `BatteryChargerPatch` (postfix): α if it isn't full (vanilla's own 0.99 threshold), then β, then vanilla's answer.
+- Reviewed and fine: the hand-battery fallback order, the label refresh against destroyed HUD objects, and `RobotBattery` on humans (the uniform holds a Uniform, so there's no change).

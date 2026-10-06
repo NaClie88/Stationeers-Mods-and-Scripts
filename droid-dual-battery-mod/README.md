@@ -8,6 +8,7 @@ A Stationeers mod that gives **H.E.M. Droids a second battery slot**, so you can
 - **Drain order: α, then β.** The droid runs on battery α until it's empty, then switches to battery β automatically. If both are flat, vanilla's fallback still applies: a charged battery held in either hand.
 - **Hot-swap.** While the droid runs on β, pull the empty α battery and put in a fresh one, with no power loss.
 - **Droid Sleeper charges both batteries.** Both slots charge every power tick at the sleeper's normal rate, and the extra power is drawn from the sleeper's cable network, the same way vanilla already charges a suit battery.
+- **Disposable Battery Charger.** It charges α first if it isn't full, then β, then the suit battery.
 - **Localized labels.** The labels use the game's own translated name for the droid battery slot plus **α / β** (English: "Battery α" / "Battery β"). They update when you change language and keep the game's per-language font.
 
 ## Requirements and install
@@ -39,6 +40,7 @@ The H.E.M. Droid's battery slot is really vanilla's **Uniform** slot, retyped to
 | `Patches/HudSlotPatch.cs` | postfix `InventoryManager.Initialize(Entity)` | Clone the #5 HUD button, link it to slot β, hide its "5" hotkey hint. Kept out of `InventoryManager.DisplaySlots` on purpose (see below). |
 | `Patches/DroidSleeperPatch.cs` | prefix + postfix `DroidSleeper.ChargeRobot` | Charge both slot batteries each tick, skipping the one vanilla just charged. |
 | `Patches/BatteryLabels.cs` | postfix `LocalizedText.Refresh` | Localized α/β labels; hands #5 back to vanilla for non-droids. |
+| `Patches/BatteryChargerPatch.cs` | postfix `DisposableBatteryCharger.GetTargetBattery` | Charger targets α, then β, then vanilla's answer. |
 
 Design notes:
 

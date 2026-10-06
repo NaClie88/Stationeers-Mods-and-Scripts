@@ -81,6 +81,7 @@
     <Compile Include="Patches\HudSlotPatch.cs" />
     <Compile Include="Patches\DroidSleeperPatch.cs" />
     <Compile Include="Patches\BatteryLabels.cs" />
+    <Compile Include="Patches\BatteryChargerPatch.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup />
