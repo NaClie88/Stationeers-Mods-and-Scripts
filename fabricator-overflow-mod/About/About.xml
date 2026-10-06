@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Salty's Fabricator Overflow</Name>
+  <ModID>com.naclie88.SaltysFabricatorOverflow</ModID>
+  <Author>Joshua</Author>
+  <Version>1.0</Version>
+  <Description>Printers (Autolathe, Pipe Bender, Electronics Printer, Tool Printer and the other printer-type fabricators) hold at most 500 of each ingot type. Anything over that is ejected as full stacks a few seconds after the last ingot goes in, so you can top up and combine overflow into bigger stacks. Cap and delay are configurable from LaunchPad's config UI.</Description>
+</ModMetadata>
