@@ -26,6 +26,7 @@ public sealed class FakeAirlockHost : IAirlockHost
     public int ForceEvacuateCalls;
     public int UnlockDoorsCalls;
     public int LockDoorsCalls;
+    public int StopForcedEvacuationCalls;
     public int HoldBothDoorsOpenCalls;
     public List<DoorSide> ClosedDoors { get; } = new();
     public List<DoorSide> OpenedDoors { get; } = new();
@@ -40,6 +41,7 @@ public sealed class FakeAirlockHost : IAirlockHost
     public void ForceEvacuate() => ForceEvacuateCalls++;
     public void UnlockDoors() => UnlockDoorsCalls++;
     public void LockDoors() => LockDoorsCalls++;
+    public void StopForcedEvacuation() => StopForcedEvacuationCalls++;
     public void HoldBothDoorsOpen() => HoldBothDoorsOpenCalls++;
     public void CloseDoor(DoorSide side) => ClosedDoors.Add(side);
     public void OpenDoor(DoorSide side) => OpenedDoors.Add(side);

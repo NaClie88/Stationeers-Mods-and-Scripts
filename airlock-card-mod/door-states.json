@@ -1,0 +1,103 @@
+{
+  "title": "Vanilla AdvancedAirlockControl - Door/Vent State Machine (ground truth via decompile)",
+  "source": "Assets.Scripts.Objects.Motherboards.AdvancedAirlockControl, decompiled 2026-08-08",
+  "nodes": [
+    {
+      "id": "disabled",
+      "label": "Disabled",
+      "group": "Vanilla AdvancedAirlockState",
+      "status": "confirmed-working",
+      "description": "IsError == true (literally: IsError => AirlockControlState == Disabled -- this is the ONLY state vanilla itself calls an error). Screen shows 'ERROR / IN CONFIG'. ButtonCycleAirlock()'s switch has 'case Disabled: break;' -- pressing the button does LITERALLY NOTHING while in this state, no exception, no message. Entered by InitializeAirlock() whenever IsOperable is false AT INITIALIZATION TIME (device-list-changed, or boot) -- also fires an Error interact on the parent Console. Door open/closed state is NOT implied by this state at all -- vanilla doesn't track or care while Disabled.",
+      "notes": "Only reachable/re-evaluated when InitializeAirlock() runs (device list changes, or _initialize flag set). It is NOT continuously re-checked every tick -- IsOperable going false mid-cycle does NOT automatically push AirlockControlState to Disabled. See 'silent_no_op' below for what actually happens instead."
+    },
+    {
+      "id": "pressurized_internal",
+      "label": "PressurizedInternal",
+      "group": "Vanilla AdvancedAirlockState",
+      "status": "confirmed-working",
+      "description": "Settled/idle state. Interior door OPEN, exterior door CLOSED (this is literally how InitializeAirlock() infers it: InteriorAirlock.IsOpen && !ExteriorAirlock.IsOpen). Screen shows 'CYCLE / TO EXTERIOR'. Pressing the button calls base.ButtonCycleAirlock() (transitions state -- not decompiled here, inherited from AirlockControlBase) then UseComputer(3,...,3) -- starts the send-to-exterior chain by moving to DepressurizingInternal.",
+      "notes": ""
+    },
+    {
+      "id": "depressurizing_internal",
+      "label": "DepressurizingInternal",
+      "group": "Vanilla AdvancedAirlockState",
+      "status": "confirmed-working",
+      "description": "Stage 1 of 2 in a full interior->exterior cycle. Interior vent runs in evacuate mode (Mode=1), pulling the chamber to vacuum (VacuumPressure threshold, ~1s settle). Screen 'CANCEL / DEPRESSURIZE'. On completion, calls UseComputerAfter(PressurizingExternal) -- NOT a 'pressurized' end state. That eventually sets AirlockControlState = PressurizingExternal, which auto-dispatches Stage 2 via the property setter (see edge below). Guard clause at entry: if !IsOperable (among other checks), returns immediately after only a RefreshScreen() -- no vent/door work at all.",
+      "notes": "IMPORTANT QUIRK, confirmed via decompile: the while-loop condition is 'IsOperable && AirlockControlState==transitState && ...'. If IsOperable goes false MID-LOOP (e.g. a door gets unlocked), the loop just exits -- but the code AFTER the loop still runs unconditionally (vent cleanup, then UseComputerAfter). Vanilla does NOT treat 'lost operability mid-cycle' as an abort/error condition -- it just proceeds as if the stage finished normally."
+    },
+    {
+      "id": "pressurizing_external",
+      "label": "PressurizingExternal",
+      "group": "Vanilla AdvancedAirlockState",
+      "status": "confirmed-working",
+      "description": "Stage 2 of 2. Exterior vent runs pressurizing INTO the chamber (Mode=0) toward PressureExternal target. Screen 'CANCEL / PRESSURIZE'. On reaching ~99% of target, opens the exterior door directly (OnServer.Interact(ExteriorAirlock.InteractOpen, 1)) and calls UseComputerAfter(PressurizedExternal). SAME entry guard as every transitional state: if !IsOperable at the moment this task is dispatched, it returns immediately doing nothing -- the door never gets that final open command.",
+      "notes": "THIS is the exact mechanism behind tonight's 'process starts but vent stays off' bug. Setting AirlockControlState (from base.ButtonCycleAirlock()'s own transition, OR from Stage 1 finishing) auto-dispatches this task via the property setter -- but the task's own first line bails silently if IsOperable is false at that instant. The SCREEN still updates (shows CANCEL/PRESSURIZE) because RefreshScreen() runs either way, so it visually looks like it started even though nothing downstream ever executes."
+    },
+    {
+      "id": "pressurized_external",
+      "label": "PressurizedExternal",
+      "group": "Vanilla AdvancedAirlockState",
+      "status": "confirmed-working",
+      "description": "Settled/idle. Exterior door OPEN, interior door CLOSED. Screen 'CYCLE / TO INTERIOR'. Mirror of PressurizedInternal -- pressing the button starts the return chain via PressurizingInternal/DepressurizingExternal.",
+      "notes": ""
+    },
+    {
+      "id": "pressurizing_internal",
+      "label": "PressurizingInternal",
+      "group": "Vanilla AdvancedAirlockState",
+      "status": "confirmed-working",
+      "description": "Mirror of PressurizingExternal, heading back to the interior side. Interior vent pressurizes in; on reaching target, opens the interior door and calls UseComputerAfter(PressurizedInternal). Same silent-no-op guard on IsOperable.",
+      "notes": ""
+    },
+    {
+      "id": "depressurizing_external",
+      "label": "DepressurizingExternal",
+      "group": "Vanilla AdvancedAirlockState",
+      "status": "confirmed-working",
+      "description": "Mirror of DepressurizingInternal -- evacuates the chamber from the exterior side, then hands off to PressurizingInternal (Stage 2 of the interior-bound chain).",
+      "notes": ""
+    },
+    {
+      "id": "silent_no_op",
+      "label": "Silent no-op (state changed, nothing ran)",
+      "group": "Anomalous / discovered live",
+      "status": "broken",
+      "description": "NOT a distinct AirlockControlState value -- this is what actually happens when a transitional state (PressurizingInternal/External or DepressurizingInternal/External) gets set while IsOperable is false. The property setter still dispatches the async task (screen updates, button text changes to CANCEL/PRESSURIZE etc.), but the task's own guard clause ('if (!GameManager.RunSimulation || !IsOperable || MasterMotherboard) { RefreshScreen(); return; }') returns immediately. No vent command, no door command, no error, no log -- vanilla has no IsError signal for this at all (IsError only checks for Disabled). Purely from the UI it looks identical to a working cycle that just hasn't finished yet.",
+      "notes": "2026-08-08, confirmed via diagnostic log during live testing: CYCLE-REQUEST logged state=PressurizingInternal IsOperable=False extLocked=False intLocked=False right when a button press did nothing. Root cause of 'the process starts but the door stuck open' and 'SubAPC shows green but vent is off'. Our own OpenDoor()'s raw force-open (used for the Critical-tier crowbar escape) leaves doors unlocked, which is exactly the condition that produces this. Fixed in our code by re-closing+re-locking both doors immediately before every RequestCycleToward() call, so IsOperable is true at the exact instant vanilla evaluates it."
+    },
+    {
+      "id": "corrupted_state_desync",
+      "label": "AirlockControlState desynced from real door state",
+      "group": "Anomalous / discovered live",
+      "status": "broken",
+      "description": "Produced when a door gets forced open/closed via a raw Interact(door.InteractOpen, ...) call OUTSIDE of vanilla's own Pressurizing()/Depressurizing()/WaitDoorClose() flow (exactly what our Critical-tier OpenDoor()/ForceEvacuate() do). AirlockControlState keeps whatever value it last had -- it is NOT re-evaluated against the real door state except inside InitializeAirlock(), which only runs on a device-list-change or the initial boot, not continuously. So the enum can sit at a stale transitional value indefinitely while the real doors are in a completely different physical state.",
+      "notes": "This is the state our escape sequence leaves the airlock in between UnlockDoors() and the next button press. It's why 'reclose + relock, THEN call RequestCycleToward' matters as an ordered sequence -- relocking alone re-satisfies IsOperable, but AirlockControlState itself only gets a fresh, correct value once base.ButtonCycleAirlock() actually runs against operable doors and drives a real transition."
+    },
+    {
+      "id": "both_doors_open",
+      "label": "Both doors open simultaneously",
+      "group": "Anomalous / discovered live",
+      "status": "broken",
+      "description": "InitializeAirlock() treats this the SAME as 'both closed': '(!IntOpen && !ExtOpen) || (IntOpen && ExtOpen)' both fall into the same branch, which forces AirlockControlState=PressurizedInternal and immediately launches a fresh Pressurizing(PressurizingInternal, PressurizedInternal) task -- vanilla's own self-healing assumes this is safe to just re-pressurize from. But again, InitializeAirlock() only runs on a device-list-change/boot, not continuously, so mid-game this self-heal does NOT kick in on its own the moment both doors happen to be open.",
+      "notes": "2026-08-07, real in-game bug (project owner): a player approaching with the far door still open pressed the near side's button, opening the near door too -- both doors open at once, connecting both sides straight through the chamber, mixing gas. Fixed in OpenDoor() by unconditionally closing the opposite door first before opening the requested one."
+    }
+  ],
+  "edges": [
+    { "from": "pressurized_internal", "to": "depressurizing_internal", "label": "button press -> base transitions state" },
+    { "from": "depressurizing_internal", "to": "pressurizing_external", "label": "vacuum reached -> UseComputerAfter(PressurizingExternal), auto-dispatched" },
+    { "from": "pressurizing_external", "to": "pressurized_external", "label": "~99% of PressureExternal reached -> opens exterior door" },
+    { "from": "pressurized_external", "to": "depressurizing_external", "label": "button press -> base transitions state" },
+    { "from": "depressurizing_external", "to": "pressurizing_internal", "label": "vacuum reached -> UseComputerAfter(PressurizingInternal), auto-dispatched" },
+    { "from": "pressurizing_internal", "to": "pressurized_internal", "label": "~99% of PressureInternal reached -> opens interior door" },
+    { "from": "disabled", "to": "pressurized_external", "label": "InitializeAirlock(): !IntOpen && ExtOpen" },
+    { "from": "disabled", "to": "pressurized_internal", "label": "InitializeAirlock(): IntOpen && !ExtOpen, OR both-open/both-closed (kicks a fresh Pressurizing task)" },
+    { "from": "pressurizing_internal", "to": "silent_no_op", "label": "IsOperable false when this task's guard clause runs" },
+    { "from": "pressurizing_external", "to": "silent_no_op", "label": "IsOperable false when this task's guard clause runs" },
+    { "from": "depressurizing_internal", "to": "silent_no_op", "label": "IsOperable false when this task's guard clause runs" },
+    { "from": "depressurizing_external", "to": "silent_no_op", "label": "IsOperable false when this task's guard clause runs" },
+    { "from": "silent_no_op", "to": "corrupted_state_desync", "label": "AirlockControlState stays at the stale transitional value indefinitely" },
+    { "from": "corrupted_state_desync", "to": "pressurized_internal", "label": "our fix: reclose + relock both doors, THEN RequestCycleToward -- IsOperable true again, base.ButtonCycleAirlock() drives a real transition" },
+    { "from": "pressurized_internal", "to": "both_doors_open", "label": "old bug (fixed 2026-08-07): OpenDoor() opened the requested side without closing the other first" }
+  ]
+}

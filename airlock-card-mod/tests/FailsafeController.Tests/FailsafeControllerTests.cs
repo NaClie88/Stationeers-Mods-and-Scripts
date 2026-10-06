@@ -274,17 +274,150 @@ public class CriticalTierTests
         Assert.Equal(1, host.ForceEvacuateCalls);
         Assert.Equal(1, host.UnlockDoorsCalls);
         Assert.Equal(true, host.LastDownstreamPower);
+
+        // 2026-08-08: the vent(s) ForceEvacuate() turned on toward
+        // vacuum get explicitly stopped once the escape unlock
+        // succeeds, so nothing is left running to hand a stale
+        // evacuate order to a later, unrelated cycle (real in-game
+        // bug: gas mixing).
+        Assert.Equal(1, host.StopForcedEvacuationCalls);
     }
 
     [Fact]
-    public void EveryTick_reRunsEvacuateAndUnlock()
+    public void EveryTick_evacuateAndUnlockRunOnlyOnce()
     {
-        // Matches the original design's Critical tier -- ForceEvacuate/
-        // UnlockDoors are safe to call repeatedly.
+        // 2026-08-08: was previously "safe to call every tick" -- fixed
+        // after a real in-game trapping. ForceEvacuate() re-locks both
+        // doors as part of sealing the chamber, so repeating it every
+        // tick undid the UnlockDoors() call from the tick before,
+        // leaving doors effectively locked. Now it's a one-shot per
+        // Critical-tier entry.
         var (host, ctrl) = MakeInCritical();
         for (int i = 0; i < 5; i++) ctrl.ApplyTierEffects();
-        Assert.Equal(5, host.ForceEvacuateCalls);
-        Assert.Equal(5, host.UnlockDoorsCalls);
+        Assert.Equal(1, host.ForceEvacuateCalls);
+        Assert.Equal(1, host.UnlockDoorsCalls);
+    }
+
+    [Fact]
+    public void UnsafeTemperature_keepsRetryingUntilSafeThenLatchesOnce()
+    {
+        var (host, ctrl) = MakeInCritical();
+        host.SafeToUnlockTemperature = false;
+        ctrl.ApplyTierEffects();
+        ctrl.ApplyTierEffects();
+        Assert.Equal(2, host.ForceEvacuateCalls); // kept reasserting the seal
+        Assert.Equal(0, host.UnlockDoorsCalls);
+
+        host.SafeToUnlockTemperature = true;
+        ctrl.ApplyTierEffects();
+        Assert.Equal(3, host.ForceEvacuateCalls);
+        Assert.Equal(1, host.UnlockDoorsCalls);
+        Assert.Equal(1, host.StopForcedEvacuationCalls);
+
+        // Now latched -- further ticks touch neither.
+        ctrl.ApplyTierEffects();
+        Assert.Equal(3, host.ForceEvacuateCalls);
+        Assert.Equal(1, host.UnlockDoorsCalls);
+        Assert.Equal(1, host.StopForcedEvacuationCalls);
+    }
+
+    [Fact]
+    public void ButtonPressAfterEscape_relocksThenOpensRequestedSide()
+    {
+        var (host, ctrl) = MakeInCritical();
+        ctrl.ApplyTierEffects(); // runs the escape unlock
+        Assert.Equal(1, host.UnlockDoorsCalls);
+        Assert.Equal(0, host.LockDoorsCalls);
+
+        host.ButtonEHeld = true;
+        ctrl.ApplyTierEffects();
+
+        Assert.Equal(1, host.LockDoorsCalls);
+        Assert.Equal(new[] { DoorSide.Exterior }, host.OpenedDoors);
+        Assert.Empty(host.RequestedCycles);
+    }
+
+    [Fact]
+    public void SecondButtonPressAfterEscape_reclosesRelocksThenPassesThroughToVanillaCycle()
+    {
+        // 2026-08-08: confirmed live via diagnostic log
+        // (IsOperable=False, extLocked=False, intLocked=False) that a
+        // single relock on the first post-escape press wasn't enough --
+        // OpenDoor's raw force-open clears the lock again as a side
+        // effect of physically opening the door, so every later
+        // RequestCycleToward call silently no-opped against
+        // IsOperable=False. Every press after the first now re-closes
+        // and re-locks both doors immediately before passing through.
+        var (host, ctrl) = MakeInCritical();
+        ctrl.ApplyTierEffects(); // escape unlock
+
+        host.ButtonEHeld = true;
+        ctrl.ApplyTierEffects(); // first press: relock + open
+        host.ButtonEHeld = false;
+        ctrl.ApplyTierEffects(); // release edge
+
+        host.ButtonEHeld = true;
+        ctrl.ApplyTierEffects(); // second press: reclose + relock + pass-through
+
+        Assert.Equal(2, host.LockDoorsCalls);
+        Assert.Contains(DoorSide.Exterior, host.ClosedDoors);
+        Assert.Contains(DoorSide.Interior, host.ClosedDoors);
+        Assert.Single(host.OpenedDoors);
+        Assert.Equal(new[] { DoorSide.Exterior }, host.RequestedCycles);
+    }
+
+    [Fact]
+    public void RelockAfterPassThroughCycle_reArmsEscapeLatchWithinSameCriticalStay()
+    {
+        // 2026-08-08, real in-game bug: project owner recovered power
+        // partway (cycled to the power side and restored it) but cut
+        // it again before charge crossed back out of Critical, so Tier
+        // never changed and nothing reset the one-shot latch. Waiting
+        // for the battery to flatline a second time then found a door
+        // still locked with no automatic re-seal/unlock at all -- the
+        // escape hatch had already been "used up" for this entire
+        // Critical stay. Re-arming the moment the player relocks the
+        // doors via a normal cycle (not on a full Tier round-trip)
+        // means a second, later power failure within the SAME
+        // continuous Critical stay still gets a fresh seal-and-release.
+        var (host, ctrl) = MakeInCritical();
+        ctrl.ApplyTierEffects(); // 1st escape unlock
+        Assert.Equal(1, host.UnlockDoorsCalls);
+
+        host.ButtonEHeld = true;
+        ctrl.ApplyTierEffects(); // first press: relock + open
+        host.ButtonEHeld = false;
+        ctrl.ApplyTierEffects(); // release edge
+
+        host.ButtonEHeld = true;
+        ctrl.ApplyTierEffects(); // second press: reclose + relock + cycle + re-arm
+        Assert.Equal(Tier.Critical, ctrl.CurrentTier); // never left Critical
+
+        host.ButtonEHeld = false;
+        ctrl.ApplyTierEffects(); // next tick: latch re-armed, automatic escape fires again
+
+        Assert.Equal(2, host.ForceEvacuateCalls);
+        Assert.Equal(2, host.UnlockDoorsCalls);
+        Assert.Equal(2, host.StopForcedEvacuationCalls);
+    }
+
+    [Fact]
+    public void ReenteringCriticalTier_resetsTheOneShotLatch()
+    {
+        var (host, ctrl) = MakeInCritical();
+        ctrl.ApplyTierEffects();
+        Assert.Equal(1, host.UnlockDoorsCalls);
+
+        // Recover out of Critical, then drop back into it.
+        host.StationBatteryChargeRatio = 50f;
+        ctrl.UpdateTier();
+        host.StationBatteryChargeRatio = 5f;
+        ctrl.UpdateTier();
+        ctrl.UpdateTier();
+        Assert.Equal(Tier.Critical, ctrl.CurrentTier);
+
+        ctrl.ApplyTierEffects();
+        Assert.Equal(2, host.UnlockDoorsCalls);
     }
 
     [Fact]

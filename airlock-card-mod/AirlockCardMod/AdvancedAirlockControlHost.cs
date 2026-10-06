@@ -558,6 +558,24 @@ namespace AirlockCardMod
             OnServer.Interact(vent.InteractMode, 1);
         }
 
+        // FIXED, 2026-08-08 (real in-game bug: gas mixing on a later,
+        // unrelated cycle -- see StopForcedEvacuation's doc comment on
+        // the interface). Just turns the vent off; leaves InteractMode
+        // as-is since whatever powers it on next (vanilla's own cycle,
+        // or ForceEvacuate() again) always sets its own mode explicitly
+        // before relying on it.
+        public void StopForcedEvacuation()
+        {
+            StopVent(_control.ExteriorPoweredVent);
+            StopVent(_control.InteriorPoweredVent);
+        }
+
+        private static void StopVent(Assets.Scripts.Objects.Pipes.IPoweredVent vent)
+        {
+            if (vent == null) return;
+            OnServer.Interact(vent.InteractOnOff, 0);
+        }
+
         // NOT YET VERIFIED IN-GAME -- OnServer.Interact(door,
         // InteractableType.Lock, 0), the exact call vanilla's own
         // OnDeviceListChanged uses to unlock. Deliberately UNLOCKS
@@ -569,6 +587,9 @@ namespace AirlockCardMod
         {
             if (_control.ExteriorAirlock != null) OnServer.Interact(_control.ExteriorAirlock, InteractableType.Lock, 0);
             if (_control.InteriorAirlock != null) OnServer.Interact(_control.InteriorAirlock, InteractableType.Lock, 0);
+            UnityEngine.Debug.Log("[Salty's Advanced Airlock]: UnlockDoors() -- extLocked="
+                + (_control.ExteriorAirlock?.IsLocked.ToString() ?? "null")
+                + " intLocked=" + (_control.InteriorAirlock?.IsLocked.ToString() ?? "null"));
         }
 
         // NOT YET VERIFIED IN-GAME -- counterpart to UnlockDoors above.
@@ -583,6 +604,11 @@ namespace AirlockCardMod
         {
             if (_control.ExteriorAirlock != null) OnServer.Interact(_control.ExteriorAirlock, InteractableType.Lock, 1);
             if (_control.InteriorAirlock != null) OnServer.Interact(_control.InteriorAirlock, InteractableType.Lock, 1);
+            UnityEngine.Debug.Log("[Salty's Advanced Airlock]: LockDoors() -- extLocked="
+                + (_control.ExteriorAirlock?.IsLocked.ToString() ?? "null")
+                + " intLocked=" + (_control.InteriorAirlock?.IsLocked.ToString() ?? "null")
+                + " extOpen=" + (_control.ExteriorAirlock?.IsOpen.ToString() ?? "null")
+                + " intOpen=" + (_control.InteriorAirlock?.IsOpen.ToString() ?? "null"));
         }
 
         // NOT YET VERIFIED IN-GAME -- opens both doors via the same
@@ -610,7 +636,10 @@ namespace AirlockCardMod
         // documented on the interface.
         public void CloseDoor(DoorSide side)
         {
-            SetDoorState(DoorForSide(side), open: false, locked: null);
+            var door = DoorForSide(side);
+            SetDoorState(door, open: false, locked: null);
+            UnityEngine.Debug.Log("[Salty's Advanced Airlock]: CloseDoor(" + side + ") -- open="
+                + (door?.IsOpen.ToString() ?? "null"));
         }
 
         // FIXED, 2026-08-07 (real in-game bug, project owner): closes

@@ -1,0 +1,67 @@
+{
+  "title": "Salty's Advanced Airlock - Failsafe Tier State Machine",
+  "source": "src/FailsafeController.cs",
+  "nodes": [
+    {
+      "id": "normal",
+      "label": "Normal",
+      "group": "Tier",
+      "status": "confirmed-working",
+      "description": "Power forced on continuously (not Deep Idle behavior). Every button press passes straight through to vanilla's ButtonCycleAirlock() via RequestCycleToward. If PropAtmosphereMatched, HoldBothDoorsOpen() runs and stays until the match breaks, then exit-ordering closes whichever door was more recently used first.",
+      "notes": ""
+    },
+    {
+      "id": "low_idle",
+      "label": "Low / Idle",
+      "group": "Low Tier",
+      "status": "confirmed-working",
+      "description": "Deep Idle power saving. Downstream power OFF unless wakeRequested (ButtonEHeld/ButtonIHeld/ButtonCHeld/VanillaCycleRequested/PresenceDetected). On wake: LockDoors() then OpenDoor(pressed side) directly (raw force via SetDoorState, or RequestCycleToward if both doors weren't already closed), moves to Active. Only reachable if HasWakeButtons and HasDownstreamController -- otherwise this tier just holds power on continuously like Normal.",
+      "notes": "Wake-open + relock-on-wake confirmed live in an earlier session."
+    },
+    {
+      "id": "low_active",
+      "label": "Low / Active",
+      "group": "Low Tier",
+      "status": "confirmed-working",
+      "description": "Awake, power held on unconditionally so vanilla's own cycling can run. Every button press passes through to vanilla via RequestCycleToward (fixed 2026-08-07 -- previously only the very first wake press was routed anywhere). Re-idles after ReidleDelayTicks (20 ticks, ~5s) once PresenceDetected clears and the chamber was confirmed occupied at some point since waking.",
+      "notes": "Both bugs (cancel not working, cycle-back not working) traced to the same root cause and fixed live."
+    },
+    {
+      "id": "critical_pre_escape",
+      "label": "Critical / Pre-escape",
+      "group": "Critical Tier",
+      "status": "awaiting-verification",
+      "description": "Power forced on unconditionally every tick. Until criticalHandledThisEntry latches: ForceEvacuate() runs every tick (idempotent) -- closes+locks both doors, commands both vents into evacuate/vacuum mode. Button C held skips ONLY the evacuate/unlock step this tick (power still forced on). Once SafeToUnlockTemperature is true, UnlockDoors() and StopForcedEvacuation() fire ONCE, latching criticalHandledThisEntry=true and moving to Awaiting-relock.",
+      "notes": "2026-08-08: was previously every-tick unconditional (chattering lock -- this is what trapped the project owner in-game). Now one-shot per entry, plus vents explicitly stopped so they don't stay running in evacuate mode after the chamber reaches vacuum (was mixing gas on a later, unrelated cycle). Both fixes shipped, not yet confirmed clean end-to-end."
+    },
+    {
+      "id": "critical_awaiting_relock",
+      "label": "Critical / Awaiting relock",
+      "group": "Critical Tier",
+      "status": "awaiting-verification",
+      "description": "Chamber sealed-then-unlocked, at vacuum, vents stopped. First fresh button press after escaping: LockDoors() then OpenDoor(pressed side) -- a raw force-open (crowbar fallback, works even with zero real power), sets criticalRelockedSinceEscape=true, moves to Relocked.",
+      "notes": "2026-08-08: door opened successfully on the first press. The raw force-open appears to clear the lock again as a side effect of physically opening the door (confirmed via diagnostic log: IsOperable=False, extLocked=False, intLocked=False right after)."
+    },
+    {
+      "id": "critical_relocked",
+      "label": "Critical / Relocked",
+      "group": "Critical Tier",
+      "status": "fix-in-progress",
+      "description": "Every further button press: CloseDoor(both) + LockDoors() to re-establish the closed+locked baseline IsOperable actually requires, then RequestCycleToward(pressed side) hands off to vanilla's normal ButtonCycleAirlock(). Immediately after, RE-ARMS: resets criticalHandledThisEntry and criticalRelockedSinceEscape back to false, so the automatic seal-and-release in Pre-escape fires again next tick if Critical is still active.",
+      "notes": "2026-08-08, two fixes stacked here tonight: (1) reclose+relock before every pass-through call, since a single relock on the first press wasn't sticking. (2) re-arm the escape latch on relock, since staying in one continuous Critical stretch (charge never actually crossed back out) left NO automatic re-seal at all on a second power failure -- found a door still locked after waiting for the battery to flatline a second time. Neither fix has been round-tripped live yet -- this is the one to test first tonight."
+    }
+  ],
+  "edges": [
+    { "from": "normal", "to": "low_idle", "label": "charge <= 90% (NormalToLowThreshold)" },
+    { "from": "low_idle", "to": "normal", "label": "charge >= 93% (LowToNormalThreshold)" },
+    { "from": "low_active", "to": "normal", "label": "charge >= 93% (LowToNormalThreshold)" },
+    { "from": "low_idle", "to": "critical_pre_escape", "label": "charge <= 10% (LowToCriticalThreshold)" },
+    { "from": "low_active", "to": "critical_pre_escape", "label": "charge <= 10% (LowToCriticalThreshold)" },
+    { "from": "critical_pre_escape", "to": "low_idle", "label": "charge > 13% (CriticalToLowThreshold)" },
+    { "from": "low_idle", "to": "low_active", "label": "wakeRequested (button / VanillaCycleRequested / PresenceDetected)" },
+    { "from": "low_active", "to": "low_idle", "label": "unoccupied for ReidleDelayTicks after being occupied" },
+    { "from": "critical_pre_escape", "to": "critical_awaiting_relock", "label": "SafeToUnlockTemperature true -> UnlockDoors() succeeds" },
+    { "from": "critical_awaiting_relock", "to": "critical_relocked", "label": "first button press after escape" },
+    { "from": "critical_relocked", "to": "critical_pre_escape", "label": "further button press -> reclose+relock+cycle, then re-arm" }
+  ]
+}

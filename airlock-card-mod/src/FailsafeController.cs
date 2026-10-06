@@ -261,12 +261,30 @@ namespace AirlockCardMod
         // ForceEvacuate() is expected to close AND lock both doors as
         // part of sealing the chamber, then run the vent(s) toward
         // vacuum -- locking is bundled in here rather than a separate
-        // interface member because it's the same "seal it" duty every
-        // time this gets called (called every tick while Tier is
-        // Critical -- see FailsafeController.ApplyTierEffects). Safe to
-        // call repeatedly/every tick -- not a one-shot action.
+        // interface member because it's the same "seal it" duty. Safe
+        // to call repeatedly -- idempotent -- but as of 2026-08-08
+        // FailsafeController only calls this ONCE per Critical-tier
+        // entry (immediately followed by UnlockDoors()), not every
+        // tick: calling it every tick re-locks doors that UnlockDoors()
+        // had just unlocked the tick before, which trapped the project
+        // owner in-game. See criticalHandledThisEntry in
+        // FailsafeController.ApplyTierEffects.
         void ForceEvacuate();
         void UnlockDoors();
+
+        // Counterpart to ForceEvacuate() (2026-08-08, real in-game bug
+        // -- project owner found both sides' Active Vents still
+        // running in evacuate mode long after a Critical-tier stay,
+        // mixing gas the next time an unrelated cycle briefly powered
+        // them on and inherited the stale order). ForceEvacuate()
+        // commands the vent(s) ON in evacuate/vacuum mode but has no
+        // corresponding "done, stop" call -- nothing ever turned them
+        // back off once the chamber actually reached vacuum. Called
+        // once the escape unlock succeeds (same tick as
+        // criticalHandledThisEntry latching in
+        // FailsafeController.ApplyTierEffects), so nothing is left
+        // running to hand stale orders to a later cycle.
+        void StopForcedEvacuation();
 
         // Counterpart to UnlockDoors() (2026-08-07) -- re-locks both
         // doors. Needed specifically when Low tier wakes from idle:
@@ -435,6 +453,32 @@ namespace AirlockCardMod
         // exit-ordering decision below.
         private bool wasHoldingDoorsOpenLastTick;
 
+        // True once ForceEvacuate()+UnlockDoors() has successfully run
+        // for the CURRENT stay in Critical tier (2026-08-08, confirmed
+        // real in-game bug -- project owner got trapped). Previously
+        // both calls ran unconditionally every tick: ForceEvacuate()
+        // re-closes AND re-locks both doors, then UnlockDoors() undid
+        // the lock the same tick -- but the very next tick re-locked
+        // them again before a player had any real chance to walk
+        // through, effectively leaving the doors locked in practice.
+        // Now the seal-and-release only happens once per Critical
+        // entry; see the Critical case in ApplyTierEffects.
+        private bool criticalHandledThisEntry;
+
+        // True once a button press has re-locked the doors AFTER the
+        // escape unlock above (2026-08-08, real in-game bug: a button
+        // press after escaping started a vanilla cycle that then got
+        // stuck open). Doors are left UNLOCKED after
+        // criticalHandledThisEntry latches -- exactly like Low tier's
+        // Idle phase leaves them -- and vanilla's own IsOperable
+        // requires both doors LOCKED before its Pressurizing/
+        // Depressurizing cycling will run at all. Mirrors Low tier's
+        // Idle-to-Active wake handling: the first press after escaping
+        // re-locks then opens directly; every press after that passes
+        // through to vanilla's own cycle machinery via
+        // RequestCycleToward.
+        private bool criticalRelockedSinceEscape;
+
         // Which door a presence sensor most recently saw someone at,
         // if ExteriorPresenceDetected/InteriorPresenceDetected are
         // wired at all (2026-08-05, project owner exit-ordering
@@ -506,6 +550,17 @@ namespace AirlockCardMod
             {
                 lowPowerPhase = LowPowerPhase.Idle;
                 hasBeenOccupiedSinceWake = false;
+            }
+
+            // Reset the Critical one-shot latch whenever we leave
+            // Critical tier, so a later Critical-tier entry seals and
+            // releases the chamber fresh instead of silently doing
+            // nothing (having already been "handled" during a
+            // previous, unrelated Critical stay).
+            if (CurrentTier == Tier.Critical && newTier != Tier.Critical)
+            {
+                criticalHandledThisEntry = false;
+                criticalRelockedSinceEscape = false;
             }
 
             CurrentTier = newTier;
@@ -728,17 +783,26 @@ namespace AirlockCardMod
                     // unlike Low: this tier doesn't offer a "wake and
                     // hold open" option at all, since the whole point is
                     // there's no safety margin left to gamble with.
-                    // Power forced on unconditionally every tick,
-                    // doors evacuated and unlocked every tick.
+                    // Power forced on unconditionally every tick --
+                    // idempotent and harmless to repeat.
                     UpdateDownstreamPower(forceOn: true);
                     wasHoldingDoorsOpenLastTick = false;
 
-                    // cycle.ic10 lineage: Button C held skips the forced
-                    // lockdown this tick -- someone caught inside gets
-                    // to cancel it. Power stays on either way (the call
-                    // above already ran) -- only evacuate/unlock is
-                    // skipped.
-                    if (!host.ButtonCHeld)
+                    // ONE-SHOT per Critical-tier entry (2026-08-08,
+                    // fixed after a real in-game trapping -- project
+                    // owner predicted, then confirmed, this exact
+                    // chattering). Originally ForceEvacuate()+
+                    // UnlockDoors() ran unconditionally every tick;
+                    // since ForceEvacuate() re-closes AND re-locks both
+                    // doors as part of sealing the chamber, the very
+                    // next tick undid the unlock from the tick before,
+                    // leaving doors effectively locked instead of
+                    // freely usable. Now the seal-then-release sequence
+                    // runs once per Critical stay and then leaves the
+                    // doors alone -- see criticalHandledThisEntry's
+                    // doc comment and the Critical-tier reset in
+                    // UpdateTier above.
+                    if (!criticalHandledThisEntry && !host.ButtonCHeld)
                     {
                         // Evacuating is always safe regardless of
                         // temperature, so unconditional. UNLOCKING is
@@ -749,9 +813,122 @@ namespace AirlockCardMod
                         // depowered chamber can still be crowbarred
                         // open by a player with no tools -- the
                         // intended manual fallback once this mod's own
-                        // safety margin runs out.
+                        // safety margin runs out. Only latched once
+                        // UnlockDoors() actually ran -- if temperature
+                        // isn't safe yet, ForceEvacuate() keeps
+                        // reasserting the seal (still one-shot-safe,
+                        // just not yet released) until it is.
                         host.ForceEvacuate();
-                        if (host.SafeToUnlockTemperature) host.UnlockDoors();
+                        if (host.SafeToUnlockTemperature)
+                        {
+                            host.UnlockDoors();
+                            criticalHandledThisEntry = true;
+
+                            // FIXED, 2026-08-08 (real in-game bug,
+                            // project owner: gas mixing between both
+                            // sides' Active Vents on a later, unrelated
+                            // cycle). ForceEvacuate() leaves both vents
+                            // actively running in evacuate/vacuum mode
+                            // -- nothing ever turned them back off once
+                            // the chamber reached vacuum, so they kept
+                            // running indefinitely. Next time either
+                            // vent got powered on for an ordinary cycle,
+                            // it briefly executed that stale evacuate
+                            // order (pulling both sides' gas toward the
+                            // shared inline tanks at once) before
+                            // whatever drove the new cycle overwrote it
+                            // -- a window too short to notice except by
+                            // its effect (gases mixed). Stopping the
+                            // vents here, right as the evacuate job
+                            // completes, means nothing is left running
+                            // to inherit stale orders later.
+                            host.StopForcedEvacuation();
+                        }
+                    }
+
+                    // FIXED, 2026-08-08 (real in-game bug, project
+                    // owner: pressed a button to cycle again after
+                    // escaping, "the process starts but the door stuck
+                    // open again"). Once the escape unlock above has
+                    // run, doors are left UNLOCKED -- same as Low
+                    // tier's Idle phase -- but vanilla's own IsOperable
+                    // requires both doors LOCKED before its
+                    // Pressurizing/Depressurizing cycling will run at
+                    // all, so a cycle attempt against still-unlocked
+                    // doors gets stuck partway. Mirrors Low tier's
+                    // Idle-to-Active wake handling exactly: the first
+                    // press after escaping re-locks then opens
+                    // directly; every press after that passes through
+                    // to vanilla's own cycle machinery normally.
+                    else if (criticalHandledThisEntry)
+                    {
+                        if (!criticalRelockedSinceEscape)
+                        {
+                            if (buttonEPressed || buttonIPressed)
+                            {
+                                host.LockDoors();
+                                criticalRelockedSinceEscape = true;
+                                if (buttonEPressed) host.OpenDoor(DoorSide.Exterior);
+                                if (buttonIPressed) host.OpenDoor(DoorSide.Interior);
+                            }
+                        }
+                        else
+                        {
+                            // FIXED, 2026-08-08 (real in-game bug,
+                            // project owner confirmed via diagnostic
+                            // log: IsOperable=False, extLocked=False,
+                            // intLocked=False at the moment of this
+                            // exact press). Re-locking once on the
+                            // first post-escape press wasn't enough --
+                            // OpenDoor's raw force-open above appears
+                            // to clear the lock again as a side effect
+                            // of physically opening the door (a locked-
+                            // AND-open door isn't a state vanilla's own
+                            // Door class allows), leaving IsOperable
+                            // false and silently no-opping every
+                            // RequestCycleToward call after that.
+                            // Re-closing and re-locking both doors
+                            // immediately before EVERY pass-through
+                            // call re-establishes the one precondition
+                            // vanilla's IsOperable actually checks, so
+                            // ButtonCycleAirlock() has a real closed-
+                            // and-locked baseline to work from instead
+                            // of a corrupted mid-cycle state.
+                            if (buttonEPressed || buttonIPressed)
+                            {
+                                host.CloseDoor(DoorSide.Exterior);
+                                host.CloseDoor(DoorSide.Interior);
+                                host.LockDoors();
+
+                                // RE-ARM, 2026-08-08 (real in-game bug,
+                                // project owner: cut power again while
+                                // still in Critical -- charge never
+                                // recrossed the Critical/Low boundary,
+                                // so Tier never changed, so nothing
+                                // reset criticalHandledThisEntry -- then
+                                // waited for the battery to flatline a
+                                // second time and found a door still
+                                // locked with no automatic re-seal/
+                                // unlock at all). The one-shot latch was
+                                // only ever reset on a Tier change, but
+                                // a single continuous Critical stay can
+                                // span multiple real power-loss events.
+                                // Both doors are back to a normal
+                                // closed-and-locked baseline right here
+                                // (just re-established above), so it's
+                                // safe to consider the escape hatch
+                                // "used up" and re-arm it -- the
+                                // automatic ForceEvacuate()/
+                                // UnlockDoors() block fires again next
+                                // tick, sealing and releasing fresh, in
+                                // case this same Critical stay turns
+                                // dangerous again.
+                                criticalHandledThisEntry = false;
+                                criticalRelockedSinceEscape = false;
+                            }
+                            if (buttonEPressed) host.RequestCycleToward(DoorSide.Exterior);
+                            if (buttonIPressed) host.RequestCycleToward(DoorSide.Interior);
+                        }
                     }
                     break;
             }
