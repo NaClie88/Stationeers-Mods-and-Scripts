@@ -39,6 +39,10 @@ Printers don't store ingots in slots. Every imported stack is poured into one re
 
 The ingot prefab for each reagent is found with the game's own recipe lookup (`Ingot.RecipeComparable.Recipes`), run on a copy of the pool, and cached.
 
+## Known limitations
+
+- Don't set `MaxPerIngotType` below what a recipe needs of a single ingot type: the printer would eject down to the cap and could never hold enough to print that recipe. The default, 500, is above any single-ingot requirement in vanilla printers.
+
 ## Sources and credits
 
 - Game behaviour was established by decompiling Stationeers' `Assembly-CSharp.dll` with [ILSpy](https://github.com/icsharpcode/ILSpy) (`ilspycmd`). Key types: `FabricatorBase`, `SimpleFabricatorBase`, `ReagentMixture`, `Reagent`, `Ingot`, `Thing.DropReagent`.
