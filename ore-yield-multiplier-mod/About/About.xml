@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Salty's Yield Multiplier</Name>
+  <ModID>com.naclie88.SaltysYieldMultiplier</ModID>
+  <Author>Joshua</Author>
+  <Version>1.0</Version>
+  <Description>Configurable multipliers for Furnace/Advanced Furnace/Arc Furnace ingot yield and ice-melt gas yield. Live-adjustable from LaunchPad's config UI. Does not touch mining, difficulty, or the Centrifuge.</Description>
+</ModMetadata>
