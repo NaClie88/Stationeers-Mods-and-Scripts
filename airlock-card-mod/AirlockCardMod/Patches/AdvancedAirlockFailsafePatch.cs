@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Assets.Scripts.Objects.Motherboards;
@@ -33,10 +33,33 @@ namespace AirlockCardMod.Patches
 
         // ConditionalWeakTable can't be enumerated on .NET Framework,
         // so DoorOpenPatch needs a separate reverse-lookup list of
-        // known instances. Destroyed entries are skipped via Unity's
-        // overloaded null check at lookup time (see DoorOpenPatch),
-        // not pruned eagerly here.
-        internal static readonly List<AdvancedAirlockControl> KnownControllers = new List<AdvancedAirlockControl>();
+        // known instances. FIXED 2026-10-06 (bug hunt): it was a bare
+        // List appended to from the update path and enumerated by
+        // DoorOpenPatch, so a controller created mid-enumeration threw
+        // "Collection was modified". It's now only touched under
+        // KnownControllersLock, readers take a snapshot, and destroyed
+        // airlocks are pruned when the snapshot is taken.
+        private static readonly List<AdvancedAirlockControl> KnownControllers = new List<AdvancedAirlockControl>();
+        private static readonly object KnownControllersLock = new object();
+
+        internal static AdvancedAirlockControl[] SnapshotKnownControllers()
+        {
+            lock (KnownControllersLock)
+            {
+                KnownControllers.RemoveAll(c => !(bool)c); // Unity-destroyed
+                return KnownControllers.ToArray();
+            }
+        }
+
+        // FIXED 2026-10-06 (bug hunt): the tick counter used to be ONE
+        // static int shared by every airlock. Each airlock's
+        // OnThreadUpdate bumped it, so the check went to whichever call
+        // was the 15th. With 3, 5 or 15 airlocks (15 divisible by the
+        // count) that was always the SAME airlock, and the others never
+        // got checked or even a FailsafeController. Now each airlock
+        // counts its own ticks.
+        private static readonly ConditionalWeakTable<AdvancedAirlockControl, StrongBox<int>> TickCounters =
+            new ConditionalWeakTable<AdvancedAirlockControl, StrongBox<int>>();
 
         // Measured in-game (2026-08-05, MeasureCallRateOnce below):
         // OnThreadUpdate averages ~17.2ms/call on this machine (close
@@ -58,7 +81,6 @@ namespace AirlockCardMod.Patches
         // check once Deep Idle is actually wired to something real.
         private const int TicksPerCheck = 15;
 
-        private static int ticksSinceLastCheck;
         private static bool loggedAttachment;
         private static AdvancedAirlockControl rateSampleInstance;
         private static readonly Stopwatch RateStopwatch = new Stopwatch();
@@ -69,10 +91,15 @@ namespace AirlockCardMod.Patches
         {
             if (Controllers.TryGetValue(instance, out var existing)) return existing;
 
-            var created = new FailsafeController(new AdvancedAirlockControlHost(instance));
-            Controllers.Add(instance, created);
-            KnownControllers.Add(instance);
-            return created;
+            lock (KnownControllersLock)
+            {
+                // Re-check under the lock: the update path and DoorOpenPatch can race here.
+                if (Controllers.TryGetValue(instance, out existing)) return existing;
+                var created = new FailsafeController(new AdvancedAirlockControlHost(instance));
+                Controllers.Add(instance, created);
+                KnownControllers.Add(instance);
+                return created;
+            }
         }
 
         private static void Postfix(AirlockControlBase __instance)
@@ -81,8 +108,9 @@ namespace AirlockCardMod.Patches
 
             MeasureCallRateOnce(advanced);
 
-            if (++ticksSinceLastCheck < TicksPerCheck) return;
-            ticksSinceLastCheck = 0;
+            var ticks = TickCounters.GetOrCreateValue(advanced);
+            if (++ticks.Value < TicksPerCheck) return;
+            ticks.Value = 0;
 
             var controller = GetOrCreateController(advanced);
             controller.UpdateTier();

@@ -1,4 +1,4 @@
-using Assets.Scripts.Objects;
+﻿using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Structures;
 using HarmonyLib;
 
@@ -41,9 +41,9 @@ namespace AirlockCardMod.Patches
             if (newState != 1 || oldState == 1) return; // edge-detect closed -> open only
             if (!(__instance is Door door)) return;
 
-            foreach (var controller in AdvancedAirlockFailsafePatch.KnownControllers)
+            // Snapshot: the update path can register a new airlock while this runs.
+            foreach (var controller in AdvancedAirlockFailsafePatch.SnapshotKnownControllers())
             {
-                if (!(bool)controller) continue; // Unity-destroyed check
 
                 DoorSide? side = null;
                 if (door == controller.ExteriorAirlock) side = DoorSide.Exterior;
