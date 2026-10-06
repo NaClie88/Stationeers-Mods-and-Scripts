@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Salty's Droid Dual Battery</Name>
+  <ModID>com.naclie88.SaltysDroidDualBattery</ModID>
+  <Author>Joshua</Author>
+  <Version>0.2</Version>
+  <Description>HEM Droids get a second battery slot next to the #5 battery slot. The droid drains battery 1 until it's empty, then switches to battery 2, so you can pull the empty one and swap in a fresh one without powering down. Required on both server and clients in multiplayer.</Description>
+</ModMetadata>
