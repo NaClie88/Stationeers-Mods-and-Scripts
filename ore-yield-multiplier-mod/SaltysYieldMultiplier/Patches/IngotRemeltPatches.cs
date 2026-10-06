@@ -54,16 +54,30 @@ namespace SaltysYieldMultiplier.Patches
     }
 
     // Same, for the Arc Furnace (DropIngots is private, so it's targeted by name).
+    // Also hands back the units ArcFurnaceYieldPatch found the clamped output didn't need
+    // (DropIngots subtracts `_ratioMix * num` for the full, pre-clamp num) -- before the
+    // ingot-share bookkeeping, so OnPoolConsumed sees only what was really used.
     [HarmonyPatch(typeof(ArcFurnace), "DropIngots")]
     public static class ArcFurnaceIngotPoolPatch
     {
+        private static readonly AccessTools.FieldRef<ArcFurnace, ReagentMixture> RatioMix =
+            AccessTools.FieldRefAccess<ArcFurnace, ReagentMixture>("_ratioMix");
+
         public static void Prefix(ArcFurnace __instance, out double __state)
         {
+            ArcFurnaceYieldPatch.TakeRefund(__instance); // discard anything stale
             __state = __instance.ReagentMixture != null ? __instance.ReagentMixture.TotalReagents : -1.0;
         }
 
         public static void Postfix(ArcFurnace __instance, double __state)
         {
+            int refund = ArcFurnaceYieldPatch.TakeRefund(__instance);
+            ReagentMixture ratio = RatioMix(__instance);
+            if (refund > 0 && ratio != null && __instance.ReagentMixture != null)
+            {
+                __instance.ReagentMixture.Add(ratio * refund);
+                SaltysYieldMultiplier.LogVerbose($"ArcFurnaceIngotPoolPatch: refunded {refund} unclamped units to the pool");
+            }
             if (__state <= 0.0) return;
             IngotReagentTracker.OnPoolConsumed(__instance.ReagentMixture, __state);
         }

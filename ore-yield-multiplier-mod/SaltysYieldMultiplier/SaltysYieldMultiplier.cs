@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Assets.Scripts.Atmospherics;
 using Assets.Scripts.Objects.Items;
 using BepInEx;
@@ -65,8 +65,12 @@ namespace SaltysYieldMultiplier
             return Mathf.Max(1f, Mathf.Round(raw));
         }
 
-        public static float IngotMultiplier => SnapMultiplier(IngotYieldMultiplier.Value);
-        public static float IceMultiplier => SnapMultiplier(IceGasYieldMultiplier.Value);
+        // FIXED 2026-10-06 (bug hunt): null until LaunchPad calls OnLoaded. A copy dropped in
+        // BepInEx/plugins never gets OnLoaded (see UpdateNotes.md), and the bare .Value threw a
+        // NullReferenceException inside every smelt, breaking the furnaces. Unbound now means
+        // 1x, i.e. vanilla behaviour.
+        public static float IngotMultiplier => IngotYieldMultiplier != null ? SnapMultiplier(IngotYieldMultiplier.Value) : 1f;
+        public static float IceMultiplier => IceGasYieldMultiplier != null ? SnapMultiplier(IceGasYieldMultiplier.Value) : 1f;
 
         static SaltysYieldMultiplier()
         {

@@ -1,4 +1,4 @@
-using Assets.Scripts.Objects.Items;
+﻿using Assets.Scripts.Objects.Items;
 using HarmonyLib;
 
 namespace SaltysYieldMultiplier.Patches
@@ -29,10 +29,14 @@ namespace SaltysYieldMultiplier.Patches
             }
         }
 
-        public static void Postfix(PureIce __instance, float[] __state)
+        // A Finalizer, not a Postfix (FIXED 2026-10-06, bug hunt): a Postfix is skipped when
+        // Smelt throws, which would leave SpawnContents multiplied, so the next melt would
+        // multiply again and compound. A Finalizer runs either way.
+        public static void Finalizer(PureIce __instance, float[] __state)
         {
+            if (__state == null) return; // Prefix didn't get as far as saving anything
             var contents = __instance.SpawnContents;
-            for (int i = 0; i < contents.Count; i++)
+            for (int i = 0; i < contents.Count && i < __state.Length; i++)
             {
                 contents[i].Quantity = __state[i];
             }
