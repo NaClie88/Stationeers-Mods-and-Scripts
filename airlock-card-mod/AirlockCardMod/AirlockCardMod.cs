@@ -15,12 +15,24 @@ namespace AirlockCardMod
         {
             Debug.Log("[" + pluginName + "]: " + line);
         }
+        // StationeersLaunchPad calls Awake() more than once (config-UI load + session load).
+        // An unguarded PatchAll() would stack every postfix twice, running each failsafe tick
+        // twice. Plain BepInEx (DLL dropped in BepInEx/plugins) calls it once; the guard is
+        // harmless there.
+        private static bool _patched;
+
         void Awake()
         {
+            if (_patched)
+            {
+                Log("Already patched by an earlier Awake() call -- skipping");
+                return;
+            }
             try
             {
                 var harmony = new Harmony(pluginGuid);
                 harmony.PatchAll();
+                _patched = true;
                 Log("Patch succeeded");
 
             }

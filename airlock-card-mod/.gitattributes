@@ -1,0 +1,2 @@
+# Bash refuses CRLF scripts; keep shell scripts LF on every checkout.
+*.sh text eol=lf

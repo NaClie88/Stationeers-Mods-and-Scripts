@@ -78,10 +78,17 @@ hardcoded (`D:\SteamLibrary\steamapps\common\Stationeers\...`) —
 
 ## 6. Build and install
 
-- Build (Debug is fine). This produces a DLL in `bin\Debug\`.
-- Create a folder for it under BepInEx's plugins directory:
-  `<Stationeers folder>/BepInEx/plugins/AirlockCardMod/`
-- Copy the built DLL into that folder.
+- **Easiest:** run `build-and-install.sh` from Git Bash with the game
+  closed. It builds, installs into the LaunchPad mods folder below, and
+  verifies the copy by hash.
+- By hand: build (Debug is fine), which produces a DLL in `bin\Debug\`.
+  Then copy `About/About.xml` and the DLL into
+  `Documents/My Games/Stationeers/mods/AirlockCardMod/` (the DLL next to
+  the `About` folder). StationeersLaunchPad discovers mods there.
+- Without StationeersLaunchPad: copy just the DLL into
+  `<Stationeers folder>/BepInEx/plugins/AirlockCardMod/` instead. Use
+  **one location or the other, never both**: both copies would load and
+  every patch would apply twice.
 
 ## 7. Launch and verify
 

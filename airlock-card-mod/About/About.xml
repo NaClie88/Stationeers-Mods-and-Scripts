@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Salty's Advanced Airlock</Name>
+  <ModID>com.username.AirlockCardMod</ModID>
+  <Author>Joshua</Author>
+  <Version>1.0</Version>
+  <Description>A fail-safe layer for the vanilla Advanced Airlock Control: power-tier staging from a Station Battery (Normal / Low / Critical), a guaranteed escape path when power is critical, propped-open handling with real atmosphere-safety thresholds, and target-driven vent relief. Works under StationeersLaunchPad or as a plain BepInEx plugin.</Description>
+</ModMetadata>

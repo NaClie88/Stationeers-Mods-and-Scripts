@@ -34,10 +34,17 @@ the behavior that's the actual point of this project.
 
 **StationeersLaunchPad is recommended, not required** — a load-order
 and installation convenience layer (same category as its role for
-Re-Volt, see `database/mods.json`), not load-bearing. A player could
-drop the compiled DLL straight into `BepInEx/plugins/` manually (as
-`GETTING_STARTED.md` has you doing for Milestone 1) with zero LaunchPad
-involved and it would work.
+Re-Volt, see `database/mods.json`), not load-bearing. The mod
+deliberately does **not** reference LaunchPadBooster, so a player could
+still drop the compiled DLL straight into `BepInEx/plugins/` manually
+with zero LaunchPad involved and it would work.
+
+**Default install (2026-10-05): a LaunchPad mod folder**, the same
+layout as the repo's other Salty mods: `About/About.xml` plus the DLL in
+`Documents/My Games/Stationeers/mods/AirlockCardMod/`.
+`build-and-install.sh` does that and removes any old
+`BepInEx/plugins/AirlockCardMod/` copy, so the two can't both load. See
+`UpdateNotes.md`.
 
 ## Three possible build paths
 
