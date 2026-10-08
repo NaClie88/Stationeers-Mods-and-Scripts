@@ -27,7 +27,15 @@
   - keep `droid-standby-mod/UpdateNotes.md` as a running what/why log;
   - every commit ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`;
   - `git -c core.longpaths=true` for adds in this worktree.
-- **Drain factors scale only the droid's own body drain** (vanilla base 100 per tick). Extra load from lights, i.e. the helmet light, which vanilla adds by raising `Human.PowerDrainedPerTick` from 100 to 105, always drains at full rate, in every state including Deep Standby (user, 2026-10-07: "all tools like external lights should still drain battery normally").
+- **Drain factors scale the droid's own drain; lights pay their own way.** Helmet lights and headlamps have their own batteries, which the mod never touches.
+- **Vanilla helmet-light drain bug is fixed by this mod** (user, 2026-10-07: "patch the bug so the mod user does not have to deal with it"). Vanilla `ToggleHelmetLight` calls `SetPowerDrain(105f)` on a **static** shared by every human. It also sticks after the light is turned off, and only the hotkey path sets it. The fix:
+  - block `Human.SetPowerDrain`, so the static stays at its base;
+  - charge each droid **+5 % of its own measured drain, only while its own helmet-slot light is on and powered**;
+  - that light share is never discounted by a standby level (lights drain normally, Deep Standby included).
+- **The fix must never break the mod** (user: "if they patch it, the mod will not break"):
+  - it is an optional patch;
+  - if `Human.SetPowerDrain(float)` or the static `PowerDrainedPerTick` field is missing (a game update fixed or reworked it), the fix logs one line and stays off, and the rest of the mod runs normally;
+  - config `[Fixes] HelmetLightDrainFix` (default true) turns it off by hand.
 - **Deep Standby turns the droid's built-in night vision off on Start and blocks turning it back on** until wake (user, 2026-10-07). **Only the built-in one** (the N key, `Human.ToggleNightVision`): head-mounted Night Vision Goggles are a tool and keep working and draining their own power normally (user clarification).
 - Worker-thread rule (unchanged): code reached from `Brain.OnLifeTick` / `Human.OnLifeTick` uses no Unity APIs, uses `ReferenceEquals`, and catches everything.
 
@@ -37,6 +45,7 @@
 2. **Ctrl/Alt mouse mode in Standby** must still move items between slots. The interaction block patches only the `InventoryManager` mode methods, which vanilla already skips while `Cursor.visible`; `SlotDisplayButton` handlers are blocked **only** in Deep (`LevelProfile.BlocksInventory`). Pinned by the `LevelProfile` tests (Task 2).
 3. **Wake responsiveness:** in Standby and Deep a tap must wake at once, not after the 0.35 s double-tap window. Pinned by `PressDetector` `ImmediateTap` tests (Task 1).
 4. **Holding the key in Deep Standby** must wake, not reopen the menu (every gesture in Deep = Wake). Pinned in the `KeyActions` tests (Task 2).
+6. **Game update reworks the light drain:** `SetPowerDrain` / `PowerDrainedPerTick` gone. Expected: the fix disables itself with a log line, standby keeps working, and nothing sets `StandbyDisabled`. Pinned by `LightDrainFix.Available` being checked before patching (Task 4); verified by reading the registration code in review.
 5. **Network byte range:** the level enum grows to 4 values; the host must still reject bytes above `DeepStandby`. Pinned by the `LevelProfile.IsValidWire` test (Task 2), and used in `StandbyRequestMessage` (Task 4).
 
 ---
@@ -581,59 +590,132 @@ This task has no pure code; its gate is a clean `dotnet build` of the plugin plu
   - Update the WakeDefaults descriptions: "Pre-ticked in the Deep Standby menu, and what Standby wakes on."
 
 - [ ] **Step 2: `StandbyRequestMessage.cs` line 40:** replace `if (Level > (byte)StandbyLevel.Deep) return;` with `if (!LevelProfile.IsValidWire(Level)) return;`.
-- [ ] **Step 3: Lights drain at full rate (TDD).** Vanilla `Human.OnLifeTick` drains `num x PowerDrainedPerTick x RobotBatteryRate`. The private static `PowerDrainedPerTick` is 100 for the body, and 105 after the helmet-light key (`ToggleHelmetLight` -> `SetPowerDrain(105f)`); the night-vision key resets it to 100. Only the body's 100 share is scaled by the level's factor.
-  - Add a failing test to `BatteryMathTests.cs`:
+- [ ] **Step 3: Fix the vanilla helmet-light drain bug (TDD).**
+
+Decompile facts:
+- `Human.OnLifeTick` drains the droid battery by `num x PowerDrainedPerTick x RobotBatteryRate`.
+  - `PowerDrainedPerTick` is a `private static float`, base 100.
+  - `ToggleHelmetLight` (hotkey only) calls private static `SetPowerDrain(105f)`, even when switching the light **off**.
+  - Only `ToggleNightVision` calls `ResetPowerDrain()` (back to 100).
+- The static is shared by every human, so in multiplayer one player's light key raises every droid's drain.
+- Helmet lights and headlamps (`IWearableLight`: `Helmet`, `Headlamp`, ...) already drain **their own** battery.
+
+Intended behaviour kept from vanilla: a droid pays 5 % extra while its light is on. That cost is now per droid and only while the light is actually on.
+
+  - Add failing tests to `BatteryMathTests.cs`:
 
 ```csharp
         [Theory]
-        [InlineData(100f, 0f, 100f, 100f)]    // Deep, no light: whole tick refunded
-        [InlineData(105f, 0f, 105f, 100f)]    // Deep, helmet light: the light's 5 still drains
-        [InlineData(100f, 0.25f, 100f, 75f)]  // Standby
-        [InlineData(105f, 0.5f, 105f, 50f)]   // Power Save with light: half the body, all of the light
-        [InlineData(0f, 0f, 100f, 0f)]        // nothing spent (charging): nothing refunded
-        [InlineData(-5f, 0f, 100f, 0f)]
-        public void Refund_scalesOnlyBodyShare(float spent, float factor, float drainPerTick, float expected)
+        [InlineData(100f, 1f, false, 0f)]      // Normal, light off: vanilla drain unchanged
+        [InlineData(100f, 1f, true, -5f)]      // Normal, light on: +5 % charged
+        [InlineData(100f, 0f, false, 100f)]    // Deep, light off: frozen
+        [InlineData(100f, 0f, true, 95f)]      // Deep, light on: the light's 5 % still drains
+        [InlineData(100f, 0.25f, false, 75f)]  // Standby
+        [InlineData(100f, 0.5f, true, 45f)]    // Power Save + light: half the body, all of the light
+        [InlineData(0f, 0f, true, 0f)]         // nothing drained this tick (bed, charger): no change
+        [InlineData(-5f, 0.5f, true, 0f)]
+        public void Adjustment_scalesBodyAndAddsLight(float spent, float factor, bool lightOn, float expected)
         {
-            Assert.Equal(expected, BatteryMath.Refund(spent, factor, drainPerTick), 3);
+            Assert.Equal(expected, BatteryMath.Adjustment(spent, factor, lightOn), 3);
         }
 ```
 
-  - Run `dotnet test tests/SaltysDroidStandby.Tests -v q --filter BatteryMathTests`. Expected: compile FAIL (`Refund` missing).
+  - Run `dotnet test tests/SaltysDroidStandby.Tests -v q --filter BatteryMathTests`. Expected: compile FAIL (`Adjustment` missing).
   - Add to `src/BatteryMath.cs`:
 
 ```csharp
-        // Vanilla's per-tick droid drain is PowerDrainedPerTick (100 = body; the helmet light
-        // raises it to 105). The standby factor applies to the body's 100 only, so lights keep
-        // draining at full rate (user, 2026-10-07).
-        public const float BodyDrainPerTick = 100f;
+        // Light cost as a share of the droid's own drain: vanilla's 105 vs 100 per tick.
+        public const float LightShare = 0.05f;
 
-        public static float Refund(float spent, float factor, float drainPerTick)
+        // Amount to ADD back to the droid battery after vanilla's life-tick drain of `spent`
+        // (the body drain, with the vanilla light bug neutralised). The level factor scales the
+        // body; a lit helmet light costs LightShare of the body drain at full rate in every
+        // level. Negative = charge extra. No drain this tick (bed, charger) = no change.
+        public static float Adjustment(float spent, float factor, bool lightOn)
         {
             if (spent <= 0f) return 0f;
-            float bodyShare = drainPerTick > BodyDrainPerTick ? BodyDrainPerTick / drainPerTick : 1f;
-            return spent * bodyShare * (1f - factor);
+            float refund = spent * (1f - factor);
+            return lightOn ? refund - spent * LightShare : refund;
         }
 ```
 
   - Re-run. Expected: PASS.
-  - In `DrainPatch`, read the static in the prefix. This is safe on the worker thread because it's a plain static read:
+  - Create `SaltysDroidStandby/Patches/LightDrainFix.cs`:
 
 ```csharp
-        private static readonly AccessTools.FieldRef<float> DrainPerTickRef =
-            AccessTools.StaticFieldRefAccess<float>(AccessTools.Field(typeof(Human), "PowerDrainedPerTick"));
+using System.Reflection;
+using Assets.Scripts.Objects;
+using Assets.Scripts.Objects.Entities;
+using Assets.Scripts.Objects.Items;
+using HarmonyLib;
+
+namespace SaltysDroidStandby.Patches
+{
+    // Fixes the vanilla helmet-light drain bug (see UpdateNotes): SetPowerDrain(105) on a
+    // static shared by every human, sticky after the light goes off. Blocking SetPowerDrain
+    // keeps the static at its base; DrainPatch then charges the per-droid light share itself.
+    // Optional by design: if a game update removes or reworks these members, Available is
+    // false, the fix stays off, and the mod carries on (user requirement).
+    public static class LightDrainFix
+    {
+        private static readonly MethodInfo SetPowerDrain =
+            AccessTools.Method(typeof(Human), "SetPowerDrain", new[] { typeof(float) });
+        private static readonly FieldInfo DrainField =
+            AccessTools.Field(typeof(Human), "PowerDrainedPerTick");
+
+        public static bool Available => SetPowerDrain != null && SetPowerDrain.IsStatic
+            && DrainField != null && DrainField.IsStatic && DrainField.FieldType == typeof(float);
+
+        public static bool Active { get; private set; }
+
+        public static void Apply(Harmony harmony)
+        {
+            if (!StandbyConfig.LightDrainFixEnabled) { SaltysDroidStandby.Log("Helmet-light drain fix: off (config)"); return; }
+            if (!Available) { SaltysDroidStandby.Log("Helmet-light drain fix: skipped, the game's light drain code has changed (likely fixed upstream)"); return; }
+            try
+            {
+                harmony.Patch(SetPowerDrain, prefix: new HarmonyMethod(typeof(LightDrainFix), nameof(BlockPrefix)));
+                DrainField.SetValue(null, 100f); // clear a 105 left over from before the patch
+                Active = true;
+                SaltysDroidStandby.Log("Helmet-light drain fix: active");
+            }
+            catch (System.Exception e)
+            {
+                SaltysDroidStandby.LogError("Helmet-light drain fix failed, left off: " + e.Message);
+            }
+        }
+
+        public static bool BlockPrefix() => false;
+
+        // Worker thread (life tick): plain field/property reads only, ReferenceEquals, no Unity APIs.
+        public static bool LightOn(Human human)
+        {
+            Slot slot = human.HelmetSlot;
+            if (ReferenceEquals(slot, null)) return false;
+            IWearableLight light = slot.Occupant as IWearableLight;
+            if (ReferenceEquals(light, null) || !light.OnOff) return false;
+            Thing thing = light.GetAsThing;
+            return !ReferenceEquals(thing, null) && thing.Powered;
+        }
+    }
+}
 ```
 
-    Add `public float DrainPerTick;` to `Before`, and set `DrainPerTick = DrainPerTickRef()` when building `__state` in the prefix. Replace the postfix's spent/refund lines with:
+  - Edit `DrainPatch`:
+    - In the prefix, replace `if (factor >= 1f) return;` with `bool lightFix = LightDrainFix.Active; if (factor >= 1f && !lightFix) return;`. Add `public bool LightOn;` to `Before`, and set `LightOn = lightFix && LightDrainFix.LightOn(__instance)` when building `__state`.
+    - Replace the postfix's spent/refund lines with:
 
 ```csharp
                 float spent = __state.Stored - __state.Battery.PowerStored;
-                __state.Battery.PowerStored += BatteryMath.Refund(spent, __state.Factor, __state.DrainPerTick);
+                __state.Battery.PowerStored += BatteryMath.Adjustment(spent, __state.Factor, __state.LightOn);
 ```
 
-  - Add `using HarmonyLib;` at the top of `DrainPatch.cs` if it's missing. Update the header comment to say:
-    - the factor scales the body drain only;
-    - lights drain at full rate;
-    - in Deep Standby, factor 0 freezes the body drain.
+    - Header comment: the factor scales the droid's own drain; Deep factor 0 freezes it; the light share (when the fix is active) is charged at full rate in every level.
+    - If `Adjustment` would take `PowerStored` below 0, clamp: `if (__state.Battery.PowerStored < 0f) __state.Battery.PowerStored = 0f;`.
+  - `StandbyConfig`: add `public static ConfigEntry<bool> LightFix;`. Bind it as `c.Bind("Fixes", "HelmetLightDrainFix", true, "Fix the vanilla bug where the helmet-light key raises every droid's battery drain by 5% until night vision is toggled. With the fix, each droid pays 5% extra only while its own helmet light is on. Turn off if a game update fixes it differently.")`. Accessor: `public static bool LightDrainFixEnabled => LightFix == null || LightFix.Value;`.
+  - `RegisterPatches`: after the DrainPatch line, add `Patches.LightDrainFix.Apply(harmony);`. It must **not** set `StandbyDisabled` on any outcome.
+  - Run `dotnet test tests/SaltysDroidStandby.Tests -v q`. Expected: PASS.
+
 - [ ] **Step 4: Add the csproj reference** after the AudioModule line:
 
 ```xml
@@ -810,7 +892,7 @@ namespace SaltysDroidStandby.Patches
 }
 ```
 
-- [ ] **Step 4: Register.** In `SaltysDroidStandby.RegisterPatches`, add `JetpackPatch`, `WorldInteractionPatch`, `InventoryFreezePatch`, `SlotButtonFreezePatch` and `NightVisionPatch` using the same `PatchSafely(...)` calls as the existing `SpeedPatch` line. A failure in any of them must set `StandbyDisabled` exactly as the others do.
+- [ ] **Step 4: Register.** In `SaltysDroidStandby.RegisterPatches`, add `JetpackPatch`, `WorldInteractionPatch`, `InventoryFreezePatch`, `SlotButtonFreezePatch` and `NightVisionPatch` using the same `PatchSafely(...)` calls as the existing `SpeedPatch` line. Like the existing optional patches (Jump, Speed, Look), a failure is logged by `PatchSafely` and does **not** set `StandbyDisabled`; only the cognition and drain patches are core.
 
 - [ ] **Step 5:** The plugin build still fails on `LocalController` / `WakePanel` (Task 6). Run the unit suite (expected: PASS). Commit (`Standby phase 1b: Standby input limits, jetpack block, Deep freeze`).
 
@@ -1103,7 +1185,9 @@ Then run `grep -rn "StandbyLevel.Deep\b\|PanelOpen\|MovementFactor\|LongPressSec
     - holding the key in Deep wakes.
     - Built-in night vision on (N), then Start: it switches off, N does nothing until you wake, and works again after.
     - Night Vision Goggles worn and on, then Start: the goggles stay on and keep draining their own battery.
-    - Helmet light on during Deep: the battery still drops slowly (the light's share). With the light off, it holds still.
+    - Helmet light on during Deep: the battery still drops slowly (5 % of normal drain). With the light off, it holds still.
+    - Light fix, outside standby: toggle the helmet light on then off with its key. The drain returns to normal at once; you no longer need to press N to clear it. The log shows `Helmet-light drain fix: active`.
+    - Set `[Fixes] HelmetLightDrainFix = false`: the log says `off (config)` and the mod otherwise works.
   - The overlay sits above the hand-slot cards and hides under Esc.
   - The safety net enters Standby, not Deep.
   - Zero-g: entering Standby while jetpacking keeps the droid stable.

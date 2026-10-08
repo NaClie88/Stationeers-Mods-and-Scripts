@@ -12,7 +12,7 @@ The first in-game test showed the original levels were too mild, and that "Deep 
 | **Movement** (top speed, jump) | 12.5 % | **0 %**: no walking, jumping or jetpack | frozen |
 | **Mouse look** | 12.5 % | 6.25 % | frozen |
 | **Battery drain** | ×0.5 | ×0.25 | **frozen** (×0) |
-| **Lights** (helmet light; extra load above the body drain) | full drain | full drain | full drain |
+| **Helmet light** (+5 % of the droid's drain while on; plus its own battery) | full | full | full |
 | **Night vision (droid built-in, N key)** | allowed | allowed | **turned off on Start, blocked until wake**; Night Vision Goggles (a tool) are not affected |
 | **Vision** (cognition floor) | 40 | 85 | 85 |
 | **Hands / world interaction** | allowed | **blocked** (no doors, switches, tools, using items on the world) | blocked |
@@ -29,7 +29,11 @@ The first in-game test showed the original levels were too mild, and that "Deep 
 - **Only the standby key wakes.** Every other key and the mouse are left alone, including **Ctrl/Alt mouse mode**, which inventory management needs (user correction, 2026-10-07). In Standby, Ctrl/Alt + mouse must keep working for slot and battery moves; only walking, jumping, jetpack and world interaction are blocked.
 - Keys are ignored while typing, in menus, or paused (as before).
 
-**Drain applies to the body only (user, 2026-10-07):** the level's drain factor scales the droid's own body drain. Lights and other tools still drain the battery normally in every state, Deep Standby included.
+**Lights and the vanilla light-drain bug (user, 2026-10-07):** helmet lights and headlamps drain their own batteries normally; the mod never touches them.
+
+Vanilla also charges droids +5 % through a static `SetPowerDrain(105)` that every human shares. It sticks after the light is switched off, and only the hotkey path sets it. The mod fixes this: the static is blocked, and each droid pays +5 % of its own drain only while its own helmet light is on and powered. That share is charged at full rate in every level, Deep Standby included.
+
+The fix is optional and self-disabling: it stays off with a log line if a game update removes those members, and there's a config switch for it. The rest of the mod never depends on it.
 
 **Other rules carried forward:**
 - **Safety net** (≤10 % battery, 60 s idle): enters **Standby**. It also pauses the game when effectively solo (single-player or a lone host). It never starts Deep Standby.
