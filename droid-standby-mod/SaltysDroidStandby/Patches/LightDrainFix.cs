@@ -48,7 +48,7 @@ namespace SaltysDroidStandby.Patches
         {
             Slot slot = human.HelmetSlot;
             if (ReferenceEquals(slot, null)) return false;
-            IWearableLight light = slot.Occupant as IWearableLight;
+            IWearableLight light = slot.Get<IWearableLight>(); // a plain field type-check, worker-safe
             if (ReferenceEquals(light, null) || !light.OnOff) return false;
             Thing thing = light.GetAsThing;
             return !ReferenceEquals(thing, null) && thing.Powered;

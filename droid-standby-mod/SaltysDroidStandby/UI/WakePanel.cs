@@ -10,7 +10,7 @@ namespace SaltysDroidStandby.UI
 {
     // ImGuiManager.RenderOverlay calls ImGuiWindowManager.Draw() every frame between
     // ImGui.NewFrame and ImGui.Render (and never on loading screens), so a postfix there is a
-    // safe place to draw. While the panel is open the cursor is freed through vanilla's own
+    // safe place to draw. While the menu is open the cursor is freed through vanilla's own
     // MouseModeController modal -- the mechanism ConsoleWindow uses (final-review I1: writing
     // Cursor.lockState directly gets re-locked by MouseModeController.Check() every frame).
     [HarmonyPatch(typeof(ImGuiWindowManager), nameof(ImGuiWindowManager.Draw))]
@@ -28,11 +28,33 @@ namespace SaltysDroidStandby.UI
 
         private static readonly Vector4 Amber = new Vector4(1f, 0.75f, 0.3f, 1f);
 
-        // Placement (user request): centre of the screen, lower fifth.
-        private static readonly Vector2 Center = new Vector2(0.5f, 0.5f);
         private static readonly Vector2 BottomCenter = new Vector2(0.5f, 1f);
-        private static Vector2 LowerFifth() => new Vector2(Screen.width * 0.5f, Screen.height * 0.9f);
-        private static Vector2 BottomEdge() => new Vector2(Screen.width * 0.5f, Screen.height * 0.97f);
+        private static readonly Vector3[] Corners = new Vector3[4];
+
+        // Bottom-centre anchor just above the hand-slot panel (user: "raised by the height of the
+        // notification card ... it is overlaying the hands item displays"). ImGui y is top-down,
+        // Unity screen y bottom-up. Fallback when the panel isn't available: 80 % down the screen.
+        private static Vector2 Anchor()
+        {
+            float y = Screen.height * 0.8f;
+            try
+            {
+                GameObject hands = InventoryManager.Instance != null ? InventoryManager.Instance.PanelHandsGameObject : null;
+                if (hands != null && hands.activeInHierarchy && hands.transform is RectTransform rt)
+                {
+                    rt.GetWorldCorners(Corners);
+                    Canvas canvas = rt.GetComponentInParent<Canvas>();
+                    Camera cam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+                    float topUnity = RectTransformUtility.WorldToScreenPoint(cam, Corners[1]).y; // [1] = top-left
+                    y = Mathf.Clamp(Screen.height - topUnity - 8f, Screen.height * 0.3f, Screen.height * 0.95f);
+                }
+            }
+            catch (System.Exception)
+            {
+                // keep the fallback position
+            }
+            return new Vector2(Screen.width * 0.5f, y);
+        }
 
         public static void Postfix()
         {
@@ -56,26 +78,27 @@ namespace SaltysDroidStandby.UI
                 return;
             }
 
-            bool interactive = LocalController.PanelOpen || LocalController.PausedBySafetyNet;
+            bool interactive = LocalController.MenuOpen || LocalController.PausedBySafetyNet;
             SetCursorFree(interactive);
 
             if (LocalController.PausedBySafetyNet) { DrawSafetyNet(); return; }
-            if (LocalController.Level == StandbyLevel.Deep)
+            if (LocalController.MenuOpen) { DrawMenu(); return; }
+            switch (LocalController.Level)
             {
-                if (LocalController.PanelOpen) DrawPanel(); else DrawStatus();
-                return;
+                case StandbyLevel.PowerSave: DrawLine("Power Save Mode"); break;
+                case StandbyLevel.Standby: DrawLine("Standby - tap the standby key to wake"); break;
+                case StandbyLevel.DeepStandby: DrawLine("Deep Standby - waking on: " + Describe(LocalController.Selected) + "  (tap the standby key to wake)"); break;
             }
-            if (LocalController.Level == StandbyLevel.PowerSave) DrawLine("Power Save Mode");
             if (LocalController.LastWakeReason != null) DrawWakeMessage();
         }
 
-        private static void DrawPanel()
+        private static void DrawMenu()
         {
             WorldSnapshot r = LocalController.LastReading;
             WakeThresholds t = StandbyConfig.Thresholds();
             ImGui.SetNextWindowBgAlpha(0.92f);
-            ImGui.SetNextWindowPos(BottomEdge(), ImGuiCond.Always, BottomCenter);
-            ImGui.Begin("Deep Standby##SaltysDroidStandby", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse);
+            ImGui.SetNextWindowPos(Anchor(), ImGuiCond.Always, BottomCenter);
+            ImGui.Begin("Deep Standby (Time Skip)##SaltysDroidStandby", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse);
             ImGui.TextColored(Amber, "Deep Standby - wake me when:");
             ImGui.Separator();
             Toggle(WakeCondition.Light, $"Light above {t.LightPercent:F0}%  (now {r.LightPercent:F0}%)");
@@ -84,8 +107,11 @@ namespace SaltysDroidStandby.UI
             Toggle(WakeCondition.Battery, $"Battery charged to {t.BatteryChargedRatio * 100f:F0}% or down to {t.BatteryLowRatio * 100f:F0}%  (now {r.BatteryRatio * 100f:F0}%)");
             Toggle(WakeCondition.Danger, "Danger: damage, pressure swing, temperature");
             ImGui.Separator();
-            if (ImGui.Button("Confirm")) LocalController.ConfirmPanel();
-            ImGui.Text("Enter or Confirm to apply. Press the standby key to wake at any time.");
+            ImGui.Text("Controls and battery drain freeze until you wake.");
+            if (ImGui.Button("Start")) LocalController.StartDeep();
+            ImGui.SameLine();
+            if (ImGui.Button("Cancel")) LocalController.CancelMenu();
+            ImGui.Text("Enter = Start. Tap the standby key to cancel.");
             ImGui.End();
         }
 
@@ -98,31 +124,21 @@ namespace SaltysDroidStandby.UI
             }
         }
 
-        private static void DrawStatus()
-        {
-            ImGui.SetNextWindowBgAlpha(0.75f);
-            ImGui.SetNextWindowPos(LowerFifth(), ImGuiCond.Always, Center);
-            ImGui.Begin("##SaltysDroidStandbyStatus", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.AlwaysAutoResize);
-            ImGui.TextColored(Amber, "Deep Standby - waking on: " + Describe(LocalController.Selected));
-            if (ImGui.IsWindowHovered() && Input.GetMouseButtonDown(0)) LocalController.PanelOpen = true;
-            ImGui.End();
-        }
-
         private static void DrawSafetyNet()
         {
             ImGui.SetNextWindowBgAlpha(0.95f);
-            ImGui.SetNextWindowPos(BottomEdge(), ImGuiCond.Always, BottomCenter);
+            ImGui.SetNextWindowPos(Anchor(), ImGuiCond.Always, BottomCenter);
             ImGui.Begin("Saved you##SaltysDroidStandbySafety", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse);
             ImGui.TextColored(Amber, $"Saved you at {LocalController.LastReading.BatteryRatio * 100f:F0}% battery.");
-            ImGui.Text("You were idle with a low battery, so your droid entered Deep Standby.");
-            if (ImGui.Button("Resume in standby")) LocalController.ResumeFromSafetyPause();
+            ImGui.Text("You were idle with a low battery, so your droid entered Standby.");
+            if (ImGui.Button("Resume (stay in Standby)")) LocalController.ResumeFromSafetyPause();
             ImGui.End();
         }
 
         private static void DrawLine(string text)
         {
             ImGui.SetNextWindowBgAlpha(0.6f);
-            ImGui.SetNextWindowPos(LowerFifth(), ImGuiCond.Always, Center);
+            ImGui.SetNextWindowPos(Anchor(), ImGuiCond.Always, BottomCenter);
             ImGui.Begin("##SaltysDroidStandbyLine", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoInputs);
             ImGui.TextColored(Amber, text);
             ImGui.End();
