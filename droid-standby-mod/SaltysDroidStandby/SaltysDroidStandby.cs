@@ -84,6 +84,20 @@ namespace SaltysDroidStandby
             }
         }
 
+        private void Update()
+        {
+            if (_driver != this) return;
+            try
+            {
+                Game.LocalController.Tick();
+            }
+            catch (Exception e)
+            {
+                Log("LocalController.Tick threw");
+                Log(e.ToString());
+            }
+        }
+
         // Filled in by later tasks: one PatchSafely line per patch class, plus network
         // message registration.
         private static void RegisterPatches(Harmony harmony)

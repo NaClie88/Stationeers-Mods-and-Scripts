@@ -54,6 +54,8 @@
     <Compile Include="Patches\CognitionFloorPatch.cs" />
     <Compile Include="Patches\DrainPatch.cs" />
     <Compile Include="Patches\JumpPatch.cs" />
+    <Compile Include="Game\WorldReadings.cs" />
+    <Compile Include="Game\LocalController.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
