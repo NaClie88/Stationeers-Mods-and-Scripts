@@ -49,6 +49,8 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SaltysDroidStandby.cs" />
     <Compile Include="StandbyConfig.cs" />
+    <Compile Include="StandbyRegistry.cs" />
+    <Compile Include="StandbyRequestMessage.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

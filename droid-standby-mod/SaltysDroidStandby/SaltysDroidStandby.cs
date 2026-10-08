@@ -84,6 +84,7 @@ namespace SaltysDroidStandby
         // message registration.
         private static void RegisterPatches(Harmony harmony)
         {
+            MOD?.Networking.RegisterMessage<StandbyRequestMessage>();
         }
 
         internal static bool PatchSafely(Harmony harmony, Type patchClass, string label)
