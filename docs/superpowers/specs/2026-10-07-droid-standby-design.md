@@ -12,6 +12,8 @@ The first in-game test showed the original levels were too mild, and that "Deep 
 | **Movement** (top speed, jump) | 12.5 % | **0 %**: no walking, jumping or jetpack | frozen |
 | **Mouse look** | 12.5 % | 6.25 % | frozen |
 | **Battery drain** | ×0.5 | ×0.25 | **frozen** (×0) |
+| **Lights** (helmet light; extra load above the body drain) | full drain | full drain | full drain |
+| **Night vision** | allowed | allowed | **turned off on Start, blocked until wake** |
 | **Vision** (cognition floor) | 40 | 85 | 85 |
 | **Hands / world interaction** | allowed | **blocked** (no doors, switches, tools, using items on the world) | blocked |
 | **Inventory management** (move items between slots and hands, e.g. battery swapping; uses Ctrl/Alt + mouse) | allowed | **allowed** | blocked |
@@ -26,6 +28,8 @@ The first in-game test showed the original levels were too mild, and that "Deep 
 - **Tap of the standby key during Deep Standby**: wake to Normal.
 - **Only the standby key wakes.** Every other key and the mouse are left alone, including **Ctrl/Alt mouse mode**, which inventory management needs (user correction, 2026-10-07). In Standby, Ctrl/Alt + mouse must keep working for slot and battery moves; only walking, jumping, jetpack and world interaction are blocked.
 - Keys are ignored while typing, in menus, or paused (as before).
+
+**Drain applies to the body only (user, 2026-10-07):** the level's drain factor scales the droid's own body drain. Lights and other tools still drain the battery normally in every state, Deep Standby included.
 
 **Other rules carried forward:**
 - **Safety net** (≤10 % battery, 60 s idle): enters **Standby**. It also pauses the game when effectively solo (single-player or a lone host). It never starts Deep Standby.

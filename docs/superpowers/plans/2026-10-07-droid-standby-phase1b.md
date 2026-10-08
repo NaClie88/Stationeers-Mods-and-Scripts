@@ -27,6 +27,8 @@
   - keep `droid-standby-mod/UpdateNotes.md` as a running what/why log;
   - every commit ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`;
   - `git -c core.longpaths=true` for adds in this worktree.
+- **Drain factors scale only the droid's own body drain** (vanilla base 100 per tick). Extra load from lights, i.e. the helmet light, which vanilla adds by raising `Human.PowerDrainedPerTick` from 100 to 105, always drains at full rate, in every state including Deep Standby (user, 2026-10-07: "all tools like external lights should still drain battery normally").
+- **Deep Standby turns the droid's night vision off on Start and blocks turning it back on** until wake (user, 2026-10-07).
 - Worker-thread rule (unchanged): code reached from `Brain.OnLifeTick` / `Human.OnLifeTick` uses no Unity APIs, uses `ReferenceEquals`, and catches everything.
 
 ## Review Focus
@@ -302,7 +304,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `static KeyAction KeyActions.Decide(StandbyLevel level, Gesture g)`
   - `static bool KeyActions.WantsImmediateTap(StandbyLevel level)`
   - `static float LevelProfile.Movement(StandbyLevel)`, `static float LevelProfile.Look(StandbyLevel)`
-  - `static bool LevelProfile.BlocksJetpack / BlocksWorldInteraction / BlocksInventory(StandbyLevel)`
+  - `static bool LevelProfile.BlocksJetpack / BlocksWorldInteraction / BlocksInventory / BlocksNightVision(StandbyLevel)`
   - `static bool LevelProfile.IsValidWire(byte)`
 
 - [ ] **Step 1: Write the failing tests.** `KeyActionsTests.cs`:
@@ -377,6 +379,16 @@ namespace SaltysDroidStandby.Tests
             Assert.Equal(jetpack, LevelProfile.BlocksJetpack(level));
             Assert.Equal(world, LevelProfile.BlocksWorldInteraction(level));
             Assert.Equal(inventory, LevelProfile.BlocksInventory(level));
+        }
+
+        [Theory]
+        [InlineData(StandbyLevel.Normal, false)]
+        [InlineData(StandbyLevel.PowerSave, false)]
+        [InlineData(StandbyLevel.Standby, false)]
+        [InlineData(StandbyLevel.DeepStandby, true)]
+        public void NightVision_offOnlyInDeep(StandbyLevel level, bool expected)
+        {
+            Assert.Equal(expected, LevelProfile.BlocksNightVision(level));
         }
 
         [Theory]
@@ -464,6 +476,7 @@ namespace SaltysDroidStandby
         public static bool BlocksJetpack(StandbyLevel level) => level >= StandbyLevel.Standby;
         public static bool BlocksWorldInteraction(StandbyLevel level) => level >= StandbyLevel.Standby;
         public static bool BlocksInventory(StandbyLevel level) => level == StandbyLevel.DeepStandby;
+        public static bool BlocksNightVision(StandbyLevel level) => level == StandbyLevel.DeepStandby;
 
         public static bool IsValidWire(byte b) => b <= (byte)StandbyLevel.DeepStandby;
     }
@@ -568,7 +581,59 @@ This task has no pure code; its gate is a clean `dotnet build` of the plugin plu
   - Update the WakeDefaults descriptions: "Pre-ticked in the Deep Standby menu, and what Standby wakes on."
 
 - [ ] **Step 2: `StandbyRequestMessage.cs` line 40:** replace `if (Level > (byte)StandbyLevel.Deep) return;` with `if (!LevelProfile.IsValidWire(Level)) return;`.
-- [ ] **Step 3:** `DrainPatch` already refunds `spent * (1 - factor)`, so factor 0 refunds everything. No change is needed; add one comment line above `__state.Battery.PowerStored += ...`: `// factor 0 (Deep Standby) refunds the whole tick: drain frozen.`
+- [ ] **Step 3: Lights drain at full rate (TDD).** Vanilla `Human.OnLifeTick` drains `num x PowerDrainedPerTick x RobotBatteryRate`. The private static `PowerDrainedPerTick` is 100 for the body, and 105 after the helmet-light key (`ToggleHelmetLight` -> `SetPowerDrain(105f)`); the night-vision key resets it to 100. Only the body's 100 share is scaled by the level's factor.
+  - Add a failing test to `BatteryMathTests.cs`:
+
+```csharp
+        [Theory]
+        [InlineData(100f, 0f, 100f, 100f)]    // Deep, no light: whole tick refunded
+        [InlineData(105f, 0f, 105f, 100f)]    // Deep, helmet light: the light's 5 still drains
+        [InlineData(100f, 0.25f, 100f, 75f)]  // Standby
+        [InlineData(105f, 0.5f, 105f, 50f)]   // Power Save with light: half the body, all of the light
+        [InlineData(0f, 0f, 100f, 0f)]        // nothing spent (charging): nothing refunded
+        [InlineData(-5f, 0f, 100f, 0f)]
+        public void Refund_scalesOnlyBodyShare(float spent, float factor, float drainPerTick, float expected)
+        {
+            Assert.Equal(expected, BatteryMath.Refund(spent, factor, drainPerTick), 3);
+        }
+```
+
+  - Run `dotnet test tests/SaltysDroidStandby.Tests -v q --filter BatteryMathTests`. Expected: compile FAIL (`Refund` missing).
+  - Add to `src/BatteryMath.cs`:
+
+```csharp
+        // Vanilla's per-tick droid drain is PowerDrainedPerTick (100 = body; the helmet light
+        // raises it to 105). The standby factor applies to the body's 100 only, so lights keep
+        // draining at full rate (user, 2026-10-07).
+        public const float BodyDrainPerTick = 100f;
+
+        public static float Refund(float spent, float factor, float drainPerTick)
+        {
+            if (spent <= 0f) return 0f;
+            float bodyShare = drainPerTick > BodyDrainPerTick ? BodyDrainPerTick / drainPerTick : 1f;
+            return spent * bodyShare * (1f - factor);
+        }
+```
+
+  - Re-run. Expected: PASS.
+  - In `DrainPatch`, read the static in the prefix. This is safe on the worker thread because it's a plain static read:
+
+```csharp
+        private static readonly AccessTools.FieldRef<float> DrainPerTickRef =
+            AccessTools.StaticFieldRefAccess<float>(AccessTools.Field(typeof(Human), "PowerDrainedPerTick"));
+```
+
+    Add `public float DrainPerTick;` to `Before`, and set `DrainPerTick = DrainPerTickRef()` when building `__state` in the prefix. Replace the postfix's spent/refund lines with:
+
+```csharp
+                float spent = __state.Stored - __state.Battery.PowerStored;
+                __state.Battery.PowerStored += BatteryMath.Refund(spent, __state.Factor, __state.DrainPerTick);
+```
+
+  - Add `using HarmonyLib;` at the top of `DrainPatch.cs` if it's missing. Update the header comment to say:
+    - the factor scales the body drain only;
+    - lights drain at full rate;
+    - in Deep Standby, factor 0 freezes the body drain.
 - [ ] **Step 4: Add the csproj reference** after the AudioModule line:
 
 ```xml
@@ -588,7 +653,7 @@ This task has no pure code; its gate is a clean `dotnet build` of the plugin plu
 
 **Interfaces:**
 - Consumes: `LevelProfile.Movement / Look / BlocksJetpack / BlocksWorldInteraction / BlocksInventory`, `StandbyRegistry.Get(Human)`
-- Produces: patch classes `JetpackPatch`, `WorldInteractionPatch`, `InventoryFreezePatch`, `SlotButtonFreezePatch`
+- Produces: patch classes `JetpackPatch`, `WorldInteractionPatch`, `InventoryFreezePatch`, `SlotButtonFreezePatch`, `NightVisionPatch`; `NightVisionPatch.ForceOff()`
 
 Decompile facts this task relies on (verified in `Assembly-CSharp`; do not commit the decompile):
 - `MovementController.HandleJetpack(float force, bool haveGravity)` is private. It applies all thrust from the WASD, ascend and descend axes, then calls private `StabilizeJetpack()` when the public `Stabilizer` field is set.
@@ -703,7 +768,41 @@ namespace SaltysDroidStandby.Patches
 
 If `PointerEventData` doesn't resolve, add `<Reference Include="UnityEngine.UI"><HintPath>$(Managed)\UnityEngine.UI.dll</HintPath></Reference>` to the csproj. Record a `Ruling:` line in the ledger if you do.
 
-- [ ] **Step 4: Register.** In `SaltysDroidStandby.RegisterPatches`, add `JetpackPatch`, `WorldInteractionPatch`, `InventoryFreezePatch` and `SlotButtonFreezePatch` using the same `PatchSafely(...)` calls as the existing `SpeedPatch` line. A failure in any of them must set `StandbyDisabled` exactly as the others do.
+- [ ] **Step 3b: Create `NightVisionPatch.cs`.** Decompile facts:
+  - The droid's built-in night vision is `Human.ToggleNightVision()`. It's public, bound to the "NightVision" key (default N), and calls `CameraController.SetNightVision(!Human.CurrentlyUsingNightVision, 1f, 0.5f, robotMode: true)`.
+  - `Human.CurrentlyUsingNightVision` is a public static bool set by `SetNightVision`.
+
+```csharp
+using Assets.Scripts;
+using Assets.Scripts.Inventory;
+using Assets.Scripts.Objects.Entities;
+using HarmonyLib;
+
+namespace SaltysDroidStandby.Patches
+{
+    // Deep Standby: night vision goes off on Start and the night-vision key does nothing
+    // until the droid wakes (user, 2026-10-07). Local player only; camera effect, main thread.
+    [HarmonyPatch(typeof(Human), nameof(Human.ToggleNightVision))]
+    public static class NightVisionPatch
+    {
+        public static bool Prefix(Human __instance)
+        {
+            if (!ReferenceEquals(__instance, InventoryManager.ParentHuman)) return true;
+            return !LevelProfile.BlocksNightVision(StandbyRegistry.Get(__instance));
+        }
+
+        public static void ForceOff()
+        {
+            if (Human.CurrentlyUsingNightVision)
+            {
+                CameraController.SetNightVision(false, 1f, 0.5f, robotMode: true);
+            }
+        }
+    }
+}
+```
+
+- [ ] **Step 4: Register.** In `SaltysDroidStandby.RegisterPatches`, add `JetpackPatch`, `WorldInteractionPatch`, `InventoryFreezePatch`, `SlotButtonFreezePatch` and `NightVisionPatch` using the same `PatchSafely(...)` calls as the existing `SpeedPatch` line. A failure in any of them must set `StandbyDisabled` exactly as the others do.
 
 - [ ] **Step 5:** The plugin build still fails on `LocalController` / `WakePanel` (Task 6). Run the unit suite (expected: PASS). Commit (`Standby phase 1b: Standby input limits, jetpack block, Deep freeze`).
 
@@ -825,6 +924,7 @@ Key and transitions:
             MenuOpen = false;
             SetLevel(me, StandbyLevel.DeepStandby);
             Arm(me, Selected);
+            Patches.NightVisionPatch.ForceOff();
             SaltysDroidStandby.Log("Deep Standby started, waking on: " + Selected);
         }
 
@@ -993,6 +1093,8 @@ Then run `grep -rn "StandbyLevel.Deep\b\|PanelOpen\|MovementFactor\|LongPressSec
     - Cancel, Enter, Start and a tap all behave as described;
     - after Start, no movement, look, inventory or world use, the battery % doesn't drop over a minute, and a tap wakes;
     - holding the key in Deep wakes.
+    - Night vision on (N), then Start: night vision switches off, N does nothing until you wake, and works again after.
+    - Helmet light on during Deep: the battery still drops slowly (the light's share). With the light off, it holds still.
   - The overlay sits above the hand-slot cards and hides under Esc.
   - The safety net enters Standby, not Deep.
   - Zero-g: entering Standby while jetpacking keeps the droid stable.
