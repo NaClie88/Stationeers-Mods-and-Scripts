@@ -2,7 +2,7 @@
 
 H.E.M. Droids trade cognition for battery life — ride out a night or a storm on unreliable renewables.
 
-## Controls (default key `Z`, rebindable)
+## Controls (default key `Z`, rebind in Settings > Controls > Inventory: "Droid Standby")
 
 | | Tap | Hold (0.6 s) |
 |---|---|---|
@@ -10,8 +10,8 @@ H.E.M. Droids trade cognition for battery life — ride out a night or a storm o
 | Power Save | back to Normal | Deep Standby |
 | Deep Standby | wake | wake |
 
-- **Power Save Mode** — battery drain ×0.5, slower (cognition loss held at 40 → ~64 % speed), weaker jumps. Jetpack unaffected.
-- **Deep Standby** — battery drain ×0.25, barely conscious (cognition loss 85 → ~24 % speed, near-black vision). Opens a panel to choose what wakes you: **light** (sunrise), **wind**, **storm start/end** incl. solar storms (outdoors only), **battery** charged/low, **danger** (damage, pressure swing, temperature).
+- **Power Save Mode** — battery drain ×0.5, cognition loss held at 40; top speed, jump and mouse look at ~64 %. Jetpack unaffected.
+- **Deep Standby** — battery drain ×0.25, barely conscious (cognition loss 85, near-black vision); speed, jump and mouse look at ~24 %. Opens a panel to choose what wakes you: **light** (sunrise), **wind**, **storm start/end** incl. solar storms (outdoors only), **battery** charged/low, **danger** (damage, pressure swing, temperature).
 - **AFK safety net** — total battery ≤ 10 % and no input for 60 s → Deep Standby. In single-player — or when you're the only player on your own hosted game — it also pauses until you come back (a joining player ends the pause).
 
 The visuals and slowdown are vanilla's own cognition (stun) effects — the mod only holds a minimum. Beds, cryo tubes and the Droid Sleeper keep their vanilla behaviour (zero drain, charging). Standby is never saved: loading always starts at Normal.
@@ -29,6 +29,9 @@ The visuals and slowdown are vanilla's own cognition (stun) effects — the mod 
 | `Patches/CognitionFloorPatch.cs` | postfix `Brain.OnLifeTick` (server) | hold the stun floor; clear on death / bed / sleeper |
 | `Patches/DrainPatch.cs` | prefix+postfix `Human.OnLifeTick` (server) | refund the unspent share of the tick's drain |
 | `Patches/JumpPatch.cs` | prefix+finalizer `MovementController.HandleJump` | scale jump force for the local player |
+| `Patches/SpeedPatch.cs` | prefix+finalizer `MovementController.MovementHandler` | cap top speed (vanilla stun only slows acceleration) |
+| `Patches/LookPatch.cs` | prefix+finalizer `CameraController.SetMouseLook` | sluggish mouse look |
+| `Patches/KeyBindingPatch.cs` | postfix `KeyManager.SetupKeyBindings` | "Droid Standby" in vanilla Settings > Controls |
 | `Game/LocalController.cs` | plugin `Update` | key gestures, wake checks, safety net |
 | `UI/WakePanel.cs` | postfix `ImGuiWindowManager.Draw` | wake panel, status line, safety prompt |
 | `src/*.cs` | — | pure logic, unit-tested in `tests/` (44 tests) |

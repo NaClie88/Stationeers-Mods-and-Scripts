@@ -54,6 +54,9 @@
     <Compile Include="Patches\CognitionFloorPatch.cs" />
     <Compile Include="Patches\DrainPatch.cs" />
     <Compile Include="Patches\JumpPatch.cs" />
+    <Compile Include="Patches\SpeedPatch.cs" />
+    <Compile Include="Patches\LookPatch.cs" />
+    <Compile Include="Patches\KeyBindingPatch.cs" />
     <Compile Include="Game\WorldReadings.cs" />
     <Compile Include="Game\LocalController.cs" />
     <Compile Include="UI\WakePanel.cs" />

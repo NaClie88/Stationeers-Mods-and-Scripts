@@ -29,3 +29,20 @@ A fresh reviewer read the whole branch against the spec and the decompile. Fixed
 - **I8 and spec gaps.** Wake sound added (`UIAudioManager.NarrationPanelHash`). Added a one-time on-screen note if standby disabled itself. Boxes reset to the config defaults on each entry. Enter confirms. `JumpPatch` matches by `parentEntity`.
 - Ruling: the light default stays 20 % (planned, now documented in the spec), not the spec's earlier 30 %.
 - Deferred minors: per-frame list allocations; the wake-message timer only runs at Normal; the drain refund misses a same-tick α→β spill under the Dual Battery mod (under-refund only); levels on a body the player leaves aren't cleared; no-battery reads as 0 %.
+
+## 2026-10-07: First in-game test, fixes and the vanilla keybind
+
+**Test results (user):**
+- Vision and vitals worked "100% as intended": the stun floor applies and vanilla's own vignette, blur and vital-cap effects follow.
+- **Bug: walking stayed at full speed.**
+- The user expected "Confirm" to freeze controls and fast-forward to dawn. That's the phase 2 Time Skip, not built yet. Recorded in spec §7: controls are frozen while time is accelerated.
+
+**Cause of the speed bug (a spec assumption, now corrected).** `MovementController.MovementHandler` scales only the per-step headroom `(maxSpeed − currentSpeed)` by `(1 − 0.9 × stun/100)`. Every step still closes part of the gap, so a stunned droid reaches full top speed; it just accelerates more slowly. The spec had read it as a top-speed multiplier.
+
+**Fixes and additions:**
+- `SpeedPatch`: scales the local player's `characterMaxSpeed` by the movement factor around `MovementHandler`, then restores it. This uses the same scale-and-restore shape as `JumpPatch`.
+- `LookPatch`: scales `CameraController.CameraSensitivity` around `SetMouseLook`, so mouse look is sluggish in proportion (user request). The player's own sensitivity setting is never changed.
+- `StandbyConfig.JumpFactor` is renamed `MovementFactor`. It's one factor for speed, jump and look: Power Save ≈ 64 %, Deep ≈ 24 %.
+- **Vanilla keybind (user-approved design).** The standby key is now "Droid Standby" in Settings > Controls > Inventory (default Z). The LaunchPad `StandbyKey` entry is removed; `LongPressSeconds` stays in LaunchPad config. `KeyBindingPatch` adds a postfix on `KeyManager.SetupKeyBindings`, using reflection to call the private `AddKey`. Vanilla then applies the saved rebind by name, and the Controls screen builds the row from `AllKeys`. A late-load fallback registers the key itself, applies the saved binding from `Settings.CurrentData.KeyList`, and builds the row with `Settings.ControlItemPrefab`. The row is needed so "reset to defaults" (which touches every key's `Display`) can't throw. The log line says which path ran.
+
+**Also found:** LaunchPad 1.0's active profile (`profiles/my mods.xml`) force-disabled this mod and the airlock until they were added to it. See the repo's `CLAUDE.md`.

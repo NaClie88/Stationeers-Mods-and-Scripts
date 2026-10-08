@@ -36,3 +36,12 @@ Log lines expected once each: `Cognition floor patch succeeded`, `Drain scaling 
 - [ ] Sunrise auto-wake while AFK at low battery: the safety net can still catch the droid again later (only a "battery low" wake disarms it until input).
 - [ ] Logs show no `CognitionFloorPatch:` / `DrainPatch` errors (those run on the game-tick thread).
 - [ ] Jump is reduced in both levels (`JumpPatch` now matches by `parentEntity`); also confirms Harmony accepted the Finalizer's `__state` (else `Jump power patch failed` at startup).
+
+## Added after the first in-game test (2026-10-07)
+
+- [ ] Power Save: top walking speed is clearly lower (about 64 %), not just slower to accelerate. Deep Standby: about 24 %.
+- [ ] Mouse look is sluggish in proportion in both levels, and back to normal on waking. Your sensitivity setting is unchanged afterwards.
+- [ ] Settings > Controls > Inventory shows a "Droid Standby" row bound to Z. Rebind it, and the new key works immediately.
+- [ ] Restart the game: the rebind is kept.
+- [ ] "Reset to defaults" in Controls works without errors, and Droid Standby goes back to Z.
+- [ ] The log shows `Standby key registered … (with vanilla setup)` or `(late path)`. Note which one.

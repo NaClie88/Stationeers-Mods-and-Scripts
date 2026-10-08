@@ -33,7 +33,7 @@ These ground the design and were verified, not assumed:
 - **Beds and sleepers:** `OnLifeTick` returns early while `RootParent is ILifeSuspender { IsSuspendingLife: true }`, so a droid in a Droid Sleeper, bed or cryo tube already drains **0**, and the sleeper charges it.
 - **Cognition = stun.** The HUD's cognition readout is `DamageState.Stun`, and stun already drives everything this mod needs visually and physically:
   - `Entity.OnCameraUpdate`: vignette intensity 0→0.5 (stun 0→80), blur 0→1 (stun 0→50), saturation 1→0 and brightness 0.98→0 (stun 0→100).
-  - `MovementController`: speed × (1 − 0.9 × stun/100).
+  - `MovementController`: the per-step speed *headroom* (max speed − current speed) × (1 − 0.9 × stun/100). **Correction from in-game testing (2026-10-07):** this only slows acceleration, and the droid still reaches full top speed. The mod therefore caps top speed, jump and mouse look itself by the same factor (§4.3).
   - `Human.OnLifeTick`: brain stun ≥ 100, or ≥ 90 while in a life suspender, means **Unconscious**; it becomes Alive again below 50.
   - `Brain`: a droid with an empty or missing battery gains stun each tick and recovers once powered.
 - **No vanilla time skip.** The game only ever sets `Time.timeScale = 1`. The atmosphere, power and day/night simulation appear to run on their own tick, so whether `timeScale` speeds them up is **unknown** (§8, the feasibility probe).
@@ -59,15 +59,15 @@ Each level holds a **minimum stun** on the droid while it's active: Power Save *
 Drain is scaled by **amount**: ×0.5 in Power Save, ×0.25 in Deep Standby, ×0 during Time Skip. **Which** battery is drained is never changed, so `Human.RobotBattery`, and with it the Dual Battery mod's α → β order, chargers and the sleeper, all stay untouched.
 - **Mechanism constraint:** `PowerDrainedPerTick` is static and shared by all humans, so it must **not** be modified to scale one droid; that would race with other droids and with the headlamp's `SetPowerDrain`. The plan uses a per-droid approach instead, for example refunding the unspent share to the battery that was just drained, measured around `OnLifeTick`.
 
-### 4.3 Jump power
-Reduced in Power Save and Deep Standby, configurable, defaulting to the same factor as the speed reduction. The jetpack is not affected.
+### 4.3 Speed, jump and mouse look
+One movement factor, `1 − 0.9 × floor/100` (Power Save ≈ 64 %, Deep ≈ 24 %), scales the local player's top speed (`MovementController.characterMaxSpeed`), jump force and mouse-look sensitivity (`CameraController.CameraSensitivity`) while in standby. Each is scaled for the duration of the vanilla call and restored afterwards. The jetpack is not affected. Sluggish mouse look was added at the user's request after the first in-game test.
 
 ### 4.4 Battery reading
 For the wake conditions and the safety net, battery means **the sum over every battery-type slot on the droid** (`PowerStored / PowerMaximum` summed). That's correct with or without the Dual Battery mod's second slot, with no reference to that mod.
 
 ## 5. Controls and UI
 
-### 5.1 Key: one key, default `Z` (rebindable in LaunchPad config)
+### 5.1 Key: one key, default `Z`, rebindable in the game's own Settings > Controls > Inventory ("Droid Standby")
 
 | State | Tap (< hold threshold, default 0.6 s) | Long press (≥ threshold) |
 |---|---|---|
@@ -100,6 +100,7 @@ Checked about **once per in-game second** while in Deep Standby. A threshold con
 ## 7. Time Skip (phases 2 and 3)
 
 - **Only inside Deep Standby, only by pressing Fast-forward.** Speed is configurable (default 5×, max 10×).
+- **Controls are frozen while accelerated** (user intent, recorded 2026-10-07 after the first test). The droid is effectively asleep; any press of the standby key, or a wake condition, ends the skip and returns control.
 - **While accelerated:**
   - Battery drain is frozen for every participating droid.
   - The world keeps simulating: solar, wind and the sleeper still charge; day/night, weather and atmosphere advance.

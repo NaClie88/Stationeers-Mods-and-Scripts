@@ -55,7 +55,7 @@ namespace SaltysDroidStandby
             try
             {
                 StandbyConfig.Bind(config);
-                Log("Config bound: key=" + StandbyConfig.StandbyKey + ", Deep floor=" + StandbyConfig.StunFloor(StandbyLevel.Deep));
+                Log("Config bound: Deep floor=" + StandbyConfig.StunFloor(StandbyLevel.Deep) + ", long press=" + StandbyConfig.LongPressSeconds + "s");
             }
             catch (Exception e)
             {
@@ -115,6 +115,10 @@ namespace SaltysDroidStandby
             }
             PatchSafely(harmony, typeof(Patches.JumpPatch), "Jump power patch");
             PatchSafely(harmony, typeof(UI.WakePanelPatch), "Wake panel patch");
+            PatchSafely(harmony, typeof(Patches.SpeedPatch), "Top speed patch");
+            PatchSafely(harmony, typeof(Patches.LookPatch), "Mouse look patch");
+            PatchSafely(harmony, typeof(Patches.KeyBindingPatch), "Controls keybind patch");
+            Patches.KeyBinding.EnsureRegistered(latePath: true); // if vanilla setup already ran
         }
 
         internal static bool PatchSafely(Harmony harmony, Type patchClass, string label)

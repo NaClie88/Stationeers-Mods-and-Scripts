@@ -7,7 +7,6 @@ namespace SaltysDroidStandby
     // ConfigEntry is unbound (null) -- e.g. if LaunchPad never called OnLoaded.
     public static class StandbyConfig
     {
-        public static ConfigEntry<KeyCode> Key;
         public static ConfigEntry<float> LongPress;
         public static ConfigEntry<float> PowerSaveFloor, PowerSaveDrain;
         public static ConfigEntry<float> DeepFloor, DeepDrain;
@@ -22,8 +21,8 @@ namespace SaltysDroidStandby
 
         public static void Bind(ConfigFile c)
         {
-            Key = c.Bind("Controls", "StandbyKey", KeyCode.Z, "Tap = Power Save Mode, hold = Deep Standby, any press in Deep Standby = wake.");
-            LongPress = c.Bind("Controls", "LongPressSeconds", 0.6f, new ConfigDescription("How long to hold the key for Deep Standby.", new AcceptableValueRange<float>(0.2f, 2f)));
+            // The key itself is bound in the game's Settings > Controls > Inventory ("Droid Standby").
+            LongPress = c.Bind("Controls", "LongPressSeconds", 0.6f, new ConfigDescription("How long to hold the standby key (bound in Settings > Controls > Inventory) for Deep Standby.", new AcceptableValueRange<float>(0.2f, 2f)));
 
             PowerSaveFloor = c.Bind("PowerSave", "CognitionLossFloor", 40f, new ConfigDescription("Minimum cognition loss (stun) held in Power Save Mode. Speed = 1 - 0.9 x floor/100.", new AcceptableValueRange<float>(0f, 85f)));
             PowerSaveDrain = c.Bind("PowerSave", "DrainFactor", 0.5f, new ConfigDescription("Battery drain multiplier.", new AcceptableValueRange<float>(0.05f, 1f)));
@@ -52,7 +51,6 @@ namespace SaltysDroidStandby
             Verbose = c.Bind("Debug", "VerboseLogging", false, "Log level changes, wake checks and refunds.");
         }
 
-        public static KeyCode StandbyKey => Key != null ? Key.Value : KeyCode.Z;
         public static float LongPressSeconds => LongPress != null ? LongPress.Value : 0.6f;
         public static float CheckIntervalSeconds => 1f;
 
@@ -76,8 +74,9 @@ namespace SaltysDroidStandby
             }
         }
 
-        // Same factor vanilla applies to walking speed for this much stun (MovementController).
-        public static float JumpFactor(StandbyLevel level) => Mathf.Clamp01(1f - 0.9f * StunFloor(level) / 100f);
+        // One factor for top speed, jump and mouse look: 1 - 0.9 x floor/100 (Power Save ~64%,
+        // Deep ~24%). Vanilla's stun only slows acceleration, so the mod caps these itself.
+        public static float MovementFactor(StandbyLevel level) => Mathf.Clamp01(1f - 0.9f * StunFloor(level) / 100f);
 
         public static WakeThresholds Thresholds() => new WakeThresholds
         {

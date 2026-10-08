@@ -138,7 +138,7 @@ namespace SaltysDroidStandby.Game
             // Ignore the key while typing in chat/console, in menus, or paused (Review Focus 4).
             // The wake panel no longer claims an input state, so the key works with it open
             // (final-review I2) -- "press the standby key to wake at any time".
-            bool down = KeyManager.InputState == KeyInputState.Game && Input.GetKey(StandbyConfig.StandbyKey);
+            bool down = KeyManager.InputState == KeyInputState.Game && Input.GetKey(Patches.KeyBinding.Key);
             Gesture g = Press.Update(down, Time.unscaledTime);
             if (g == Gesture.None) return;
 
