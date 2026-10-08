@@ -33,10 +33,15 @@ namespace SaltysDroidStandby.UI
 
         // Bottom-centre anchor just above the hand-slot panel (user: "raised by the height of the
         // notification card ... it is overlaying the hands item displays"). ImGui y is top-down,
-        // Unity screen y bottom-up. Fallback when the panel isn't available: 80 % down the screen.
+        // Unity screen y bottom-up. In-game test 2026-10-08: the measured panel top still put the
+        // overlay over the hand cards (their top is ~90 % down the screen), so the result is capped
+        // at 80 % down -- one card height above them -- and the measurement is logged once.
+        private const float LowestAnchor = 0.8f;
+        private static bool _anchorLogged;
+
         private static Vector2 Anchor()
         {
-            float y = Screen.height * 0.8f;
+            float y = Screen.height * LowestAnchor;
             try
             {
                 GameObject hands = InventoryManager.Instance != null ? InventoryManager.Instance.PanelHandsGameObject : null;
@@ -46,7 +51,13 @@ namespace SaltysDroidStandby.UI
                     Canvas canvas = rt.GetComponentInParent<Canvas>();
                     Camera cam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
                     float topUnity = RectTransformUtility.WorldToScreenPoint(cam, Corners[1]).y; // [1] = top-left
-                    y = Mathf.Clamp(Screen.height - topUnity - 8f, Screen.height * 0.3f, Screen.height * 0.95f);
+                    float measured = Screen.height - topUnity - 8f;
+                    y = Mathf.Clamp(measured, Screen.height * 0.3f, Screen.height * LowestAnchor);
+                    if (!_anchorLogged)
+                    {
+                        _anchorLogged = true;
+                        SaltysDroidStandby.Log($"Overlay anchor: screen {Screen.width}x{Screen.height}, hands panel top {topUnity:F0}px from bottom (canvas {canvas?.renderMode}), measured y {measured:F0}, used y {y:F0}");
+                    }
                 }
             }
             catch (System.Exception)

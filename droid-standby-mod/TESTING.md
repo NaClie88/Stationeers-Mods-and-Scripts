@@ -96,3 +96,22 @@ Log lines expected once each: `Cognition floor patch succeeded`, `Drain scaling 
   - propellant stops draining (watch the tank over a minute).
 - [ ] Standby at 6 % battery, left idle: the droid does **not** wake at 5 %.
 - [ ] Double tap while in Standby: the droid wakes to Normal and stays there (no Power Save).
+
+## Results, in-game test 1 of phase 1b (2026-10-08)
+
+- **Passed:**
+  - the three states and gestures (single tap, double tap, hold → menu, Start, wake);
+  - Standby limits (world blocked, battery swaps work, jetpack);
+  - Deep Standby extras (night vision, goggles, menu click-through, inventory locked);
+  - wakes fire;
+  - the overlay hides under Esc;
+  - save and reload starts in Normal.
+- **Fixed after this test, needs a retest:**
+  - [ ] The jetpack in Normal no longer throws errors (Stabilizer is a property). Jumping in Normal is full height.
+  - [ ] The Deep Standby wake makes an audible chime (now StageComplete; NarrationPanel was silent).
+  - [ ] The overlay sits clearly above the hand-slot cards (capped at 80 % down the screen). Look for the `Overlay anchor:` log line.
+- **Not tested yet:**
+  - the helmet-light fix (no way to test);
+  - the Droid Sleeper;
+  - storm wakes;
+  - multiplayer (no second player).

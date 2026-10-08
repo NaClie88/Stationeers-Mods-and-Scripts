@@ -223,7 +223,9 @@ namespace SaltysDroidStandby.Game
             _suppressedUntilInput = automatic && batteryLow;
             if (automatic)
             {
-                if (sound) UIAudioManager.Play(UIAudioManager.NarrationPanelHash); // Deep only; Standby wakes silently
+                // Deep only; Standby wakes silently. In-game test 2026-10-08: NarrationPanel was inaudible
+                // (vanilla never plays that clip); StageComplete is the helper-hint chime and does play.
+                if (sound) UIAudioManager.Play(UIAudioManager.StageCompleteHash);
                 SaltysDroidStandby.Log("Woke: " + reason);
             }
         }

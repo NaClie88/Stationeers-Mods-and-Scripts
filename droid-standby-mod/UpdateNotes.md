@@ -117,3 +117,8 @@ A double tap in Standby woke the droid on the first tap, because taps are immedi
 - The prefix is wrapped in try/catch and falls back to vanilla for that frame, logging once.
 
 **Lesson:** resolve reflected members at patch time, never in a static initializer that first runs mid-game.
+
+### In-game test 1 follow-ups (2026-10-08)
+
+- **Wake sound.** The user heard nothing on a Deep Standby wake, only the vanilla low-battery alert afterwards. `UIAudioManager.NarrationPanelHash` is declared but vanilla never plays it, so that clip is probably missing. The wake now uses `StageCompleteHash`, the helper-hint chime, which vanilla plays through the same 2D `Play` path.
+- **Overlay still over the hand cards.** The position measured from `PanelHandsGameObject` landed too low; that rect is evidently not the visible cards. The anchor is now capped at 80 % down the screen, one card height above the cards, whose top is about 90 % down at 4K. The measurement is logged once (`Overlay anchor:`) so the rect can be understood or the measurement dropped.
