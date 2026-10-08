@@ -87,6 +87,24 @@ namespace SaltysDroidStandby.Tests
             Assert.Contains("low", Run(e, low, 3));
         }
 
+        // Final review I5: a silent Standby wake at 5 % would return an AFK droid to x4 drain
+        // and let it die sooner. Standby keeps "charged" but never wakes on "low".
+        [Fact]
+        public void BatteryLow_ignored_whenWakeOnLowIsOff()
+        {
+            var e = new WakeEvaluator(WakeCondition.Battery, new WakeThresholds(), Night(), wakeOnLow: false);
+            var low = Night(); low.BatteryRatio = 0.04f;
+            Assert.Null(Run(e, low, 5));
+        }
+
+        [Fact]
+        public void BatteryCharged_stillWakes_whenWakeOnLowIsOff()
+        {
+            var e = new WakeEvaluator(WakeCondition.Battery, new WakeThresholds(), Night(), wakeOnLow: false);
+            var full = Night(); full.BatteryRatio = 0.92f;
+            Assert.Contains("charged", Run(e, full, 3));
+        }
+
         [Fact]
         public void Storm_startOutdoors_wakes()
         {

@@ -173,7 +173,9 @@ namespace SaltysDroidStandby.Game
         private static void EnterStandby(Human me)
         {
             SetLevel(me, StandbyLevel.Standby);
-            Arm(me, StandbyConfig.DefaultWake);
+            // Final review I5: Standby wakes silently, so a "battery low" wake would just return an
+            // AFK droid to full drain; it keeps "charged" but never wakes on "low".
+            Arm(me, StandbyConfig.DefaultWake, wakeOnLow: false);
         }
 
         // Opening the menu does not change level: the droid keeps its current state until Start.
@@ -205,10 +207,10 @@ namespace SaltysDroidStandby.Game
             MenuOpen = false;
         }
 
-        private static void Arm(Human me, WakeCondition conditions)
+        private static void Arm(Human me, WakeCondition conditions, bool wakeOnLow = true)
         {
             LastReading = WorldReadings.Read(me);
-            _evaluator = new WakeEvaluator(conditions, StandbyConfig.Thresholds(), LastReading);
+            _evaluator = new WakeEvaluator(conditions, StandbyConfig.Thresholds(), LastReading, wakeOnLow);
             _nextCheckAt = Time.time + StandbyConfig.CheckIntervalSeconds;
         }
 

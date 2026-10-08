@@ -82,3 +82,16 @@ Log lines expected once each: `Cognition floor patch succeeded`, `Drain scaling 
 - [ ] The overlay sits above the hand-slot cards, centred, and hides under Esc.
 - [ ] Safety net (≤10 %, 60 s idle): enters **Standby**, not Deep.
 - [ ] An old `LongPressSeconds` line in the `.cfg` is ignored, and the hold takes 3 s. The log line `Config bound:` shows `hold=3s`.
+
+**From the final review**
+- [ ] Deep Standby blocks every inventory route:
+  - Ctrl/Alt + click on the battery slot does nothing;
+  - dragging a slot does nothing;
+  - the swap-hands, drop and smart-stow keys do nothing.
+- [ ] Standby: Alt + click a door switch or lever does nothing, but Alt + dragging a battery between slots still works.
+- [ ] With the Deep Standby menu open over a switch, clicking Start or Cancel doesn't flip the switch.
+- [ ] Jetpack: thrust forward in zero-g, then double-tap into Standby:
+  - the exhaust stops;
+  - the droid slows to a stop (stabilizer on);
+  - propellant stops draining (watch the tank over a minute).
+- [ ] Standby at 6 % battery, left idle: the droid does **not** wake at 5 %.

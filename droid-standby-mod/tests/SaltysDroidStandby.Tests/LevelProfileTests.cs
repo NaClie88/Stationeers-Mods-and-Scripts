@@ -37,6 +37,21 @@ namespace SaltysDroidStandby.Tests
             Assert.Equal(expected, LevelProfile.BlocksNightVision(level));
         }
 
+        // Final review I2/I3: in Ctrl/Alt mouse mode vanilla's InputMouse interacts with the world
+        // directly; block that in Standby/Deep, and while the Deep Standby menu is open (clicks on
+        // Start/Cancel must not reach a switch behind the window).
+        [Theory]
+        [InlineData(StandbyLevel.Normal, false, false)]
+        [InlineData(StandbyLevel.PowerSave, false, false)]
+        [InlineData(StandbyLevel.Standby, false, true)]
+        [InlineData(StandbyLevel.DeepStandby, false, true)]
+        [InlineData(StandbyLevel.Normal, true, true)]
+        [InlineData(StandbyLevel.PowerSave, true, true)]
+        public void MouseWorld_blockedInStandbyOrWhileMenuOpen(StandbyLevel level, bool menuOpen, bool expected)
+        {
+            Assert.Equal(expected, LevelProfile.BlocksMouseWorld(level, menuOpen));
+        }
+
         [Theory]
         [InlineData(0, true)]
         [InlineData(3, true)]

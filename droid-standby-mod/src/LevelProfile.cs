@@ -33,6 +33,12 @@ namespace SaltysDroidStandby
         // The droid's built-in night vision only; Night Vision Goggles are a tool and untouched.
         public static bool BlocksNightVision(StandbyLevel level) => level == StandbyLevel.DeepStandby;
 
+        // Vanilla's Ctrl/Alt mouse mode (InputMouse) interacts with the world on its own path;
+        // block it with the rest of world interaction, and while the Deep Standby menu is open
+        // so clicks on Start/Cancel can't reach a switch behind the window.
+        public static bool BlocksMouseWorld(StandbyLevel level, bool menuOpen) =>
+            menuOpen || BlocksWorldInteraction(level);
+
         public static bool IsValidWire(byte b) => b <= (byte)StandbyLevel.DeepStandby;
     }
 }

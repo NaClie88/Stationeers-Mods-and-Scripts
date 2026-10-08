@@ -79,3 +79,24 @@ A fresh reviewer read the whole branch against the spec and the decompile. Fixed
 - **Build notes:**
   - The csproj lists source files explicitly, so the new patch files were added there.
   - `UnityEngine.UI` is referenced for `PointerEventData`, and `UnityEngine.UIModule` for `RectTransformUtility`.
+
+### Final review fixes (fresh reviewer, 2026-10-07)
+
+A fresh reviewer checked the whole branch against the decompile. I confirmed all five Important findings in the decompile before fixing them.
+
+1. **Deep Standby didn't freeze inventory.**
+   - **Cause:** two of the patched handlers do nothing that matters. `SlotDisplayButton.OnPointerDown` is empty in vanilla, and `OnPointerClick` only opens Stationpedia. The real paths are `OnPointerUp` (move to hand, smart stow) and the drag pair (`OnEndDrag` also drops into world slots).
+   - **More gaps:** KeyManager dispatches the swap-hands, hand-power, smart-stow, inventory-select and drop keys itself.
+   - **Fix:** in Deep, `SlotButtonFreezePatch` now targets `OnPointerUp`, `OnBeginDrag` and `OnEndDrag`, and the new `InventoryKeyFreezePatch` blocks those KeyManager handlers.
+2. **Ctrl/Alt mouse mode bypassed the Standby world block.**
+   - **Cause:** in mouse mode, `InputMouse.Idle` and `Click` interact with the world on their own: switches, door buttons, picking items up.
+   - **Fix:** the new `MouseWorldPatch` blocks those two in Standby and Deep, and resets a pending click. Slot moves go through `SlotDisplayButton`, so battery swaps still work.
+3. **Clicks on the Deep Standby menu could reach the world behind it.** ImGui doesn't mark the pointer as over UI, so a click on Start or Cancel could also flip a switch. `MouseWorldPatch` now also blocks while the menu is open (`LevelProfile.BlocksMouseWorld`, tested).
+4. **The jetpack kept burning propellant in Standby.**
+   - **Cause:** skipping `HandleJetpack` left `CurrentEmission` at its last thrust value. That value is networked, and `Jetpack.OnAtmosphericTick` burns propellant from it. A stale `_jetpackUsed` also stopped the stabilizer's damping.
+   - **Fix:** the prefix now runs the no-input path itself:
+     - it clears `_jetpackUsed`;
+     - the stabilizer runs only with propellant;
+     - emission is 1 when stabilizing against gravity, otherwise 0;
+     - an empty tank clears emissions (no free hover).
+5. **Standby's silent low-battery wake could kill an AFK droid sooner.** At 5 %, it put the droid back at full drain, and the safety net couldn't re-engage until input. Standby now keeps the "charged" wake but never wakes on "low" (`WakeEvaluator(..., wakeOnLow: false)`, tested).

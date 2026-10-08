@@ -123,6 +123,8 @@ namespace SaltysDroidStandby
             PatchSafely(harmony, typeof(Patches.WorldInteractionPatch), "World interaction block patch");
             PatchSafely(harmony, typeof(Patches.InventoryFreezePatch), "Inventory hotkey freeze patch");
             PatchSafely(harmony, typeof(Patches.SlotButtonFreezePatch), "Inventory slot button freeze patch");
+            PatchSafely(harmony, typeof(Patches.InventoryKeyFreezePatch), "Inventory key freeze patch");
+            PatchSafely(harmony, typeof(Patches.MouseWorldPatch), "Mouse-mode world block patch");
             PatchSafely(harmony, typeof(Patches.NightVisionPatch), "Night vision block patch");
             Patches.KeyBinding.EnsureRegistered(latePath: true); // if vanilla setup already ran
         }

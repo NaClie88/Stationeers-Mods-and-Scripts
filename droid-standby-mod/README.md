@@ -14,7 +14,7 @@ H.E.M. Droids trade cognition for battery life — ride out a night or a storm o
 | **World interaction** (doors, switches, tools) | yes | no | no |
 | **Inventory** (slot keys, Ctrl/Alt + mouse, battery swaps) | yes | yes | no |
 | **Built-in night vision** | yes | yes | switched off, blocked |
-| **Wakes on** | tap | tap, or silently on the default wake conditions | tap, or the conditions ticked in the menu |
+| **Wakes on** | tap | tap, or silently on the default wake conditions (never on low battery) | tap, or the conditions ticked in the menu |
 
 - **Only the standby key wakes you.** Ctrl/Alt mouse mode and every other key are left alone.
 - **Power Save:** a single tap takes effect after the double-tap window (0.35 s). Tap again for Normal.
@@ -47,12 +47,12 @@ The visuals and slowdown are vanilla's own cognition (stun) effects — the mod 
 | `Patches/LookPatch.cs` | prefix+finalizer `CameraController.SetMouseLook` | sluggish mouse look |
 | `Patches/KeyBindingPatch.cs` | postfix `KeyManager.SetupKeyBindings` | "Droid Standby" in vanilla Settings > Controls |
 | `Patches/JetpackPatch.cs` | prefix `MovementController.HandleJetpack` | no jetpack thrust in Standby/Deep (stabilizer kept) |
-| `Patches/InteractionPatch.cs` | prefixes `InventoryManager.NormalMode` / `PlacementMode` / `PrecisionPlacementMode`; `CheckDisplaySlotInput`; `SlotDisplayButton` pointer and drag handlers | no world interaction in Standby/Deep; no inventory in Deep |
+| `Patches/InteractionPatch.cs` | prefixes:<br>• `InventoryManager.NormalMode` / `PlacementMode` / `PrecisionPlacementMode`<br>• `InputMouse.Idle` / `Click` (Ctrl/Alt mouse mode)<br>• `CheckDisplaySlotInput`<br>• `SlotDisplayButton.OnPointerUp` / `OnBeginDrag` / `OnEndDrag`<br>• KeyManager swap / stow / select / drop / hand-power keys | no world interaction in Standby/Deep, or through the open menu; no inventory in Deep |
 | `Patches/NightVisionPatch.cs` | prefix `Human.ToggleNightVision` | built-in night vision off and blocked in Deep |
 | `Patches/LightDrainFix.cs` | prefix `Human.SetPowerDrain` (optional) | vanilla helmet-light drain bug fix |
 | `Game/LocalController.cs` | plugin `Update` | key gestures, wake checks, safety net |
 | `UI/WakePanel.cs` | postfix `ImGuiWindowManager.Draw` | wake panel, status line, safety prompt |
-| `src/*.cs` | — | pure logic, unit-tested in `tests/` (95 tests) |
+| `src/*.cs` | — | pure logic, unit-tested in `tests/` (103 tests) |
 
 Design: `docs/superpowers/specs/2026-10-07-droid-standby-design.md`. Plans: `docs/superpowers/plans/2026-10-07-droid-standby-phase1.md`, `...-phase1b.md`. Dev log: `UpdateNotes.md`.
 

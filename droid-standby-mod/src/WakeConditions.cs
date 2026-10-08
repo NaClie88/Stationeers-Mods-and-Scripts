@@ -42,7 +42,9 @@ namespace SaltysDroidStandby
         private int _lightCount, _windCount, _chargedCount, _lowCount, _stormCount, _tempCount;
         private float _lastBruteBurn, _lastPressure;
 
-        public WakeEvaluator(WakeCondition selected, WakeThresholds thresholds, WorldSnapshot atEntry)
+        // wakeOnLow false: the Battery condition only wakes on "charged" (Standby -- a silent wake
+        // at low battery would just return an AFK droid to full drain; final review I5).
+        public WakeEvaluator(WakeCondition selected, WakeThresholds thresholds, WorldSnapshot atEntry, bool wakeOnLow = true)
         {
             Selected = selected;
             _t = thresholds;
@@ -51,7 +53,7 @@ namespace SaltysDroidStandby
             _lightArmed = atEntry.LightPercent < _t.LightPercent;
             _windArmed = atEntry.WindPercent < _t.WindPercent;
             _chargedArmed = atEntry.BatteryRatio < _t.BatteryChargedRatio;
-            _lowArmed = atEntry.BatteryRatio > _t.BatteryLowRatio;
+            _lowArmed = wakeOnLow && atEntry.BatteryRatio > _t.BatteryLowRatio;
             _tempArmed = InBand(atEntry.TemperatureK);
             _lastBruteBurn = atEntry.BruteBurn;
             _lastPressure = atEntry.PressureKpa;
