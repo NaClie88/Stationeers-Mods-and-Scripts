@@ -1,19 +1,28 @@
 namespace SaltysDroidStandby
 {
-    // One key, two gestures (spec §5.1): released before LongPressSeconds = Tap; held to
-    // LongPressSeconds = LongPress, fired once while still held (no Tap on that release).
+    // One key, three gestures (spec Revision 2):
+    //  - SingleTap: press+release, then no second press within DoubleTapSeconds (fires when the
+    //    window expires), or immediately on release when ImmediateTap is set (used in Standby
+    //    and Deep Standby so waking never waits on the window).
+    //  - DoubleTap: a second press inside the window; fires on that press, its release is swallowed.
+    //  - LongPress: held for LongPressSeconds; fires once while held, nothing on release.
     public sealed class PressDetector
     {
         private bool _wasDown;
         private float _downAt;
-        private bool _longFired;
+        private bool _swallowRelease;
+        private bool _pendingTap;
+        private float _releasedAt;
 
-        public PressDetector(float longPressSeconds)
+        public PressDetector(float doubleTapSeconds, float longPressSeconds)
         {
+            DoubleTapSeconds = doubleTapSeconds;
             LongPressSeconds = longPressSeconds;
         }
 
+        public float DoubleTapSeconds { get; set; }
         public float LongPressSeconds { get; set; }
+        public bool ImmediateTap { get; set; }
 
         public Gesture Update(bool isDown, float now)
         {
@@ -21,14 +30,21 @@ namespace SaltysDroidStandby
             {
                 _wasDown = true;
                 _downAt = now;
-                _longFired = false;
+                _swallowRelease = false;
+                if (_pendingTap && !ImmediateTap && now - _releasedAt <= DoubleTapSeconds)
+                {
+                    _pendingTap = false;
+                    _swallowRelease = true;
+                    return Gesture.DoubleTap;
+                }
+                _pendingTap = false;
                 return Gesture.None;
             }
             if (isDown)
             {
-                if (!_longFired && now - _downAt >= LongPressSeconds)
+                if (!_swallowRelease && now - _downAt >= LongPressSeconds)
                 {
-                    _longFired = true;
+                    _swallowRelease = true;
                     return Gesture.LongPress;
                 }
                 return Gesture.None;
@@ -36,7 +52,16 @@ namespace SaltysDroidStandby
             if (_wasDown)
             {
                 _wasDown = false;
-                return _longFired ? Gesture.None : Gesture.Tap;
+                if (_swallowRelease) return Gesture.None;
+                if (ImmediateTap) return Gesture.SingleTap;
+                _pendingTap = true;
+                _releasedAt = now;
+                return Gesture.None;
+            }
+            if (_pendingTap && now - _releasedAt > DoubleTapSeconds)
+            {
+                _pendingTap = false;
+                return Gesture.SingleTap;
             }
             return Gesture.None;
         }

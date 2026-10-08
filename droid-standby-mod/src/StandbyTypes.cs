@@ -7,14 +7,26 @@ namespace SaltysDroidStandby
     {
         Normal = 0,
         PowerSave = 1,
-        Deep = 2,
+        Standby = 2,
+        DeepStandby = 3,
     }
 
     public enum Gesture
     {
         None,
-        Tap,
+        SingleTap,
+        DoubleTap,
         LongPress,
+    }
+
+    // What the standby key asks for (KeyActions.Decide).
+    public enum KeyAction
+    {
+        None,
+        EnterPowerSave,
+        EnterStandby,
+        Wake,
+        OpenMenu,
     }
 
     [Flags]

@@ -12,7 +12,7 @@ namespace SaltysDroidStandby
         {
             // canStandby: alive, not in a bed/sleeper, not already paused (final-review C3).
             return canStandby
-                && level != StandbyLevel.Deep
+                && level != StandbyLevel.DeepStandby
                 && !suppressedUntilInput
                 && batteryRatio <= batteryThreshold
                 && idleSeconds >= idleThresholdSeconds;
