@@ -985,7 +985,7 @@ Then run `grep -rn "StandbyLevel.Deep\b\|PanelOpen\|MovementFactor\|LongPressSec
     - look is very slow;
     - doors and switches can't be used, and a held tool does nothing on the world;
     - Ctrl/Alt + mouse can still move a battery between slots;
-    - slot hotkeys still work.
+    - slot hotkeys still work: slot 5 (battery) swaps a battery with the hand, including with Salty's Droid Dual Battery installed (its 2nd battery slot too).
   - Tap in Standby wakes instantly.
   - Standby auto-wakes silently at dawn (default Light), with a status line and no sound.
   - Hold 3 s → menu:
