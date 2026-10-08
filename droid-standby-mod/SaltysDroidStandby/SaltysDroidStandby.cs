@@ -112,6 +112,7 @@ namespace SaltysDroidStandby
                 StandbyDisabled = true;
             }
             PatchSafely(harmony, typeof(Patches.JumpPatch), "Jump power patch");
+            PatchSafely(harmony, typeof(UI.WakePanelPatch), "Wake panel patch");
         }
 
         internal static bool PatchSafely(Harmony harmony, Type patchClass, string label)

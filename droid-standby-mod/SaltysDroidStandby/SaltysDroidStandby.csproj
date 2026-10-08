@@ -56,6 +56,7 @@
     <Compile Include="Patches\JumpPatch.cs" />
     <Compile Include="Game\WorldReadings.cs" />
     <Compile Include="Game\LocalController.cs" />
+    <Compile Include="UI\WakePanel.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
