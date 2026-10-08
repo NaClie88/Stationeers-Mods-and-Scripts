@@ -17,6 +17,12 @@ namespace SaltysDroidStandby.Tests
         }
 
         [Fact]
+        public void AlreadyStandby_doesNotTrigger()
+        {
+            Assert.False(SafetyNetLogic.ShouldTrigger(StandbyLevel.Standby, 0.01f, 600f, 0.10f, 60f, false, true));
+        }
+
+        [Fact]
         public void AlreadyDeep_doesNotTrigger()
         {
             Assert.False(SafetyNetLogic.ShouldTrigger(StandbyLevel.DeepStandby, 0.01f, 600f, 0.10f, 60f, false, true));

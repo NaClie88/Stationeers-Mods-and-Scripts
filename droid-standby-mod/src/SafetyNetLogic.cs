@@ -2,7 +2,8 @@ using System.Collections.Generic;
 
 namespace SaltysDroidStandby
 {
-    // Spec §9. `suppressedUntilInput` is set after any automatic wake (e.g. "battery low")
+    // Spec §9 + Revision 2: the safety net enters Standby (never Deep), so it only fires from
+    // Normal or Power Save. `suppressedUntilInput` is set after any automatic wake (e.g. "battery low")
     // and cleared on real player input, so an AFK droid isn't bounced in and out of standby.
     public static class SafetyNetLogic
     {
@@ -12,7 +13,7 @@ namespace SaltysDroidStandby
         {
             // canStandby: alive, not in a bed/sleeper, not already paused (final-review C3).
             return canStandby
-                && level != StandbyLevel.DeepStandby
+                && level < StandbyLevel.Standby
                 && !suppressedUntilInput
                 && batteryRatio <= batteryThreshold
                 && idleSeconds >= idleThresholdSeconds;
