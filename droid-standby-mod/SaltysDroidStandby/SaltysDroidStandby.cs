@@ -20,6 +20,10 @@ namespace SaltysDroidStandby
         // LaunchPad creates this component more than once; only the instance that patched
         // drives the per-frame client logic (Update), so it never runs twice per frame.
         private static SaltysDroidStandby _driver;
+
+        // Spec §14: if the floor or drain patch can't apply, standby turns itself off so a
+        // player can never end up in a half-working state.
+        public static bool StandbyDisabled;
         private static bool _patched;
 
         public static void Log(string line) => Logger.LogInfo(line);
@@ -85,6 +89,10 @@ namespace SaltysDroidStandby
         private static void RegisterPatches(Harmony harmony)
         {
             MOD?.Networking.RegisterMessage<StandbyRequestMessage>();
+            if (!PatchSafely(harmony, typeof(Patches.CognitionFloorPatch), "Cognition floor patch"))
+            {
+                StandbyDisabled = true;
+            }
         }
 
         internal static bool PatchSafely(Harmony harmony, Type patchClass, string label)
