@@ -52,6 +52,8 @@
     <Compile Include="StandbyRegistry.cs" />
     <Compile Include="StandbyRequestMessage.cs" />
     <Compile Include="Patches\CognitionFloorPatch.cs" />
+    <Compile Include="Patches\DrainPatch.cs" />
+    <Compile Include="Patches\JumpPatch.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

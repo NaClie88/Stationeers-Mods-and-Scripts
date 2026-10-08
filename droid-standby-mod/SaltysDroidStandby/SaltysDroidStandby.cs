@@ -93,6 +93,11 @@ namespace SaltysDroidStandby
             {
                 StandbyDisabled = true;
             }
+            if (!PatchSafely(harmony, typeof(Patches.DrainPatch), "Drain scaling patch"))
+            {
+                StandbyDisabled = true;
+            }
+            PatchSafely(harmony, typeof(Patches.JumpPatch), "Jump power patch");
         }
 
         internal static bool PatchSafely(Harmony harmony, Type patchClass, string label)
