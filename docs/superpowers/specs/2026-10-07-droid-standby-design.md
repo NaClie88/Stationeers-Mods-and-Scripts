@@ -14,16 +14,17 @@ The first in-game test showed the original levels were too mild, and that "Deep 
 | **Battery drain** | ×0.5 | ×0.25 | **frozen** (×0) |
 | **Vision** (cognition floor) | 40 | 85 | 85 |
 | **Hands / world interaction** | allowed | **blocked** (no doors, switches, tools, using items on the world) | blocked |
-| **Inventory management** (move items between slots and hands, e.g. battery swapping) | allowed | **allowed** | blocked |
+| **Inventory management** (move items between slots and hands, e.g. battery swapping; uses Ctrl/Alt + mouse) | allowed | **allowed** | blocked |
 | **Time** | normal | normal | accelerated after **Start** (§8 probe decides how) |
-| **Wake** | tap again | auto-wake on the **config-default** wake conditions (silent, status line only); single tap wakes | wake conditions chosen in the menu; any key press, or a firing condition, ends it |
+| **Wake** | tap again | auto-wake on the **config-default** wake conditions (silent, status line only); single tap wakes | wake conditions chosen in the menu; a **tap of the standby key**, or a firing condition, ends it |
 
 **Gestures (one key, rebindable in Settings > Controls > Inventory "Droid Standby"):**
 - **Single tap**: Normal ↔ Power Save. It takes effect after the double-tap window (default 0.35 s, configurable) expires without a second tap.
 - **Double tap** (two taps within the window): → Standby. From Power Save → Standby.
 - **Single tap while in Standby**: wake to Normal.
 - **Hold 3 s** (configurable) from any state: opens the **Deep Standby menu**. It has the wake-condition checkboxes with live readings (light, wind, storm incl. solar outdoors-only, battery, danger) and **Start**. Closing the menu without Start returns to the previous state. After Start the droid is in Deep Standby: controls and drain frozen, time accelerated.
-- **Any key press during Deep Standby**: wake to Normal.
+- **Tap of the standby key during Deep Standby**: wake to Normal.
+- **Only the standby key wakes.** Every other key and the mouse are left alone, including **Ctrl/Alt mouse mode**, which inventory management needs (user correction, 2026-10-07). In Standby, Ctrl/Alt + mouse must keep working for slot and battery moves; only walking, jumping, jetpack and world interaction are blocked.
 - Keys are ignored while typing, in menus, or paused (as before).
 
 **Other rules carried forward:**
