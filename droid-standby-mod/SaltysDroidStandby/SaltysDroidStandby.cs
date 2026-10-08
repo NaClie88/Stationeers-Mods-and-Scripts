@@ -113,6 +113,7 @@ namespace SaltysDroidStandby
             {
                 StandbyDisabled = true;
             }
+            Patches.LightDrainFix.Apply(harmony); // optional; never disables the mod
             PatchSafely(harmony, typeof(Patches.JumpPatch), "Jump power patch");
             PatchSafely(harmony, typeof(UI.WakePanelPatch), "Wake panel patch");
             PatchSafely(harmony, typeof(Patches.SpeedPatch), "Top speed patch");

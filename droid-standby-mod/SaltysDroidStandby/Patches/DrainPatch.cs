@@ -6,9 +6,11 @@ using HarmonyLib;
 namespace SaltysDroidStandby.Patches
 {
     // Spec §4.2. Human.OnLifeTick drains `RobotBattery.PowerStored -= k x PowerDrainedPerTick`.
-    // PowerDrainedPerTick is STATIC (shared by every human, also set by the headlamp), so it
-    // must not be scaled per droid. Instead: remember the battery and its charge before the
-    // tick, and refund the unspent share afterwards. Which battery drains is never changed,
+    // PowerDrainedPerTick is STATIC (shared by every human), so it must not be scaled per droid.
+    // Instead: remember the battery and its charge before the tick, then settle afterwards with
+    // BatteryMath.Adjustment -- the level factor scales the droid's own drain (Deep Standby's
+    // factor 0 freezes it), and, while LightDrainFix is active, a lit helmet light adds its 5 %
+    // share at full rate in every level (lights drain normally). Which battery drains is never changed,
     // so Dual Battery's alpha -> beta order, chargers and the sleeper are untouched.
     [HarmonyPatch(typeof(Human), nameof(Human.OnLifeTick))]
     public static class DrainPatch
@@ -18,6 +20,7 @@ namespace SaltysDroidStandby.Patches
             public BatteryCell Battery;
             public float Stored;
             public float Factor;
+            public bool LightOn;
         }
 
         // Runs on the life-tick worker thread like CognitionFloorPatch: no Unity object APIs,
@@ -29,10 +32,11 @@ namespace SaltysDroidStandby.Patches
             {
                 if (!GameManager.RunSimulation || !__instance.IsArtificial) return;
                 float factor = StandbyConfig.DrainFactor(StandbyRegistry.Get(__instance));
-                if (factor >= 1f) return;
+                bool lightFix = LightDrainFix.Active;
+                if (factor >= 1f && !lightFix) return;
                 BatteryCell battery = __instance.RobotBattery;
                 if (ReferenceEquals(battery, null)) return;
-                __state = new Before { Battery = battery, Stored = battery.PowerStored, Factor = factor };
+                __state = new Before { Battery = battery, Stored = battery.PowerStored, Factor = factor, LightOn = lightFix && LightDrainFix.LightOn(__instance) };
             }
             catch (System.Exception e)
             {
@@ -47,8 +51,8 @@ namespace SaltysDroidStandby.Patches
             {
                 if (ReferenceEquals(__state.Battery, null)) return;
                 float spent = __state.Stored - __state.Battery.PowerStored;
-                if (spent <= 0f) return;
-                __state.Battery.PowerStored += spent * (1f - __state.Factor);
+                __state.Battery.PowerStored += BatteryMath.Adjustment(spent, __state.Factor, __state.LightOn);
+                if (__state.Battery.PowerStored < 0f) __state.Battery.PowerStored = 0f;
             }
             catch (System.Exception e)
             {

@@ -38,5 +38,19 @@ namespace SaltysDroidStandby.Tests
         {
             Assert.Equal(1f, BatteryMath.TotalRatio(new[] { Cell(120f, 100f) }));
         }
+    
+        [Theory]
+        [InlineData(100f, 1f, false, 0f)]      // Normal, light off: vanilla drain unchanged
+        [InlineData(100f, 1f, true, -5f)]      // Normal, light on: +5 % charged
+        [InlineData(100f, 0f, false, 100f)]    // Deep, light off: frozen
+        [InlineData(100f, 0f, true, 95f)]      // Deep, light on: the light's 5 % still drains
+        [InlineData(100f, 0.25f, false, 75f)]  // Standby
+        [InlineData(100f, 0.5f, true, 45f)]    // Power Save + light: half the body, all of the light
+        [InlineData(0f, 0f, true, 0f)]         // nothing drained this tick (bed, charger): no change
+        [InlineData(-5f, 0.5f, true, 0f)]
+        public void Adjustment_scalesBodyAndAddsLight(float spent, float factor, bool lightOn, float expected)
+        {
+            Assert.Equal(expected, BatteryMath.Adjustment(spent, factor, lightOn), 3);
+        }
     }
 }

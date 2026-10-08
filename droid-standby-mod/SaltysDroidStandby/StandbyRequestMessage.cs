@@ -37,7 +37,7 @@ namespace SaltysDroidStandby
                 SaltysDroidStandby.Log("Rejected standby request for #" + HumanId + " from connection " + clientId);
                 return;
             }
-            if (Level > (byte)StandbyLevel.Deep) return;
+            if (!LevelProfile.IsValidWire(Level)) return;
             StandbyRegistry.Set(human, (StandbyLevel)Level);
         }
     }

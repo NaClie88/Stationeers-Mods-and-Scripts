@@ -35,5 +35,19 @@ namespace SaltysDroidStandby
             float ratio = stored / max;
             return ratio > 1f ? 1f : ratio;
         }
+    
+        // Light cost as a share of the droid's own drain: vanilla's 105 vs 100 per tick.
+        public const float LightShare = 0.05f;
+
+        // Amount to ADD back to the droid battery after vanilla's life-tick drain of `spent`
+        // (the body drain, with the vanilla light bug neutralised). The level factor scales the
+        // body; a lit helmet light costs LightShare of the body drain at full rate in every
+        // level. Negative = charge extra. No drain this tick (bed, charger) = no change.
+        public static float Adjustment(float spent, float factor, bool lightOn)
+        {
+            if (spent <= 0f) return 0f;
+            float refund = spent * (1f - factor);
+            return lightOn ? refund - spent * LightShare : refund;
+        }
     }
 }

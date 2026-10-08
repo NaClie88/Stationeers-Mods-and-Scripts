@@ -7,9 +7,10 @@ namespace SaltysDroidStandby
     // ConfigEntry is unbound (null) -- e.g. if LaunchPad never called OnLoaded.
     public static class StandbyConfig
     {
-        public static ConfigEntry<float> LongPress;
+        public static ConfigEntry<float> DoubleTap, Hold;
         public static ConfigEntry<float> PowerSaveFloor, PowerSaveDrain;
-        public static ConfigEntry<float> DeepFloor, DeepDrain;
+        public static ConfigEntry<float> StandbyFloorEntry, StandbyDrainEntry, DeepFloorEntry;
+        public static ConfigEntry<bool> LightFix;
         public static ConfigEntry<int> Consecutive;
         public static ConfigEntry<float> LightThreshold, WindThreshold;
         public static ConfigEntry<float> BatteryCharged, BatteryLow;
@@ -22,12 +23,16 @@ namespace SaltysDroidStandby
         public static void Bind(ConfigFile c)
         {
             // The key itself is bound in the game's Settings > Controls > Inventory ("Droid Standby").
-            LongPress = c.Bind("Controls", "LongPressSeconds", 0.6f, new ConfigDescription("How long to hold the standby key (bound in Settings > Controls > Inventory) for Deep Standby.", new AcceptableValueRange<float>(0.2f, 2f)));
+            // New key names on purpose: an old LongPressSeconds = 0.6 in an existing .cfg must not
+            // become the 3 s Deep Standby hold (phase 1b Review Focus 1).
+            DoubleTap = c.Bind("Controls", "DoubleTapSeconds", 0.35f, new ConfigDescription("Window for a double tap of the standby key (Standby). A single tap (Power Save) takes effect after this window.", new AcceptableValueRange<float>(0.15f, 1f)));
+            Hold = c.Bind("Controls", "HoldSeconds", 3f, new ConfigDescription("Hold the standby key this long to open the Deep Standby (Time Skip) menu.", new AcceptableValueRange<float>(1f, 6f)));
 
-            PowerSaveFloor = c.Bind("PowerSave", "CognitionLossFloor", 40f, new ConfigDescription("Minimum cognition loss (stun) held in Power Save Mode. Speed = 1 - 0.9 x floor/100.", new AcceptableValueRange<float>(0f, 85f)));
+            PowerSaveFloor = c.Bind("PowerSave", "CognitionLossFloor", 40f, new ConfigDescription("Minimum cognition loss (stun) held in Power Save Mode. Vision only; speed is fixed by the level.", new AcceptableValueRange<float>(0f, 85f)));
             PowerSaveDrain = c.Bind("PowerSave", "DrainFactor", 0.5f, new ConfigDescription("Battery drain multiplier.", new AcceptableValueRange<float>(0.05f, 1f)));
-            DeepFloor = c.Bind("DeepStandby", "CognitionLossFloor", 85f, new ConfigDescription("Minimum cognition loss held in Deep Standby. Keep below 90 (vanilla falls unconscious at 90 in a bed, 100 anywhere).", new AcceptableValueRange<float>(0f, 89f)));
-            DeepDrain = c.Bind("DeepStandby", "DrainFactor", 0.25f, new ConfigDescription("Battery drain multiplier.", new AcceptableValueRange<float>(0.05f, 1f)));
+            StandbyFloorEntry = c.Bind("Standby", "CognitionLossFloor", 85f, new ConfigDescription("Minimum cognition loss held in Standby. Keep below 90 (vanilla falls unconscious at 90 in a bed, 100 anywhere).", new AcceptableValueRange<float>(0f, 89f)));
+            StandbyDrainEntry = c.Bind("Standby", "DrainFactor", 0.25f, new ConfigDescription("Battery drain multiplier.", new AcceptableValueRange<float>(0.05f, 1f)));
+            DeepFloorEntry = c.Bind("DeepStandby", "CognitionLossFloor", 85f, new ConfigDescription("Minimum cognition loss held in Deep Standby. Battery drain is frozen there. Keep below 90.", new AcceptableValueRange<float>(0f, 89f)));
 
             Consecutive = c.Bind("Wake", "ConsecutiveChecks", 3, new ConfigDescription("Checks (about 1 s apart) a threshold must hold before waking.", new AcceptableValueRange<int>(1, 10)));
             LightThreshold = c.Bind("Wake", "LightPercent", 20f, new ConfigDescription("Wake when light (sun height x storm dimming) rises above this %.", new AcceptableValueRange<float>(1f, 100f)));
@@ -38,20 +43,24 @@ namespace SaltysDroidStandby
             PressureDelta = c.Bind("Wake", "PressureChangeKpa", 20f, new ConfigDescription("Danger: wake on a pressure swing of this many kPa between checks.", new AcceptableValueRange<float>(1f, 500f)));
             TempMinC = c.Bind("Wake", "SafeTempMinC", -50f, "Danger: wake when surrounding temperature stays below this (C).");
             TempMaxC = c.Bind("Wake", "SafeTempMaxC", 50f, "Danger: wake when surrounding temperature stays above this (C).");
-            WakeLight = c.Bind("WakeDefaults", "Light", true, "Pre-ticked in the wake panel.");
-            WakeWind = c.Bind("WakeDefaults", "Wind", false, "Pre-ticked in the wake panel.");
-            WakeStorm = c.Bind("WakeDefaults", "Storm", false, "Pre-ticked in the wake panel.");
-            WakeBattery = c.Bind("WakeDefaults", "Battery", true, "Pre-ticked in the wake panel.");
-            WakeDanger = c.Bind("WakeDefaults", "Danger", true, "Pre-ticked in the wake panel.");
+            WakeLight = c.Bind("WakeDefaults", "Light", true, "Pre-ticked in the Deep Standby menu, and what Standby wakes on.");
+            WakeWind = c.Bind("WakeDefaults", "Wind", false, "Pre-ticked in the Deep Standby menu, and what Standby wakes on.");
+            WakeStorm = c.Bind("WakeDefaults", "Storm", false, "Pre-ticked in the Deep Standby menu, and what Standby wakes on.");
+            WakeBattery = c.Bind("WakeDefaults", "Battery", true, "Pre-ticked in the Deep Standby menu, and what Standby wakes on.");
+            WakeDanger = c.Bind("WakeDefaults", "Danger", true, "Pre-ticked in the Deep Standby menu, and what Standby wakes on.");
 
-            SafetyBatteryEntry = c.Bind("SafetyNet", "BatteryPercent", 10f, new ConfigDescription("Auto Deep Standby at or below this total battery %, when idle.", new AcceptableValueRange<float>(0f, 50f)));
+            SafetyBatteryEntry = c.Bind("SafetyNet", "BatteryPercent", 10f, new ConfigDescription("Auto Standby at or below this total battery %, when idle.", new AcceptableValueRange<float>(0f, 50f)));
             SafetyIdleEntry = c.Bind("SafetyNet", "IdleSeconds", 60f, new ConfigDescription("Seconds without input before the safety net may act.", new AcceptableValueRange<float>(10f, 600f)));
             SafetyPauseEntry = c.Bind("SafetyNet", "PauseInSinglePlayer", true, "Also pause the game in single-player (or when you are the only player on your hosted game) when the safety net acts.");
+
+            LightFix = c.Bind("Fixes", "HelmetLightDrainFix", true, "Fix the vanilla bug where the helmet-light key raises every droid's battery drain by 5% until night vision is toggled. With the fix, each droid pays 5% extra only while its own helmet light is on. Turn off if a game update fixes it differently.");
 
             Verbose = c.Bind("Debug", "VerboseLogging", false, "Log level changes, wake checks and refunds.");
         }
 
-        public static float LongPressSeconds => LongPress != null ? LongPress.Value : 0.6f;
+        public static float DoubleTapSeconds => DoubleTap != null ? DoubleTap.Value : 0.35f;
+        public static float HoldSeconds => Hold != null ? Hold.Value : 3f;
+        public static bool LightDrainFixEnabled => LightFix == null || LightFix.Value;
         public static float CheckIntervalSeconds => 1f;
 
         public static float StunFloor(StandbyLevel level)
@@ -59,7 +68,8 @@ namespace SaltysDroidStandby
             switch (level)
             {
                 case StandbyLevel.PowerSave: return PowerSaveFloor != null ? PowerSaveFloor.Value : 40f;
-                case StandbyLevel.Deep: return DeepFloor != null ? DeepFloor.Value : 85f;
+                case StandbyLevel.Standby: return StandbyFloorEntry != null ? StandbyFloorEntry.Value : 85f;
+                case StandbyLevel.DeepStandby: return DeepFloorEntry != null ? DeepFloorEntry.Value : 85f;
                 default: return 0f;
             }
         }
@@ -69,14 +79,11 @@ namespace SaltysDroidStandby
             switch (level)
             {
                 case StandbyLevel.PowerSave: return PowerSaveDrain != null ? PowerSaveDrain.Value : 0.5f;
-                case StandbyLevel.Deep: return DeepDrain != null ? DeepDrain.Value : 0.25f;
+                case StandbyLevel.Standby: return StandbyDrainEntry != null ? StandbyDrainEntry.Value : 0.25f;
+                case StandbyLevel.DeepStandby: return 0f; // frozen (spec Revision 2)
                 default: return 1f;
             }
         }
-
-        // One factor for top speed, jump and mouse look: 1 - 0.9 x floor/100 (Power Save ~64%,
-        // Deep ~24%). Vanilla's stun only slows acceleration, so the mod caps these itself.
-        public static float MovementFactor(StandbyLevel level) => Mathf.Clamp01(1f - 0.9f * StunFloor(level) / 100f);
 
         public static WakeThresholds Thresholds() => new WakeThresholds
         {
