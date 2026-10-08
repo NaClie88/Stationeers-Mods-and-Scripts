@@ -1,6 +1,45 @@
 # Salty's Droid Standby: design spec
 
-**Date:** 2026-10-07 · **Branch:** `droid-standby-mod` (off `main`) · **Status:** approved in conversation, awaiting written-spec review
+**Date:** 2026-10-07 · **Branch:** `droid-standby-mod` (off `main`) · **Status:** Revision 2 approved in conversation (after the first in-game test). **Revision 2 below supersedes §2, §4.3, §5 and the entry rules in §7 and §9 wherever they differ.**
+
+## Revision 2: the three states, redefined (2026-10-07)
+
+The first in-game test showed the original levels were too mild, and that "Deep Standby" was meant to *park* the droid, not let it crawl. The user redefined the states one at a time. Names, gestures and numbers below are binding.
+
+| | **1. Power Save** | **2. Standby** | **3. Deep Standby (Time Skip)** |
+|---|---|---|---|
+| **Gesture** | single tap | double tap | hold 3 s (the menu is hidden otherwise) |
+| **Movement** (top speed, jump) | 12.5 % | **0 %**: no walking, jumping or jetpack | frozen |
+| **Mouse look** | 12.5 % | 6.25 % | frozen |
+| **Battery drain** | ×0.5 | ×0.25 | **frozen** (×0) |
+| **Vision** (cognition floor) | 40 | 85 | 85 |
+| **Hands / world interaction** | allowed | **blocked** (no doors, switches, tools, using items on the world) | blocked |
+| **Inventory management** (move items between slots and hands, e.g. battery swapping) | allowed | **allowed** | blocked |
+| **Time** | normal | normal | accelerated after **Start** (§8 probe decides how) |
+| **Wake** | tap again | auto-wake on the **config-default** wake conditions (silent, status line only); single tap wakes | wake conditions chosen in the menu; any key press, or a firing condition, ends it |
+
+**Gestures (one key, rebindable in Settings > Controls > Inventory "Droid Standby"):**
+- **Single tap**: Normal ↔ Power Save. It takes effect after the double-tap window (default 0.35 s, configurable) expires without a second tap.
+- **Double tap** (two taps within the window): → Standby. From Power Save → Standby.
+- **Single tap while in Standby**: wake to Normal.
+- **Hold 3 s** (configurable) from any state: opens the **Deep Standby menu**. It has the wake-condition checkboxes with live readings (light, wind, storm incl. solar outdoors-only, battery, danger) and **Start**. Closing the menu without Start returns to the previous state. After Start the droid is in Deep Standby: controls and drain frozen, time accelerated.
+- **Any key press during Deep Standby**: wake to Normal.
+- Keys are ignored while typing, in menus, or paused (as before).
+
+**Other rules carried forward:**
+- **Safety net** (≤10 % battery, 60 s idle): enters **Standby**. It also pauses the game when effectively solo (single-player or a lone host). It never starts Deep Standby.
+- **Overlay:** centred horizontally, in the lower part of the screen, raised by one card height so it clears the hand-slot displays. Hidden while the game menu is open or the HUD is hidden.
+- **Multiplayer Deep Standby** (phase 3) still needs every player in Deep Standby or asleep, or a solo host.
+
+**Phasing under Revision 2:**
+- **Phase 1b** (next): gestures, Power Save and Standby with the new numbers and limits, the hidden Deep Standby menu, and Start freezing controls and drain at normal speed (no acceleration yet), plus the overlay position.
+- **Phase 2:** the probe (§8), then real time acceleration.
+- **Phase 3:** the multiplayer vote.
+
+**§8 probe, new finding (decompile).** The simulation tick (`GameManager.GameTick`: atmospheres, pipes, electricity, logic, life ticks) is **paced by a real-time stopwatch**: each tick waits until `GameTickSpeedMs` (500 ms, from a getter over a constant) of *unscaled* time has passed. So `Time.timeScale` almost certainly does **not** accelerate gases, power or plants. The probe will instead test shortening that interval, down to zero, where ticks run back to back as fast as the CPU allows. That's "as fast as the computer can reasonably go" while every tick stays a complete, normal tick. The probe also checks:
+- whether day/night and weather follow ticks or Unity time;
+- systems that use real elapsed time rather than ticks (`TerraForming.UpdateGlobalVegetation(LastTickTimeSeconds)` already spotted);
+- the achieved tick rate on the user's machine.
 
 ## 1. Purpose
 
