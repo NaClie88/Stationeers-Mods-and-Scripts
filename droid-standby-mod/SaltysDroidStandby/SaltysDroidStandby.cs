@@ -55,7 +55,7 @@ namespace SaltysDroidStandby
             try
             {
                 StandbyConfig.Bind(config);
-                Log("Config bound: Deep floor=" + StandbyConfig.StunFloor(StandbyLevel.Deep) + ", long press=" + StandbyConfig.LongPressSeconds + "s");
+                Log("Config bound: Standby floor=" + StandbyConfig.StunFloor(StandbyLevel.Standby) + ", double tap=" + StandbyConfig.DoubleTapSeconds + "s, hold=" + StandbyConfig.HoldSeconds + "s");
             }
             catch (Exception e)
             {
@@ -119,6 +119,11 @@ namespace SaltysDroidStandby
             PatchSafely(harmony, typeof(Patches.SpeedPatch), "Top speed patch");
             PatchSafely(harmony, typeof(Patches.LookPatch), "Mouse look patch");
             PatchSafely(harmony, typeof(Patches.KeyBindingPatch), "Controls keybind patch");
+            PatchSafely(harmony, typeof(Patches.JetpackPatch), "Jetpack block patch");
+            PatchSafely(harmony, typeof(Patches.WorldInteractionPatch), "World interaction block patch");
+            PatchSafely(harmony, typeof(Patches.InventoryFreezePatch), "Inventory hotkey freeze patch");
+            PatchSafely(harmony, typeof(Patches.SlotButtonFreezePatch), "Inventory slot button freeze patch");
+            PatchSafely(harmony, typeof(Patches.NightVisionPatch), "Night vision block patch");
             Patches.KeyBinding.EnsureRegistered(latePath: true); // if vanilla setup already ran
         }
 

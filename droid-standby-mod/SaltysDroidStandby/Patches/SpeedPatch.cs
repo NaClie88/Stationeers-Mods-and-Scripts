@@ -11,6 +11,7 @@ namespace SaltysDroidStandby.Patches
     // dimmed correctly but walking stayed at full speed). This caps the top speed itself by
     // scaling the per-player characterMaxSpeed field for the duration of the call -- the same
     // scale-and-restore shape as JumpPatch. Local player only (movement is client-driven).
+    // Revision 2: Power Save 12.5 %, Standby and Deep Standby 0 % (no walking).
     [HarmonyPatch(typeof(MovementController), "MovementHandler")]
     public static class SpeedPatch
     {
@@ -19,7 +20,7 @@ namespace SaltysDroidStandby.Patches
             __state = -1f;
             Human local = InventoryManager.ParentHuman;
             if (local == null || __instance.parentEntity != local) return;
-            float factor = StandbyConfig.MovementFactor(StandbyRegistry.Get(local));
+            float factor = LevelProfile.Movement(StandbyRegistry.Get(local));
             if (factor >= 1f) return;
             __state = __instance.characterMaxSpeed;
             __instance.characterMaxSpeed *= factor;

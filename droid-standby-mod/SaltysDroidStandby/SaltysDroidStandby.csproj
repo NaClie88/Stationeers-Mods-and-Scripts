@@ -42,6 +42,7 @@
     <Reference Include="UnityEngine.PhysicsModule"><HintPath>$(Managed)\UnityEngine.PhysicsModule.dll</HintPath></Reference>
     <Reference Include="UnityEngine.AudioModule"><HintPath>$(Managed)\UnityEngine.AudioModule.dll</HintPath></Reference>
     <Reference Include="UnityEngine.UIModule"><HintPath>$(Managed)\UnityEngine.UIModule.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.UI"><HintPath>$(Managed)\UnityEngine.UI.dll</HintPath></Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
   </ItemGroup>
@@ -58,6 +59,10 @@
     <Compile Include="Patches\SpeedPatch.cs" />
     <Compile Include="Patches\LookPatch.cs" />
     <Compile Include="Patches\KeyBindingPatch.cs" />
+    <Compile Include="Patches\LightDrainFix.cs" />
+    <Compile Include="Patches\JetpackPatch.cs" />
+    <Compile Include="Patches\InteractionPatch.cs" />
+    <Compile Include="Patches\NightVisionPatch.cs" />
     <Compile Include="Game\WorldReadings.cs" />
     <Compile Include="Game\LocalController.cs" />
     <Compile Include="UI\WakePanel.cs" />

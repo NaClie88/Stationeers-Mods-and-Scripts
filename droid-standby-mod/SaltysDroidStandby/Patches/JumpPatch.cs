@@ -7,7 +7,7 @@ namespace SaltysDroidStandby.Patches
 {
     // Spec §4.3. jumpForce is a per-MovementController instance field, so scaling it for the
     // duration of HandleJump and restoring it in a Finalizer affects only this player's jump.
-    // Jetpack thrust is a separate system and is not touched.
+    // Revision 2: 12.5 % in Power Save, none in Standby/Deep. Jetpack thrust: see JetpackPatch.
     [HarmonyPatch(typeof(MovementController), "HandleJump")]
     public static class JumpPatch
     {
@@ -17,7 +17,7 @@ namespace SaltysDroidStandby.Patches
             Human local = InventoryManager.ParentHuman;
             // parentEntity, not gameObject: robust if the controller sits on a child object.
             if (local == null || __instance.parentEntity != local) return;
-            float factor = StandbyConfig.MovementFactor(StandbyRegistry.Get(local));
+            float factor = LevelProfile.Movement(StandbyRegistry.Get(local));
             if (factor >= 1f) return;
             __state = __instance.jumpForce;
             __instance.jumpForce *= factor;
