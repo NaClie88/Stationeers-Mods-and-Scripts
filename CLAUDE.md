@@ -24,6 +24,7 @@ Every mod folder follows the same convention:
 ## Installing and testing
 
 - **Stationeers must be closed** to install: the DLL is locked while the game runs. Always use `build-and-install.sh`; a bare MSBuild build doesn't deploy anything.
+- **While the user is testing:** start `tools/install-on-game-exit.sh <mod-dir>` in the background. It waits for the game to start and exit, then runs that mod's `build-and-install.sh` and prints a log summary (Salty log lines, Player.log exception counts). Use `--no-install` when the installed build is already current.
 - **LaunchPad 1.0 profiles gate which mods load.** The active profile is `Documents/My Games/Stationeers/profiles/my mods.xml` ("My Mods"). At startup LaunchPad applies it and rewrites `modconfig.xml`, so any mod **not listed in the profile is forced disabled**. It won't show in LaunchPad's list (press **P** during startup, then **M**), and an edit to `modconfig.xml` alone gets reverted.
   - A new mod folder, or an existing mod moved to a new folder, therefore does nothing until it's added to the profile.
   - Symptom: `Player.log` shows `new mod added at …\mods\<Mod>` but no `Loading Assembly` line for it.
