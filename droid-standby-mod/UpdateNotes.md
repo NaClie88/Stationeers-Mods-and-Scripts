@@ -104,3 +104,16 @@ A fresh reviewer checked the whole branch against the decompile. I confirmed all
 ### Double tap while asleep (user, 2026-10-07)
 
 A double tap in Standby woke the droid on the first tap, because taps are immediate while asleep. The second tap then started a fresh single tap and dropped the droid into Power Save. Fix: after an immediate (waking) tap, a tap that starts within the double-tap window is ignored, so a double tap simply wakes the droid. A hold started in that window still opens the menu. Covered by 3 new PressDetector tests (106 total).
+
+## 2026-10-08: In-game test 1 of phase 1b, jetpack exception
+
+**User report:** in Normal, the jetpack threw errors every frame and didn't work. Jumping also seemed stuck limited.
+
+**Cause:** `JetpackPatch` resolved `MovementController.Stabilizer` as a *field*, but it's a private *property* (decompile line 188; I misread `if (Stabilizer)` as a field read). The lookup sat in a static initializer, so it threw a TypeInitializationException on the first jetpack frame. After that, every call to the prefix threw, in every state including Normal, and vanilla's `HandleJetpack` never ran. While the jetpack is switched on, the droid is in jetpack mode, and vanilla's ground jump (`HandleJump`) only runs in walking mode. So the broken jetpack is the most likely cause of the jump report too. In Normal, `JumpPatch` doesn't change anything.
+
+**Fix:**
+- `Stabilizer` is read through `AccessTools.PropertyGetter`.
+- All three members are resolved in Harmony's `Prepare()`. If any is missing, the patch isn't applied, a log line says so, and vanilla's jetpack runs untouched.
+- The prefix is wrapped in try/catch and falls back to vanilla for that frame, logging once.
+
+**Lesson:** resolve reflected members at patch time, never in a static initializer that first runs mid-game.
