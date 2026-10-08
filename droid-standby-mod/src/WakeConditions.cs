@@ -59,6 +59,10 @@ namespace SaltysDroidStandby
 
         public WakeCondition Selected { get; }
 
+        // True when the most recent wake was "battery low" -- the only automatic wake after
+        // which the safety net should stand down until real input (final-review I4).
+        public bool LastWakeWasBatteryLow { get; private set; }
+
         public string Check(WorldSnapshot now)
         {
             string reason = null;
@@ -82,6 +86,7 @@ namespace SaltysDroidStandby
                 else if (Falling(now.BatteryRatio, _t.BatteryLowRatio, ref _lowArmed, ref _lowCount))
                 {
                     reason = $"battery low ({now.BatteryRatio * 100f:F0}%)";
+                    LastWakeWasBatteryLow = true;
                 }
             }
             if (reason == null && Has(WakeCondition.Storm))

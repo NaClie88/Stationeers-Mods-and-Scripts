@@ -28,6 +28,8 @@ namespace SaltysDroidStandby
 
         public static void Log(string line) => Logger.LogInfo(line);
 
+        public static void LogError(string line) => Logger.LogError(line);
+
         public static void LogVerbose(string line)
         {
             if (StandbyConfig.IsVerbose) Log(line);

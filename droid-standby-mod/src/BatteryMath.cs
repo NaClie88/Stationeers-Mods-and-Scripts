@@ -6,6 +6,15 @@ namespace SaltysDroidStandby
     // without the Dual Battery mod's second slot, no reference to it).
     public static class BatteryMath
     {
+        // Final-review C2: BatteryCell.PowerStored is not networked -- a multiplayer client
+        // only receives CurrentPowerPercentage (0..100). Clients build the cell from that.
+        public static KeyValuePair<float, float> Cell(float powerStored, float powerMaximum,
+                                                      byte currentPowerPercentage, bool useSyncedPercentage)
+        {
+            float stored = useSyncedPercentage ? currentPowerPercentage / 100f * powerMaximum : powerStored;
+            return new KeyValuePair<float, float>(stored, powerMaximum);
+        }
+
         public static float TotalRatio(IEnumerable<KeyValuePair<float, float>> cells)
         {
             float stored = 0f;

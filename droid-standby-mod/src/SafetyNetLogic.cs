@@ -8,9 +8,11 @@ namespace SaltysDroidStandby
     {
         public static bool ShouldTrigger(StandbyLevel level, float batteryRatio, float idleSeconds,
                                          float batteryThreshold, float idleThresholdSeconds,
-                                         bool suppressedUntilInput)
+                                         bool suppressedUntilInput, bool canStandby)
         {
-            return level != StandbyLevel.Deep
+            // canStandby: alive, not in a bed/sleeper, not already paused (final-review C3).
+            return canStandby
+                && level != StandbyLevel.Deep
                 && !suppressedUntilInput
                 && batteryRatio <= batteryThreshold
                 && idleSeconds >= idleThresholdSeconds;

@@ -34,7 +34,7 @@ namespace SaltysDroidStandby
             Client owner = Client.Find(human.OrganBrain.ClientId);
             if (owner == null || owner.connectionId != clientId)
             {
-                SaltysDroidStandby.Log("Rejected standby request for " + human.name + " from connection " + clientId);
+                SaltysDroidStandby.Log("Rejected standby request for #" + HumanId + " from connection " + clientId);
                 return;
             }
             if (Level > (byte)StandbyLevel.Deep) return;

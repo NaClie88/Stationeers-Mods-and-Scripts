@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Assets.Scripts;
+using Assets.Scripts.Networking;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Entities;
 using Assets.Scripts.Objects.Items;
@@ -46,7 +47,9 @@ namespace SaltysDroidStandby.Game
             {
                 if (slot.Type == Slot.Class.Battery && slot.Get() is BatteryCell cell)
                 {
-                    cells.Add(new KeyValuePair<float, float>(cell.PowerStored, cell.PowerMaximum));
+                    // PowerStored isn't networked; clients use the synced percentage (C2).
+                    cells.Add(BatteryMath.Cell(cell.PowerStored, cell.PowerMaximum,
+                        cell.CurrentPowerPercentage, NetworkManager.IsClient));
                 }
             }
             return BatteryMath.TotalRatio(cells);

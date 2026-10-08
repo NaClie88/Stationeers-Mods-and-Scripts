@@ -21,3 +21,18 @@ Log lines expected once each: `Cognition floor patch succeeded`, `Drain scaling 
 - [ ] With Salty's Droid Dual Battery: drain still alpha → beta; battery % reading includes both slots.
 - [ ] Save while in standby, reload: starts in Normal.
 - [ ] Multiplayer: client's standby applies (host sees the client droid slow + low drain); client without the mod is refused.
+
+## Added after the final code review (2026-10-07)
+
+- [ ] Panel buttons and checkboxes are clickable WITHOUT holding Alt; Enter confirms the panel.
+- [ ] Z wakes from Deep Standby even while the panel is still open.
+- [ ] An automatic wake plays a sound.
+- [ ] Lie down in a Droid Sleeper at <= 10 % battery and go idle 60 s+: no safety net, no pause, no flicker; it just charges.
+- [ ] Esc-pause the game and go idle at low battery: the safety net does NOT fire.
+- [ ] Run a droid's battery flat in Deep Standby until it goes unconscious: standby clears, and after a battery swap the droid wakes up normally (not stuck unconscious).
+- [ ] Multiplayer client: the panel's battery % matches the HUD (not 0 %), and an idle client at a healthy charge is NOT put into standby.
+- [ ] Multiplayer: client disconnects while in Deep Standby, reconnects: normal vision and speed (standby cleared on the server).
+- [ ] Quit to menu while the safety pause dialog is up, load again: no stale "Saved you" dialog, cursor behaves normally.
+- [ ] Sunrise auto-wake while AFK at low battery: the safety net can still catch the droid again later (only a "battery low" wake disarms it until input).
+- [ ] Logs show no `CognitionFloorPatch:` / `DrainPatch` errors (those run on the game-tick thread).
+- [ ] Jump is reduced in both levels (`JumpPatch` now matches by `parentEntity`); also confirms Harmony accepted the Finalizer's `__state` (else `Jump power patch failed` at startup).

@@ -1,3 +1,4 @@
+using Assets.Scripts;
 using Assets.Scripts.Inventory;
 using HarmonyLib;
 using ImGuiNET;
@@ -9,21 +10,36 @@ namespace SaltysDroidStandby.UI
 {
     // ImGuiManager.RenderOverlay calls ImGuiWindowManager.Draw() every frame between
     // ImGui.NewFrame and ImGui.Render (and never on loading screens), so a postfix there is a
-    // safe place to draw. While the panel is open the cursor is freed and game input blocked,
-    // the same save/unlock/restore pattern vanilla's CinematicCamera uses.
+    // safe place to draw. While the panel is open the cursor is freed through vanilla's own
+    // MouseModeController modal -- the mechanism ConsoleWindow uses (final-review I1: writing
+    // Cursor.lockState directly gets re-locked by MouseModeController.Check() every frame).
     [HarmonyPatch(typeof(ImGuiWindowManager), nameof(ImGuiWindowManager.Draw))]
     public static class WakePanelPatch
     {
-        private const string InputStateKey = "SaltysDroidStandby";
+        private sealed class PanelModal : IModal
+        {
+            public bool UnlockCursor => true;
+        }
+
+        private static readonly PanelModal Modal = new PanelModal();
         private static bool _cursorFreed;
-        private static CursorLockMode _savedLock;
-        private static bool _savedVisible;
+        private static bool _disabledShown;
+        private static float _disabledShownAt = -1f;
 
         private static readonly Vector4 Amber = new Vector4(1f, 0.75f, 0.3f, 1f);
 
         public static void Postfix()
         {
             if (InventoryManager.ParentHuman == null) return;
+
+            // Spec §14: a one-time on-screen note when standby switched itself off.
+            if (SaltysDroidStandby.StandbyDisabled && !_disabledShown && InventoryManager.ParentHuman.IsArtificial)
+            {
+                if (_disabledShownAt < 0f) _disabledShownAt = Time.unscaledTime;
+                DrawLine("Salty's Droid Standby is disabled (a patch failed) - see BepInEx/LogOutput.log");
+                if (Time.unscaledTime - _disabledShownAt > 10f) _disabledShown = true;
+                return;
+            }
 
             bool interactive = LocalController.PanelOpen || LocalController.PausedBySafetyNet;
             SetCursorFree(interactive);
@@ -54,7 +70,7 @@ namespace SaltysDroidStandby.UI
             Toggle(WakeCondition.Danger, "Danger: damage, pressure swing, temperature");
             ImGui.Separator();
             if (ImGui.Button("Confirm")) LocalController.ConfirmPanel();
-            ImGui.Text("Press the standby key to wake at any time.");
+            ImGui.Text("Enter or Confirm to apply. Press the standby key to wake at any time.");
             ImGui.End();
         }
 
@@ -121,19 +137,26 @@ namespace SaltysDroidStandby.UI
             if (free == _cursorFreed) return;
             if (free)
             {
-                _savedLock = Cursor.lockState;
-                _savedVisible = Cursor.visible;
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
-                KeyManager.SetInputState(InputStateKey, KeyInputState.Typing);
+                MouseModeController.AddModal(Modal);
             }
             else
             {
-                Cursor.lockState = _savedLock;
-                Cursor.visible = _savedVisible;
-                KeyManager.RemoveInputState(InputStateKey);
+                MouseModeController.RemoveModal(Modal);
+                MouseModeController.Reset();
             }
             _cursorFreed = free;
+        }
+
+        // Called by LocalController when the session/body changes (final-review I6).
+        public static void ResetSession()
+        {
+            if (_cursorFreed)
+            {
+                MouseModeController.RemoveModal(Modal);
+                MouseModeController.Reset();
+                _cursorFreed = false;
+            }
+            _wakeShownAt = -1f;
         }
     }
 }

@@ -15,7 +15,8 @@ namespace SaltysDroidStandby.Patches
         {
             __state = -1f;
             Human local = InventoryManager.ParentHuman;
-            if (local == null || __instance.gameObject != local.gameObject) return;
+            // parentEntity, not gameObject: robust if the controller sits on a child object.
+            if (local == null || __instance.parentEntity != local) return;
             float factor = StandbyConfig.JumpFactor(StandbyRegistry.Get(local));
             if (factor >= 1f) return;
             __state = __instance.jumpForce;

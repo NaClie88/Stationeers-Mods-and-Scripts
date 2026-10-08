@@ -89,7 +89,7 @@ Checked about **once per in-game second** while in Deep Standby. A threshold con
 
 | Condition | Fires when | Notes |
 |---|---|---|
-| **Light** (primary) | Solar light rises above X% (default 30%) | Includes storm dimming |
+| **Light** (primary) | Solar light rises above X% (default 20%: light % is sun height × storm dimming, so 20% ≈ sun 11.5° up, when panels already produce. Changed from 30% during planning) | Includes storm dimming |
 | **Wind** | Wind strength rises above X | For turbine power |
 | **Storm edge** | A storm **starts or ends**, compared with the state on entering standby; **solar storms included** | **Only while outdoors** (droid in the open world atmosphere, not in a room); otherwise this check is skipped |
 | **Battery** | Total battery charged to X% (default 90%), or dropped to Y% (default 5%) | Uses the summed reading (§4.4) |
@@ -163,7 +163,7 @@ New mod folder `droid-standby-mod/SaltysDroidStandby/`, laid out like the other 
 | Power Save stun floor / drain factor / jump factor | 40 / 0.5 / speed-matched |
 | Deep Standby stun floor / drain factor / jump factor | 85 / 0.25 / speed-matched |
 | Wake check consecutive count | 3 |
-| Light threshold / wind threshold | 30% / to be calibrated in-game |
+| Light threshold / wind threshold | 20% / 40% (wind = turbine noise 0..1 as %; confirm in-game) |
 | Battery wake: charged-to / dropped-to | 90% / 5% |
 | Danger: pressure-change and temperature band | to be calibrated in-game |
 | Default-ticked wake conditions | light, battery, danger |

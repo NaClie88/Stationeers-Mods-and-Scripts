@@ -21,8 +21,14 @@ namespace SaltysDroidStandby
             if (h == null) return;
             var box = Levels.GetOrCreateValue(h);
             if (box.Value == level) return;
-            SaltysDroidStandby.LogVerbose("Standby " + h.name + ": " + box.Value + " -> " + level);
+            StandbyLevel previous = box.Value;
             box.Value = level;
+            // ReferenceId, not h.name: Set can run on the life-tick worker thread, where Unity
+            // object APIs throw (final-review C1). Message built only when verbose is on.
+            if (StandbyConfig.IsVerbose)
+            {
+                SaltysDroidStandby.Log("Standby #" + h.ReferenceId + ": " + previous + " -> " + level);
+            }
         }
     }
 }

@@ -20,23 +20,40 @@ namespace SaltysDroidStandby.Patches
             public float Factor;
         }
 
+        // Runs on the life-tick worker thread like CognitionFloorPatch: no Unity object APIs,
+        // ReferenceEquals instead of Unity's ==, and nothing may escape (final-review C1).
         public static void Prefix(Human __instance, out Before __state)
         {
             __state = default;
-            if (!GameManager.RunSimulation || !__instance.IsArtificial) return;
-            float factor = StandbyConfig.DrainFactor(StandbyRegistry.Get(__instance));
-            if (factor >= 1f) return;
-            BatteryCell battery = __instance.RobotBattery;
-            if (battery == null) return;
-            __state = new Before { Battery = battery, Stored = battery.PowerStored, Factor = factor };
+            try
+            {
+                if (!GameManager.RunSimulation || !__instance.IsArtificial) return;
+                float factor = StandbyConfig.DrainFactor(StandbyRegistry.Get(__instance));
+                if (factor >= 1f) return;
+                BatteryCell battery = __instance.RobotBattery;
+                if (ReferenceEquals(battery, null)) return;
+                __state = new Before { Battery = battery, Stored = battery.PowerStored, Factor = factor };
+            }
+            catch (System.Exception e)
+            {
+                __state = default;
+                SaltysDroidStandby.LogError("DrainPatch prefix: " + e.Message);
+            }
         }
 
         public static void Postfix(Before __state)
         {
-            if (__state.Battery == null) return;
-            float spent = __state.Stored - __state.Battery.PowerStored;
-            if (spent <= 0f) return;
-            __state.Battery.PowerStored += spent * (1f - __state.Factor);
+            try
+            {
+                if (ReferenceEquals(__state.Battery, null)) return;
+                float spent = __state.Stored - __state.Battery.PowerStored;
+                if (spent <= 0f) return;
+                __state.Battery.PowerStored += spent * (1f - __state.Factor);
+            }
+            catch (System.Exception e)
+            {
+                SaltysDroidStandby.LogError("DrainPatch postfix: " + e.Message);
+            }
         }
     }
 }
