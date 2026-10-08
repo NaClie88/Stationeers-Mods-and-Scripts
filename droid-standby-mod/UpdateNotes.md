@@ -48,3 +48,34 @@ A fresh reviewer read the whole branch against the spec and the decompile. Fixed
 **Also found:** LaunchPad 1.0's active profile (`profiles/my mods.xml`) force-disabled this mod and the airlock until they were added to it. See the repo's `CLAUDE.md`.
 
 **UI follow-up (same test):** the overlay showed over the Escape menu. It now hides while `InventoryManager.ShowMenu` (the game menu) is up or the HUD is hidden (`ShowUi` false), and hands the cursor back. At the user's request, every window is now centred horizontally: status lines sit in the middle of the bottom fifth, and the panel and prompt grow upward from just above the bottom edge. Installed (MD5 `b6965444…`).
+
+## 2026-10-07: Phase 1b (Revision 2 states)
+
+**Why:** after the first in-game test, the user redefined the states one by one (spec, Revision 2). The old Deep Standby still let the droid crawl about at about 24 %. Now there are three states on one key:
+- **Power Save** (single tap): 12.5 % movement and look, ×0.5 drain.
+- **Standby** (double tap): no movement, 6.25 % look, ×0.25 drain, inventory only.
+- **Deep Standby** (hold 3 s): a hidden menu, then Start freezes controls and drain.
+
+**What changed and why:**
+- **Gestures.** `PressDetector` now reports SingleTap, DoubleTap and LongPress.
+  - A single tap waits out the 0.35 s double-tap window, so it can't be mistaken for half of a double tap.
+  - In Standby and Deep Standby, every tap means "wake", so the detector switches to immediate taps and waking is instant.
+  - `KeyActions.Decide` holds the table. Every gesture in Deep Standby wakes, so holding the key there can't reopen the menu.
+- **Renamed hold setting.** The old `LongPressSeconds = 0.6` in an existing `.cfg` would have made the "3 s" hold fire at 0.6 s. The setting is now `HoldSeconds` (3 s), alongside `DoubleTapSeconds`.
+- **Numbers live in `LevelProfile`** (pure, tested). Speed, jump and look patches read it. The old stun-derived "movement factor" is gone; vision still comes from the stun floor.
+- **Standby input limits.** World interaction is blocked by skipping `InventoryManager.NormalMode` / `PlacementMode` / `PrecisionPlacementMode`. Vanilla already skips those while the cursor is visible (Ctrl/Alt mouse mode), so moving batteries between slots keeps working. Slot hotkeys run before those methods and are untouched. The user confirmed battery swaps must work in Standby.
+- **Jetpack.** `HandleJetpack` is skipped in Standby and Deep, but the stabilizer still runs, so a droid parked mid-air in zero-g stays steady.
+- **Deep Standby freeze.** `CheckDisplaySlotInput` and the `SlotDisplayButton` click and drag handlers are blocked too, look is 0, and drain is ×0.
+- **Built-in night vision.** It's switched off on Start, and the N key is blocked until wake. Night Vision Goggles are a tool and are untouched (user clarification). Both share one camera effect, so the mod only switches it off when no lit goggles are worn.
+- **Vanilla helmet-light drain bug, found and fixed** (user: "patch the bug so the mod user does not have to deal with it ... if they patch it, the mod will not break").
+  - **The bug:** `Human.ToggleHelmetLight` calls `SetPowerDrain(105f)` on a *static* shared by every human, and it does so even when switching the light off. Only `ToggleNightVision` resets it to 100. So one player's light key raises every droid's drain, and it stays raised. The lights also drain their own batteries.
+  - **The fix (`LightDrainFix`):** it blocks `SetPowerDrain`. `DrainPatch` then charges each droid +5 % of its own drain, only while its own helmet light is on and powered, at full rate in every state ("lights drain normally").
+  - **Self-disabling:** if `SetPowerDrain(float)` or the static field is missing after a game update, the fix logs one line and stays off; nothing else depends on it. Config: `[Fixes] HelmetLightDrainFix`.
+- **Menu and wakes.**
+  - Holding the key opens the menu without changing state. Start or Enter enters Deep Standby; Cancel or a tap closes it.
+  - Standby arms the config-default wake conditions and wakes silently with a status line. Deep Standby's wake keeps its sound.
+- **Safety net** now enters Standby, never Deep, and doesn't fire while the menu is open.
+- **Overlay** is anchored just above the hand-slot panel (`InventoryManager.PanelHandsGameObject`'s on-screen top), with a fallback at 80 % of the screen height. The user saw it covering the hand-slot cards.
+- **Build notes:**
+  - The csproj lists source files explicitly, so the new patch files were added there.
+  - `UnityEngine.UI` is referenced for `PointerEventData`, and `UnityEngine.UIModule` for `RectTransformUtility`.

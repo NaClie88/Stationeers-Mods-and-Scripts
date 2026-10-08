@@ -47,3 +47,38 @@ Log lines expected once each: `Cognition floor patch succeeded`, `Drain scaling 
 - [ ] The log shows `Standby key registered … (with vanilla setup)` or `(late path)`. Note which one.
 - [ ] The standby overlay hides while the Escape/game menu is open (and when the HUD is hidden), and comes back when it closes.
 - [ ] Status line and messages sit centred in the bottom fifth of the screen; the wake panel and "Saved you" prompt are centred near the bottom edge.
+
+## Phase 1b (Revision 2 states)
+
+**Gestures and levels**
+- [ ] A single tap enters Power Save after about ⅓ s: very slow walking, sluggish look. Tapping again returns to Normal.
+- [ ] A double tap enters Standby: no walking, jumping or jetpack, very slow look, and the status line reads "Standby - tap the standby key to wake".
+- [ ] A tap in Standby wakes instantly.
+
+**Standby limits**
+- [ ] Doors and switches can't be used, and a held tool does nothing to the world.
+- [ ] Ctrl/Alt + mouse still moves a battery between slots.
+- [ ] Slot hotkeys still work: slot 5 (battery) swaps a battery with the hand, including with Salty's Droid Dual Battery installed (its second battery slot too).
+- [ ] Jetpacking in zero-g, then entering Standby: no thrust, and the droid stays stable.
+- [ ] Standby auto-wakes at dawn (default: Light) with a status line and **no sound**.
+
+**Deep Standby menu**
+- [ ] Holding the key 3 s opens the menu, and the droid stays in its current state while it's open. Readings update live.
+- [ ] Cancel closes the menu with no state change. A tap closes it too.
+- [ ] Enter or Start enters Deep Standby, after which:
+  - no movement, look, inventory or world use;
+  - the battery % doesn't drop over a minute (helmet light off);
+  - a tap wakes;
+  - **holding** the key also wakes, and does not reopen the menu.
+- [ ] Built-in night vision on (N), then Start: it switches off, N does nothing until you wake, and works again afterwards.
+- [ ] Night Vision Goggles worn and on, then Start: the goggles stay on.
+
+**Helmet light fix**
+- [ ] Helmet light on during Deep Standby: the battery drops slowly (5 % of normal). Light off: it holds still.
+- [ ] Outside standby, toggle the helmet light on and then off with its key: the drain returns to normal at once, with no need to press N. The log shows `Helmet-light drain fix: active`.
+- [ ] Set `[Fixes] HelmetLightDrainFix = false`: the log says `off (config)` and everything else works.
+
+**Overlay, safety net and config**
+- [ ] The overlay sits above the hand-slot cards, centred, and hides under Esc.
+- [ ] Safety net (≤10 %, 60 s idle): enters **Standby**, not Deep.
+- [ ] An old `LongPressSeconds` line in the `.cfg` is ignored, and the hold takes 3 s. The log line `Config bound:` shows `hold=3s`.
