@@ -126,6 +126,7 @@ namespace SaltysDroidStandby
             PatchSafely(harmony, typeof(Patches.InventoryKeyFreezePatch), "Inventory key freeze patch");
             PatchSafely(harmony, typeof(Patches.MouseWorldPatch), "Mouse-mode world block patch");
             PatchSafely(harmony, typeof(Patches.NightVisionPatch), "Night vision block patch");
+            PatchSafely(harmony, typeof(Patches.ThrowPatch), "Throw power cap patch");
             Patches.KeyBinding.EnsureRegistered(latePath: true); // if vanilla setup already ran
         }
 

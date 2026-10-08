@@ -26,6 +26,9 @@ namespace SaltysDroidStandby
             }
         }
 
+        // Throw power (hold Q) is capped like movement (user, 2026-10-08).
+        public static float Throw(StandbyLevel level) => Movement(level);
+
         public static bool BlocksJetpack(StandbyLevel level) => level >= StandbyLevel.Standby;
         public static bool BlocksWorldInteraction(StandbyLevel level) => level >= StandbyLevel.Standby;
         public static bool BlocksInventory(StandbyLevel level) => level == StandbyLevel.DeepStandby;

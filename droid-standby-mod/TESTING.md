@@ -115,3 +115,4 @@ Log lines expected once each: `Cognition floor patch succeeded`, `Drain scaling 
   - the Droid Sleeper;
   - storm wakes;
   - multiplayer (no second player).
+  - [ ] Holding Q in Power Save throws only weakly (the meter stops at about ⅛). In Standby, Q just drops the item. In Normal, full throws.

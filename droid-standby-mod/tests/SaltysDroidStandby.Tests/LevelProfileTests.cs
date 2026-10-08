@@ -15,6 +15,17 @@ namespace SaltysDroidStandby.Tests
             Assert.Equal(look, LevelProfile.Look(level));
         }
 
+        // User request 2026-10-08: holding Q (throw) is capped like the rest of movement.
+        [Theory]
+        [InlineData(StandbyLevel.Normal, 1f)]
+        [InlineData(StandbyLevel.PowerSave, 0.125f)]
+        [InlineData(StandbyLevel.Standby, 0f)]
+        [InlineData(StandbyLevel.DeepStandby, 0f)]
+        public void Throw_cappedLikeMovement(StandbyLevel level, float expected)
+        {
+            Assert.Equal(expected, LevelProfile.Throw(level));
+        }
+
         [Theory]
         [InlineData(StandbyLevel.Normal, false, false, false)]
         [InlineData(StandbyLevel.PowerSave, false, false, false)]

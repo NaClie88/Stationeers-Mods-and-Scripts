@@ -122,3 +122,8 @@ A double tap in Standby woke the droid on the first tap, because taps are immedi
 
 - **Wake sound.** The user heard nothing on a Deep Standby wake, only the vanilla low-battery alert afterwards. `UIAudioManager.NarrationPanelHash` is declared but vanilla never plays it, so that clip is probably missing. The wake now uses `StageCompleteHash`, the helper-hint chime, which vanilla plays through the same 2D `Play` path.
 - **Overlay still over the hand cards.** The position measured from `PanelHandsGameObject` landed too low; that rect is evidently not the visible cards. The anchor is now capped at 80 % down the screen, one card height above the cards, whose top is about 90 % down at 4K. The measurement is logged once (`Overlay anchor:`) so the rect can be understood or the measurement dropped.
+- **Throw power (user request).** Holding Q charges `ThrowItemBehaviour._throwForce` up to `_maxThrowForce` (6). The new `ThrowPatch` clamps it to max × `LevelProfile.Throw(level)`, which equals the movement factor:
+  - Power Save: 12.5 %.
+  - Standby: 0, so Q just drops the item and a dead battery can still be put down.
+  - Deep Standby: the key is already blocked.
+  - Its members are resolved in `Prepare()`, and it fails open to vanilla.

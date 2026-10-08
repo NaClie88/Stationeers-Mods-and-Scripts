@@ -63,6 +63,7 @@
     <Compile Include="Patches\JetpackPatch.cs" />
     <Compile Include="Patches\InteractionPatch.cs" />
     <Compile Include="Patches\NightVisionPatch.cs" />
+    <Compile Include="Patches\ThrowPatch.cs" />
     <Compile Include="Game\WorldReadings.cs" />
     <Compile Include="Game\LocalController.cs" />
     <Compile Include="UI\WakePanel.cs" />

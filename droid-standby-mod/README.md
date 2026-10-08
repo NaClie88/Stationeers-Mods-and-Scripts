@@ -48,11 +48,12 @@ The visuals and slowdown are vanilla's own cognition (stun) effects — the mod 
 | `Patches/KeyBindingPatch.cs` | postfix `KeyManager.SetupKeyBindings` | "Droid Standby" in vanilla Settings > Controls |
 | `Patches/JetpackPatch.cs` | prefix `MovementController.HandleJetpack` | no jetpack thrust in Standby/Deep (stabilizer kept) |
 | `Patches/InteractionPatch.cs` | prefixes:<br>• `InventoryManager.NormalMode` / `PlacementMode` / `PrecisionPlacementMode`<br>• `InputMouse.Idle` / `Click` (Ctrl/Alt mouse mode)<br>• `CheckDisplaySlotInput`<br>• `SlotDisplayButton.OnPointerUp` / `OnBeginDrag` / `OnEndDrag`<br>• KeyManager swap / stow / select / drop / hand-power keys | no world interaction in Standby/Deep, or through the open menu; no inventory in Deep |
+| `Patches/ThrowPatch.cs` | prefix+postfix `ThrowItemBehaviour.DropKeyHeld` / `Throw` | throw power capped like movement |
 | `Patches/NightVisionPatch.cs` | prefix `Human.ToggleNightVision` | built-in night vision off and blocked in Deep |
 | `Patches/LightDrainFix.cs` | prefix `Human.SetPowerDrain` (optional) | vanilla helmet-light drain bug fix |
 | `Game/LocalController.cs` | plugin `Update` | key gestures, wake checks, safety net |
 | `UI/WakePanel.cs` | postfix `ImGuiWindowManager.Draw` | wake panel, status line, safety prompt |
-| `src/*.cs` | — | pure logic, unit-tested in `tests/` (106 tests) |
+| `src/*.cs` | — | pure logic, unit-tested in `tests/` (110 tests) |
 
 Design: `docs/superpowers/specs/2026-10-07-droid-standby-design.md`. Plans: `docs/superpowers/plans/2026-10-07-droid-standby-phase1.md`, `...-phase1b.md`. Dev log: `UpdateNotes.md`.
 
