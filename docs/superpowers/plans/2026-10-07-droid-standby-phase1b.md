@@ -28,7 +28,7 @@
   - every commit ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`;
   - `git -c core.longpaths=true` for adds in this worktree.
 - **Drain factors scale only the droid's own body drain** (vanilla base 100 per tick). Extra load from lights, i.e. the helmet light, which vanilla adds by raising `Human.PowerDrainedPerTick` from 100 to 105, always drains at full rate, in every state including Deep Standby (user, 2026-10-07: "all tools like external lights should still drain battery normally").
-- **Deep Standby turns the droid's night vision off on Start and blocks turning it back on** until wake (user, 2026-10-07).
+- **Deep Standby turns the droid's built-in night vision off on Start and blocks turning it back on** until wake (user, 2026-10-07). **Only the built-in one** (the N key, `Human.ToggleNightVision`): head-mounted Night Vision Goggles are a tool and keep working and draining their own power normally (user clarification).
 - Worker-thread rule (unchanged): code reached from `Brain.OnLifeTick` / `Human.OnLifeTick` uses no Unity APIs, uses `ReferenceEquals`, and catches everything.
 
 ## Review Focus
@@ -770,18 +770,22 @@ If `PointerEventData` doesn't resolve, add `<Reference Include="UnityEngine.UI">
 
 - [ ] **Step 3b: Create `NightVisionPatch.cs`.** Decompile facts:
   - The droid's built-in night vision is `Human.ToggleNightVision()`. It's public, bound to the "NightVision" key (default N), and calls `CameraController.SetNightVision(!Human.CurrentlyUsingNightVision, 1f, 0.5f, robotMode: true)`.
-  - `Human.CurrentlyUsingNightVision` is a public static bool set by `SetNightVision`.
+  - `Human.CurrentlyUsingNightVision` is a public static bool set by `SetNightVision`. It's shared with the goggles, whose `Human.UpdateNightVision` calls the same `SetNightVision` from `GlassesAsNightVision` (`IsOperable && OnOff && Powered`).
 
 ```csharp
 using Assets.Scripts;
 using Assets.Scripts.Inventory;
 using Assets.Scripts.Objects.Entities;
+using Assets.Scripts.Objects.Items;
 using HarmonyLib;
 
 namespace SaltysDroidStandby.Patches
 {
-    // Deep Standby: night vision goes off on Start and the night-vision key does nothing
-    // until the droid wakes (user, 2026-10-07). Local player only; camera effect, main thread.
+    // Deep Standby: the droid's BUILT-IN night vision goes off on Start and its key does nothing
+    // until the droid wakes (user, 2026-10-07). Night Vision Goggles (a head-mounted tool) are
+    // left alone (user clarification). Both drive the same camera effect, so ForceOff only acts
+    // when no powered, switched-on goggles are worn -- otherwise the effect is the goggles'.
+    // Local player only; camera effect, main thread.
     [HarmonyPatch(typeof(Human), nameof(Human.ToggleNightVision))]
     public static class NightVisionPatch
     {
@@ -793,7 +797,11 @@ namespace SaltysDroidStandby.Patches
 
         public static void ForceOff()
         {
-            if (Human.CurrentlyUsingNightVision)
+            Human me = InventoryManager.ParentHuman;
+            if (me == null) return;
+            NightVisionGoggles goggles = me.GlassesAsNightVision;
+            bool gogglesOn = goggles != null && goggles.IsOperable && goggles.OnOff && goggles.Powered;
+            if (Human.CurrentlyUsingNightVision && !gogglesOn)
             {
                 CameraController.SetNightVision(false, 1f, 0.5f, robotMode: true);
             }
@@ -1093,7 +1101,8 @@ Then run `grep -rn "StandbyLevel.Deep\b\|PanelOpen\|MovementFactor\|LongPressSec
     - Cancel, Enter, Start and a tap all behave as described;
     - after Start, no movement, look, inventory or world use, the battery % doesn't drop over a minute, and a tap wakes;
     - holding the key in Deep wakes.
-    - Night vision on (N), then Start: night vision switches off, N does nothing until you wake, and works again after.
+    - Built-in night vision on (N), then Start: it switches off, N does nothing until you wake, and works again after.
+    - Night Vision Goggles worn and on, then Start: the goggles stay on and keep draining their own battery.
     - Helmet light on during Deep: the battery still drops slowly (the light's share). With the light off, it holds still.
   - The overlay sits above the hand-slot cards and hides under Esc.
   - The safety net enters Standby, not Deep.

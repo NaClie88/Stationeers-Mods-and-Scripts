@@ -13,7 +13,7 @@ The first in-game test showed the original levels were too mild, and that "Deep 
 | **Mouse look** | 12.5 % | 6.25 % | frozen |
 | **Battery drain** | ×0.5 | ×0.25 | **frozen** (×0) |
 | **Lights** (helmet light; extra load above the body drain) | full drain | full drain | full drain |
-| **Night vision** | allowed | allowed | **turned off on Start, blocked until wake** |
+| **Night vision (droid built-in, N key)** | allowed | allowed | **turned off on Start, blocked until wake**; Night Vision Goggles (a tool) are not affected |
 | **Vision** (cognition floor) | 40 | 85 | 85 |
 | **Hands / world interaction** | allowed | **blocked** (no doors, switches, tools, using items on the world) | blocked |
 | **Inventory management** (move items between slots and hands, e.g. battery swapping; uses Ctrl/Alt + mouse) | allowed | **allowed** | blocked |
