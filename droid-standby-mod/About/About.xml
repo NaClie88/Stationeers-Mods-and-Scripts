@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Salty's Droid Standby</Name>
+  <ModID>com.naclie88.SaltysDroidStandby</ModID>
+  <Author>Joshua</Author>
+  <Version>0.1</Version>
+  <Description>H.E.M. Droids can trade cognition for battery life. Tap Z for Power Save Mode (half drain, slower); hold Z for Deep Standby (quarter drain, barely conscious) with wake conditions you choose: sunrise, wind, storm start/end, battery, danger. An AFK safety net drops a droid into standby before it runs flat. Required on server and clients in multiplayer.</Description>
+</ModMetadata>
