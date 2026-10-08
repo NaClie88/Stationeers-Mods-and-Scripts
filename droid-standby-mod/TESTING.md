@@ -45,3 +45,5 @@ Log lines expected once each: `Cognition floor patch succeeded`, `Drain scaling 
 - [ ] Restart the game: the rebind is kept.
 - [ ] "Reset to defaults" in Controls works without errors, and Droid Standby goes back to Z.
 - [ ] The log shows `Standby key registered … (with vanilla setup)` or `(late path)`. Note which one.
+- [ ] The standby overlay hides while the Escape/game menu is open (and when the HUD is hidden), and comes back when it closes.
+- [ ] Status line and messages sit centred in the bottom fifth of the screen; the wake panel and "Saved you" prompt are centred near the bottom edge.
