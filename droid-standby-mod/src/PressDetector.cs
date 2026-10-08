@@ -6,6 +6,9 @@ namespace SaltysDroidStandby
     //    and Deep Standby so waking never waits on the window).
     //  - DoubleTap: a second press inside the window; fires on that press, its release is swallowed.
     //  - LongPress: held for LongPressSeconds; fires once while held, nothing on release.
+    // After an immediate tap (a wake), a tap that starts within DoubleTapSeconds is ignored:
+    // it is the second half of a double tap aimed at a sleeping droid, not a new Power Save
+    // request (user report). A hold started in that window still long-presses.
     public sealed class PressDetector
     {
         private bool _wasDown;
@@ -13,6 +16,8 @@ namespace SaltysDroidStandby
         private bool _swallowRelease;
         private bool _pendingTap;
         private float _releasedAt;
+        private float _ignoreTapUntil = float.NegativeInfinity;
+        private bool _ignoreThisTap;
 
         public PressDetector(float doubleTapSeconds, float longPressSeconds)
         {
@@ -31,6 +36,12 @@ namespace SaltysDroidStandby
                 _wasDown = true;
                 _downAt = now;
                 _swallowRelease = false;
+                _ignoreThisTap = now <= _ignoreTapUntil;
+                if (_ignoreThisTap)
+                {
+                    _pendingTap = false;
+                    return Gesture.None;
+                }
                 if (_pendingTap && !ImmediateTap && now - _releasedAt <= DoubleTapSeconds)
                 {
                     _pendingTap = false;
@@ -52,8 +63,12 @@ namespace SaltysDroidStandby
             if (_wasDown)
             {
                 _wasDown = false;
-                if (_swallowRelease) return Gesture.None;
-                if (ImmediateTap) return Gesture.SingleTap;
+                if (_swallowRelease || _ignoreThisTap) return Gesture.None;
+                if (ImmediateTap)
+                {
+                    _ignoreTapUntil = now + DoubleTapSeconds;
+                    return Gesture.SingleTap;
+                }
                 _pendingTap = true;
                 _releasedAt = now;
                 return Gesture.None;

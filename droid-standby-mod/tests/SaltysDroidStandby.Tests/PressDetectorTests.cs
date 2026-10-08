@@ -72,6 +72,46 @@ namespace SaltysDroidStandby.Tests
             Assert.Equal(Gesture.SingleTap, d.Update(false, 1.5f));
         }
 
+        // User report: a double tap while in Standby woke on tap 1 (immediate), then tap 2 landed
+        // in Power Save. The second half of that double tap must be ignored.
+        [Fact]
+        public void TapRightAfterImmediateWake_isIgnored()
+        {
+            var d = Make();
+            d.ImmediateTap = true;
+            d.Update(true, 0f);
+            Assert.Equal(Gesture.SingleTap, d.Update(false, 0.1f)); // wakes
+            d.ImmediateTap = false;                                  // now Normal
+            Assert.Equal(Gesture.None, d.Update(true, 0.3f));
+            Assert.Equal(Gesture.None, d.Update(false, 0.4f));
+            Assert.Equal(Gesture.None, d.Update(false, 1.5f));      // no late SingleTap either
+        }
+
+        [Fact]
+        public void TapAfterWindow_followingImmediateWake_counts()
+        {
+            var d = Make();
+            d.ImmediateTap = true;
+            d.Update(true, 0f);
+            d.Update(false, 0.1f);
+            d.ImmediateTap = false;
+            d.Update(true, 0.6f);
+            d.Update(false, 0.7f);
+            Assert.Equal(Gesture.SingleTap, d.Update(false, 1.1f));
+        }
+
+        [Fact]
+        public void HoldStartedRightAfterImmediateWake_stillLongPresses()
+        {
+            var d = Make();
+            d.ImmediateTap = true;
+            d.Update(true, 0f);
+            d.Update(false, 0.1f);
+            d.ImmediateTap = false;
+            d.Update(true, 0.3f);
+            Assert.Equal(Gesture.LongPress, d.Update(true, 3.3f));
+        }
+
         [Fact]
         public void NoInput_isNone()
         {

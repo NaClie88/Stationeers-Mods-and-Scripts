@@ -52,7 +52,7 @@ The visuals and slowdown are vanilla's own cognition (stun) effects — the mod 
 | `Patches/LightDrainFix.cs` | prefix `Human.SetPowerDrain` (optional) | vanilla helmet-light drain bug fix |
 | `Game/LocalController.cs` | plugin `Update` | key gestures, wake checks, safety net |
 | `UI/WakePanel.cs` | postfix `ImGuiWindowManager.Draw` | wake panel, status line, safety prompt |
-| `src/*.cs` | — | pure logic, unit-tested in `tests/` (103 tests) |
+| `src/*.cs` | — | pure logic, unit-tested in `tests/` (106 tests) |
 
 Design: `docs/superpowers/specs/2026-10-07-droid-standby-design.md`. Plans: `docs/superpowers/plans/2026-10-07-droid-standby-phase1.md`, `...-phase1b.md`. Dev log: `UpdateNotes.md`.
 

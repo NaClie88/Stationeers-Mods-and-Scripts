@@ -100,3 +100,7 @@ A fresh reviewer checked the whole branch against the decompile. I confirmed all
      - emission is 1 when stabilizing against gravity, otherwise 0;
      - an empty tank clears emissions (no free hover).
 5. **Standby's silent low-battery wake could kill an AFK droid sooner.** At 5 %, it put the droid back at full drain, and the safety net couldn't re-engage until input. Standby now keeps the "charged" wake but never wakes on "low" (`WakeEvaluator(..., wakeOnLow: false)`, tested).
+
+### Double tap while asleep (user, 2026-10-07)
+
+A double tap in Standby woke the droid on the first tap, because taps are immediate while asleep. The second tap then started a fresh single tap and dropped the droid into Power Save. Fix: after an immediate (waking) tap, a tap that starts within the double-tap window is ignored, so a double tap simply wakes the droid. A hold started in that window still opens the menu. Covered by 3 new PressDetector tests (106 total).

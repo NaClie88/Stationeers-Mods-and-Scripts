@@ -95,3 +95,4 @@ Log lines expected once each: `Cognition floor patch succeeded`, `Drain scaling 
   - the droid slows to a stop (stabilizer on);
   - propellant stops draining (watch the tank over a minute).
 - [ ] Standby at 6 % battery, left idle: the droid does **not** wake at 5 %.
+- [ ] Double tap while in Standby: the droid wakes to Normal and stays there (no Power Save).
