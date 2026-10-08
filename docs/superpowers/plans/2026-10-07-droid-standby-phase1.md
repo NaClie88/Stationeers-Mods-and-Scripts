@@ -20,7 +20,7 @@
 - Defaults: Power Save stun floor 40, drain ×0.5; Deep stun floor 85, drain ×0.25; jump factor = speed factor `1 − 0.9 × floor/100`.
 - Never modify the static `Human.PowerDrainedPerTick` (§4.2). Never change which battery is drained.
 - Standby state is never saved; load always starts at Normal.
-- Safety net: battery ≤ 10 % and no input ≥ 60 s → Deep Standby; single-player also pauses (`WorldManager.SetGamePause(true)`); multiplayer never pauses (§9).
+- Safety net: battery ≤ 10 % and no input ≥ 60 s → Deep Standby; **effectively solo** (true single-player, or a host who is the only connected player) also pauses (`WorldManager.SetGamePause(true)`), and a join ends that pause; otherwise multiplayer never pauses (§9).
 - No Time Skip code in this phase (§16).
 - `MOD.Networking.Required = true` (§10).
 - Every commit message ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
@@ -817,14 +817,14 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 4: Safety-net rule
+### Task 4: Safety-net rule and the "effectively solo" rule
 
 **Files:**
 - Create: `droid-standby-mod/src/SafetyNetLogic.cs`
 - Test: `droid-standby-mod/tests/SaltysDroidStandby.Tests/SafetyNetLogicTests.cs`
 
 **Interfaces:**
-- Produces: `static bool SafetyNetLogic.ShouldTrigger(StandbyLevel level, float batteryRatio, float idleSeconds, float batteryThreshold, float idleThresholdSeconds, bool suppressedUntilInput)`.
+- Produces: `static bool SafetyNetLogic.ShouldTrigger(StandbyLevel level, float batteryRatio, float idleSeconds, float batteryThreshold, float idleThresholdSeconds, bool suppressedUntilInput)`; `static bool SafetyNetLogic.IsEffectivelySolo(bool networkActive, bool isServer, IEnumerable<bool> connectedClientIsHost)`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -870,6 +870,36 @@ namespace SaltysDroidStandby.Tests
         {
             Assert.False(SafetyNetLogic.ShouldTrigger(StandbyLevel.Normal, 0.04f, 600f, 0.10f, 60f, true));
         }
+
+        [Fact]
+        public void Solo_singlePlayer()
+        {
+            Assert.True(SafetyNetLogic.IsEffectivelySolo(false, false, new bool[0]));
+        }
+
+        [Fact]
+        public void Solo_hostAlone_withOwnEntry()
+        {
+            Assert.True(SafetyNetLogic.IsEffectivelySolo(true, true, new[] { true }));
+        }
+
+        [Fact]
+        public void Solo_hostAlone_emptyList()
+        {
+            Assert.True(SafetyNetLogic.IsEffectivelySolo(true, true, new bool[0]));
+        }
+
+        [Fact]
+        public void NotSolo_hostWithAGuest()
+        {
+            Assert.False(SafetyNetLogic.IsEffectivelySolo(true, true, new[] { true, false }));
+        }
+
+        [Fact]
+        public void NotSolo_clientOnDedicatedServer()
+        {
+            Assert.False(SafetyNetLogic.IsEffectivelySolo(true, false, new[] { false }));
+        }
     }
 }
 ```
@@ -881,6 +911,8 @@ Run: `dotnet test --nologo` — Expected: FAIL, `SafetyNetLogic` not found.
 - [ ] **Step 3: Write the implementation**
 
 ```csharp
+using System.Collections.Generic;
+
 namespace SaltysDroidStandby
 {
     // Spec §9. `suppressedUntilInput` is set after any automatic wake (e.g. "battery low")
@@ -896,19 +928,33 @@ namespace SaltysDroidStandby
                 && batteryRatio <= batteryThreshold
                 && idleSeconds >= idleThresholdSeconds;
         }
+
+        // Spec §9 "effectively solo": true single-player, or a multiplayer host whose only
+        // connection is itself (an empty client list counts). A client is never solo here --
+        // a lone player on a dedicated server is phase 3's job.
+        public static bool IsEffectivelySolo(bool networkActive, bool isServer, IEnumerable<bool> connectedClientIsHost)
+        {
+            if (!networkActive) return true;
+            if (!isServer) return false;
+            foreach (bool isHost in connectedClientIsHost)
+            {
+                if (!isHost) return false;
+            }
+            return true;
+        }
     }
 }
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `dotnet test --nologo` — Expected: `Failed: 0`, 39 passed.
+Run: `dotnet test --nologo` — Expected: `Failed: 0`, 44 passed.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git -c core.longpaths=true add droid-standby-mod
-git -c core.longpaths=true commit -m "Add safety-net trigger rule with auto-wake suppression (TDD)
+git -c core.longpaths=true commit -m "Add safety-net trigger and effectively-solo rules (TDD)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -1736,6 +1782,13 @@ namespace SaltysDroidStandby.Game
                 SetLevel(me, StandbyLevel.Normal);
             }
 
+            // "Until another logs on": a join ends a solo safety pause; the droid stays in Deep.
+            if (PausedBySafetyNet && !IsEffectivelySolo())
+            {
+                ResumeFromSafetyPause();
+                SaltysDroidStandby.Log("Safety pause ended: another player joined");
+            }
+
             TrackInput();
             HandleKey(me);
 
@@ -1757,14 +1810,21 @@ namespace SaltysDroidStandby.Game
                 EnterDeep(me);
                 PanelOpen = false;
                 LastWakeReason = null;
-                // Single-player only: NetworkRole.None (a listen-server host is IsServer and must not pause).
-                if (!NetworkManager.IsActive && StandbyConfig.SafetyPause)
+                if (IsEffectivelySolo() && StandbyConfig.SafetyPause)
                 {
                     WorldManager.SetGamePause(true);
                     PausedBySafetyNet = true;
                 }
                 SaltysDroidStandby.Log($"Safety net: Deep Standby at {battery * 100f:F0}% battery");
             }
+        }
+
+        // Spec §9: single-player, or a host who is the only one connected.
+        private static bool IsEffectivelySolo()
+        {
+            var hosts = new System.Collections.Generic.List<bool>();
+            foreach (var client in NetworkBase.Clients) hosts.Add(client.IsHost);
+            return SafetyNetLogic.IsEffectivelySolo(NetworkManager.IsActive, NetworkManager.IsServer, hosts);
         }
 
         private static void TrackInput()
@@ -2165,6 +2225,8 @@ Log lines expected once each: `Cognition floor patch succeeded`, `Drain scaling 
 - [ ] Battery: with Battery ticked, charge past 90 % with a handheld charger → wakes "battery charged". (Entering a Droid Sleeper clears standby by design — vanilla's sleeper already has zero drain.)
 - [ ] Danger: take damage → wakes immediately; depressurise the room → wakes "pressure change".
 - [ ] Safety net (single-player): battery ≤ 10 %, idle 60 s → Deep Standby + game paused + "Saved you" prompt; Resume works.
+- [ ] Safety net as the only player on a hosted multiplayer game: pauses like single-player; when a second player joins, the pause ends (droid stays in Deep Standby).
+- [ ] Safety net with two players connected: Deep Standby only, no pause.
 - [ ] Safety net does not loop after a "battery low" auto-wake while still AFK.
 - [ ] Entering a bed / Droid Sleeper / dying clears standby.
 - [ ] With Salty's Droid Dual Battery: drain still alpha → beta; battery % reading includes both slots.
@@ -2202,6 +2264,6 @@ git -c core.longpaths=true push -u origin droid-standby-mod
 
 ## Self-review notes (completed)
 
-- **Spec coverage:** §2 levels (Tasks 1, 7, 8, 9) · §4.1 floor (Task 7) · §4.2 drain (Task 8) · §4.3 jump (Task 8) · §4.4 battery (Tasks 2, 9) · §5 controls/panel (Tasks 1, 9, 10) · §6 wake (Tasks 3, 9) · §9 safety net (Tasks 4, 9, 10) · §10 networking (Task 6) · §11 compatibility (Tasks 8, 9 design; checklist) · §13 config (Task 5) · §14 errors (Tasks 5, 7, 8: `PatchSafely`, `StandbyDisabled`) · §15 tests (Tasks 1–4, 11–12). §7–8 Time Skip are phases 2–3, out of this plan by design.
+- **Spec coverage:** §2 levels (Tasks 1, 7, 8, 9) · §4.1 floor (Task 7) · §4.2 drain (Task 8) · §4.3 jump (Task 8) · §4.4 battery (Tasks 2, 9) · §5 controls/panel (Tasks 1, 9, 10) · §6 wake (Tasks 3, 9) · §9 safety net incl. effectively solo (Tasks 4, 9, 10) · §10 networking (Task 6) · §11 compatibility (Tasks 8, 9 design; checklist) · §13 config (Task 5) · §14 errors (Tasks 5, 7, 8: `PatchSafely`, `StandbyDisabled`) · §15 tests (Tasks 1–4, 11–12). §7–8 Time Skip are phases 2–3, out of this plan by design.
 - **Type consistency:** `StandbyLevel`, `Gesture`, `WakeCondition`, `WorldSnapshot`, `WakeThresholds`, `WakeEvaluator.Check(WorldSnapshot) : string`, `SafetyNetLogic.ShouldTrigger(...)`, `BatteryMath.TotalRatio(IEnumerable<KeyValuePair<float,float>>)`, `StandbyRegistry.Get/Set`, `StandbyNetwork.Request`, `CognitionFloorPatch.IsBlocked`, `LocalController.*` are used with the same names/signatures everywhere.
 - **Placeholders:** none. Two compile-time alternatives are spelled out explicitly (extension-method call form in Task 6, optional Unity module references in Task 5) with the exact fallback to use.

@@ -121,8 +121,9 @@ The findings are reported and agreed before phase 2 is built. Probe code is thro
 
 - **Trigger:** total battery ≤ **10%** and **no input for 60 s**, both configurable.
 - **Action:** enter Deep Standby with the default wake conditions.
-  - **Single-player:** also **pause the game**. On return, show `Saved you at 9%` with **Resume in standby**, plus **Fast-forward** once phase 2 exists.
-  - **Multiplayer:** Deep Standby only; no player can pause a server.
+  - **Single-player, or effectively solo:** also **pause the game**. On return, show `Saved you at 9%` with **Resume in standby**, plus **Fast-forward** once phase 2 exists.
+  - **Multiplayer with others connected:** Deep Standby only; no player can pause a shared server.
+- **Effectively solo** (added 2026-10-07 at the user's request): a multiplayer **host who is the only connected player** gets the single-player features (the safety-net pause now; Time Skip without a vote in phase 2) until someone else joins. A join ends a solo pause immediately (the droid stays in Deep Standby). Rule: `!NetworkManager.IsActive || (NetworkManager.IsServer && every NetworkBase.Clients entry has IsHost)`. A lone *client* on a **dedicated server** is not covered in phase 1: pausing a server from a client is untested. Phase 3's server-owned time control covers it, since a vote of one passes.
 - The safety net never starts Time Skip by itself.
 
 ## 10. Multiplayer
