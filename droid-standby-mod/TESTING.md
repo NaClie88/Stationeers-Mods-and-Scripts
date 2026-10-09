@@ -134,3 +134,12 @@ Log lines expected once each: `Cognition floor patch succeeded`, `Drain scaling 
 **Safety net and overlay**
 - [ ] Safety net: enters Standby (frozen), with the "Saved you" prompt when solo.
 - [ ] Overlay: does it clear the hand cards at the default 72 %? If not, change `[Overlay] BottomPercent` and report the value that works.
+
+**Results, in-game test 3 (2026-10-08):**
+- Passed: a tap enters Power Save instantly; waking lands in Power Save; the "powering down… N s" message shows.
+- Still open:
+  - the cooldown message;
+  - Start waiting out the cooldown;
+  - a danger wake firing at once;
+  - the safety net entering Standby;
+  - the overlay at 90 %.
