@@ -149,3 +149,7 @@ A double tap in Standby woke the droid on the first tap, because taps are immedi
 - **Safety net** enters Standby (drain frozen) with the config-default wake conditions, minus the low-battery wake, and turns off night vision.
 - **Overlay.** The measured `PanelHandsGameObject` rect (top 90 px above the bottom at 1080p) isn't the cards the user sees: the overlay still covered them even at 80 %. The anchor is now a live config value, `[Overlay] BottomPercent` (default 72), and the rect measurement is gone.
 - **Config.** The `DoubleTapSeconds` key and the old `[Standby] DrainFactor` and `[DeepStandby]` sections are no longer read; stale lines in an existing `.cfg` are ignored. `[Standby] CognitionLossFloor` keeps its meaning (85).
+
+### Overlay default 72 → 82 % (2026-10-08)
+
+At 72 % the user saw the overlay "almost in the middle of the screen". The earlier "still on the hands" report probably came from a build before the 80 % cap (the user: "or i gave you instructions at the wrong development cycle"). ImGui draws into a Screen-sized render texture (`ImGuiManager`), so the percentages are true screen fractions. The new default follows the original instruction, "raise by one card height": the overlay started centred at 90 % and a card is about 8.5 % of the screen, so its bottom edge now sits at about 82 %. **Note for players:** BepInEx doesn't overwrite a value already saved in the `.cfg`. An existing `BottomPercent = 72` stays at 72 until it's edited or deleted.

@@ -31,7 +31,7 @@ namespace SaltysDroidStandby.UI
         private static readonly Vector2 BottomCenter = new Vector2(0.5f, 1f);
         // Bottom-centre anchor. In-game tests showed the measured hand panel (PanelHandsGameObject:
         // top 90 px above the bottom at 1080p) isn't the cards the overlay covered, so the bottom
-        // edge is now a live config value ([Overlay] BottomPercent, default 72 %) the player can
+        // edge is now a live config value ([Overlay] BottomPercent, default 82 %) the player can
         // nudge in-game. ImGui y is top-down.
         private static Vector2 Anchor() =>
             new Vector2(Screen.width * 0.5f, Screen.height * StandbyConfig.OverlayBottomFraction);
