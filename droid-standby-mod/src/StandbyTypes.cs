@@ -2,20 +2,19 @@ using System;
 
 namespace SaltysDroidStandby
 {
-    // Wire value is the byte; never reorder (sent in StandbyRequestMessage).
+    // Wire value is the byte (sent in StandbyRequestMessage). Revision 3: two states; the old
+    // double-tap Standby is gone and the old Deep Standby is now "Standby".
     public enum StandbyLevel : byte
     {
         Normal = 0,
         PowerSave = 1,
         Standby = 2,
-        DeepStandby = 3,
     }
 
     public enum Gesture
     {
         None,
-        SingleTap,
-        DoubleTap,
+        Tap,
         LongPress,
     }
 
@@ -24,7 +23,7 @@ namespace SaltysDroidStandby
     {
         None,
         EnterPowerSave,
-        EnterStandby,
+        EnterNormal,
         Wake,
         OpenMenu,
     }

@@ -1,6 +1,33 @@
 # Salty's Droid Standby: design spec
 
-**Date:** 2026-10-07 · **Branch:** `droid-standby-mod` (off `main`) · **Status:** Revision 2 approved in conversation (after the first in-game test). **Revision 2 below supersedes §2, §4.3, §5 and the entry rules in §7 and §9 wherever they differ.**
+**Date:** 2026-10-07 · **Branch:** `droid-standby-mod` (off `main`) · **Status:** Revision 3 (2026-10-08) supersedes Revision 2, which supersedes §2, §4.3, §5 and the entry rules in §7 and §9 wherever they differ.
+
+## Revision 3: two states, wake into Power Save, ramp and cooldown (2026-10-08)
+
+After the second round of in-game testing, the user simplified the states. **Revision 3 supersedes Revision 2 wherever they differ.**
+
+| | **Power Save** | **Standby** (was "Deep Standby") |
+|---|---|---|
+| **Key** | single tap (instant, no double-tap wait) | hold 3 s → menu → **Start** |
+| **Movement, jump, throw** | 12.5 % | frozen |
+| **Mouse look** | 12.5 % | frozen |
+| **Battery drain** (droid's own) | ×0.5 | frozen (×0) |
+| **Cognition floor** | 40 | 85 |
+| **World interaction** | allowed | blocked |
+| **Inventory** | allowed | blocked |
+| **Built-in night vision** | allowed | off, blocked |
+| **Wake** | tap → Normal | tap, or a ticked wake condition → **Power Save** |
+
+**What changed:**
+- **The old double-tap "Standby" is removed, and so is the double tap.** The old Deep Standby takes the name "Standby".
+- **Waking goes to Power Save,** not Normal. That applies to a key tap and to an automatic wake (user: "Waking should wake in to low power mode").
+- **Battery ramp-down (default 5 s):** entering a lower-drain state eases the drain from its current rate to the new one. Raising the drain applies at once, so quick toggling can't bank cheap seconds. The status line shows "powering down… N s".
+- **Toggle cooldown (default 5 s):** after any state change, the standby key can't change state again until the cooldown ends; that includes waking (user: "keep the toggle cool down"). The status line shows "Standby systems cycling – ready in N s".
+  - The menu can still be opened, but **Start** waits.
+  - **Automatic wake conditions bypass the cooldown.** They aren't toggles, and a danger wake must never wait.
+- **Safety net** (≤10 % battery, 60 s idle): enters Standby (drain frozen) with the config-default wake conditions, minus the low-battery wake. It pauses when effectively solo.
+- **Overlay:** the bottom edge position becomes a live config value, `[Overlay] BottomPercent`. The measured hand panel didn't match the cards the user sees.
+- **Wire values:** Normal 0, Power Save 1, Standby 2.
 
 ## Revision 2: the three states, redefined (2026-10-07)
 

@@ -7,18 +7,20 @@ using UnityEngine;
 namespace SaltysDroidStandby.Game
 {
     // Everything that belongs to the local player, run once per frame by the plugin's
-    // Update: the key (single tap / double tap / hold, spec Revision 2), the hidden Deep
-    // Standby menu, wake checks, the safety net, and resetting the local mirror when the
+    // Update: the key (tap / hold, spec Revision 3), the hidden Standby menu, the toggle
+    // cooldown, wake checks, the safety net, and resetting the local mirror when the
     // server-side rules would have (death, bed/sleeper). Server effects live in the patches.
     public static class LocalController
     {
-        private static readonly PressDetector Press = new PressDetector(0.35f, 3f);
+        private static readonly PressDetector Press = new PressDetector(3f);
         private static WakeEvaluator _evaluator;
         private static float _nextCheckAt;
         private static float _lastInputAt;
         private static Vector3 _lastMouse;
         private static bool _suppressedUntilInput;
         private static Human _lastHuman;
+        private static float _lastChangeAt = float.NegativeInfinity;
+        private static float _cooldownNoticeUntil = float.NegativeInfinity;
 
         public static StandbyLevel Level => StandbyRegistry.Get(InventoryManager.ParentHuman);
         public static WakeCondition Selected { get; set; } = WakeCondition.None;
@@ -26,6 +28,11 @@ namespace SaltysDroidStandby.Game
         public static bool PausedBySafetyNet { get; private set; }
         public static string LastWakeReason { get; private set; }
         public static WorldSnapshot LastReading { get; private set; }
+
+        // Revision 3 UI feeds.
+        public static float CooldownRemaining => ToggleCooldown.Remaining(_lastChangeAt, Time.unscaledTime, StandbyConfig.CooldownSeconds);
+        public static bool CooldownNoticeVisible => Time.unscaledTime < _cooldownNoticeUntil && CooldownRemaining > 0f;
+        public static float RampSecondsLeft => StandbyRegistry.RampSecondsLeft(InventoryManager.ParentHuman, StandbyClock.Now);
 
         public static void Tick()
         {
@@ -70,7 +77,7 @@ namespace SaltysDroidStandby.Game
 
             if (MenuOpen && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)))
             {
-                StartDeep();
+                StartStandby();
             }
 
             // Live readings for the open menu.
@@ -80,28 +87,31 @@ namespace SaltysDroidStandby.Game
                 LastReading = WorldReadings.Read(me);
             }
 
-            // Standby (config-default conditions, silent) and Deep Standby (menu conditions).
-            StandbyLevel level = Level;
-            bool sleeping = level == StandbyLevel.Standby || level == StandbyLevel.DeepStandby;
-            if (sleeping && _evaluator != null && Time.time >= _nextCheckAt)
+            // Wake conditions (Standby only). Automatic wakes bypass the toggle cooldown.
+            if (Level == StandbyLevel.Standby && _evaluator != null && Time.time >= _nextCheckAt)
             {
                 _nextCheckAt = Time.time + StandbyConfig.CheckIntervalSeconds;
                 LastReading = WorldReadings.Read(me);
                 string reason = _evaluator.Check(LastReading);
                 if (reason != null)
                 {
-                    Wake(me, reason, automatic: true, sound: level == StandbyLevel.DeepStandby);
+                    Wake(me, reason, automatic: true);
                 }
             }
 
             // Final-review C3: never for a body in a bed/sleeper, dead or unconscious, or while
-            // the game is already paused (vanilla Esc pause, or our own).
+            // the game is already paused (vanilla Esc pause, or our own), or with the menu open.
             bool canStandby = !blocked && !WorldManager.IsGamePaused && !MenuOpen;
             float battery = WorldReadings.TotalBattery(me);
             if (SafetyNetLogic.ShouldTrigger(Level, battery, Time.unscaledTime - _lastInputAt,
                     StandbyConfig.SafetyBattery, StandbyConfig.SafetyIdleSeconds, _suppressedUntilInput, canStandby))
             {
-                EnterStandby(me);
+                // Spec Revision 3: the safety net enters Standby (drain frozen) on the config
+                // defaults, without the low-battery wake (final review I5).
+                SetLevel(me, StandbyLevel.Standby);
+                Selected = StandbyConfig.DefaultWake;
+                Arm(me, Selected, wakeOnLow: false);
+                NightVisionPatch.ForceOff();
                 LastWakeReason = null;
                 if (IsEffectivelySolo() && StandbyConfig.SafetyPause)
                 {
@@ -121,6 +131,8 @@ namespace SaltysDroidStandby.Game
             LastWakeReason = null;
             Selected = WakeCondition.None;
             _lastInputAt = Time.unscaledTime;
+            _lastChangeAt = float.NegativeInfinity;
+            _cooldownNoticeUntil = float.NegativeInfinity;
             UI.WakePanelPatch.ResetSession();
         }
 
@@ -145,10 +157,7 @@ namespace SaltysDroidStandby.Game
 
         private static void HandleKey(Human me)
         {
-            Press.DoubleTapSeconds = StandbyConfig.DoubleTapSeconds;
             Press.LongPressSeconds = StandbyConfig.HoldSeconds;
-            // While the menu is open a tap cancels it, so read taps immediately there too.
-            Press.ImmediateTap = MenuOpen || KeyActions.WantsImmediateTap(Level);
             // Ignore the key while typing in chat/console, in menus, or paused (phase 1 Review Focus 4).
             // Only this key wakes (spec Revision 2): Ctrl/Alt mouse mode and every other key are left alone.
             bool down = KeyManager.InputState == KeyInputState.Game && Input.GetKey(Patches.KeyBinding.Key);
@@ -161,21 +170,20 @@ namespace SaltysDroidStandby.Game
                 return;
             }
 
-            switch (KeyActions.Decide(Level, g))
+            KeyAction action = KeyActions.Decide(Level, g);
+            if (KeyActions.IsGatedByCooldown(action) && CooldownRemaining > 0f)
+            {
+                _cooldownNoticeUntil = Time.unscaledTime + 2f; // "systems cycling - ready in N s"
+                return;
+            }
+
+            switch (action)
             {
                 case KeyAction.EnterPowerSave: SetLevel(me, StandbyLevel.PowerSave); break;
-                case KeyAction.EnterStandby: EnterStandby(me); break;
-                case KeyAction.Wake: Wake(me, "manual", automatic: false, sound: false); break;
+                case KeyAction.EnterNormal: SetLevel(me, StandbyLevel.Normal); break;
+                case KeyAction.Wake: Wake(me, "manual", automatic: false); break;
                 case KeyAction.OpenMenu: OpenMenu(me); break;
             }
-        }
-
-        private static void EnterStandby(Human me)
-        {
-            SetLevel(me, StandbyLevel.Standby);
-            // Final review I5: Standby wakes silently, so a "battery low" wake would just return an
-            // AFK droid to full drain; it keeps "charged" but never wakes on "low".
-            Arm(me, StandbyConfig.DefaultWake, wakeOnLow: false);
         }
 
         // Opening the menu does not change level: the droid keeps its current state until Start.
@@ -187,23 +195,28 @@ namespace SaltysDroidStandby.Game
             MenuOpen = true;
         }
 
-        // Called by the menu's Start button or Enter.
-        public static void StartDeep()
+        // Called by the menu's Start button or Enter. Waits out the toggle cooldown.
+        public static void StartStandby()
         {
             Human me = InventoryManager.ParentHuman;
             if (me == null || !MenuOpen) return;
+            if (CooldownRemaining > 0f)
+            {
+                _cooldownNoticeUntil = Time.unscaledTime + 2f;
+                return;
+            }
             MenuOpen = false;
-            SetLevel(me, StandbyLevel.DeepStandby);
+            SetLevel(me, StandbyLevel.Standby);
             Arm(me, Selected);
             NightVisionPatch.ForceOff();
-            SaltysDroidStandby.Log("Deep Standby started, waking on: " + Selected);
+            SaltysDroidStandby.Log("Standby started, waking on: " + Selected);
         }
 
         // Called by the menu's Cancel button or a tap of the key.
         public static void CancelMenu()
         {
-            // The level never changes while the menu is open (OpenMenu doesn't touch it), so closing
-            // it is all "return to the previous state" needs; a Standby droid stays armed throughout.
+            // The level never changes while the menu is open (OpenMenu doesn't touch it), so
+            // closing it is all "return to the previous state" needs.
             MenuOpen = false;
         }
 
@@ -214,25 +227,27 @@ namespace SaltysDroidStandby.Game
             _nextCheckAt = Time.time + StandbyConfig.CheckIntervalSeconds;
         }
 
-        private static void Wake(Human me, string reason, bool automatic, bool sound)
+        // Spec Revision 3: every wake lands in Power Save, not Normal.
+        private static void Wake(Human me, string reason, bool automatic)
         {
             // Final-review I4: only a "battery low" wake stands the safety net down until input.
             bool batteryLow = _evaluator != null && _evaluator.LastWakeWasBatteryLow;
-            SetLevel(me, StandbyLevel.Normal);
-            LastWakeReason = automatic ? "Woke: " + reason : null;
+            SetLevel(me, KeyActions.WakeTarget);
+            LastWakeReason = automatic ? "Woke into Power Save: " + reason : null;
             _suppressedUntilInput = automatic && batteryLow;
             if (automatic)
             {
-                // Deep only; Standby wakes silently. In-game test 2026-10-08: NarrationPanel was inaudible
-                // (vanilla never plays that clip); StageComplete is the helper-hint chime and does play.
-                if (sound) UIAudioManager.Play(UIAudioManager.StageCompleteHash);
+                // In-game test 2026-10-08: NarrationPanel was inaudible (vanilla never plays that
+                // clip); StageComplete is the helper-hint chime and does play.
+                UIAudioManager.Play(UIAudioManager.StageCompleteHash);
                 SaltysDroidStandby.Log("Woke: " + reason);
             }
         }
 
         private static void SetLevel(Human me, StandbyLevel level)
         {
-            if (level != StandbyLevel.Standby && level != StandbyLevel.DeepStandby) _evaluator = null;
+            if (level != StandbyLevel.Standby) _evaluator = null;
+            if (level != Level) _lastChangeAt = Time.unscaledTime; // starts the toggle cooldown
             StandbyNetwork.Request(me, level);
         }
 

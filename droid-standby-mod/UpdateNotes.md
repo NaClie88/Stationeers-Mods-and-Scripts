@@ -127,3 +127,25 @@ A double tap in Standby woke the droid on the first tap, because taps are immedi
   - Standby: 0, so Q just drops the item and a dead battery can still be put down.
   - Deep Standby: the key is already blocked.
   - Its members are resolved in `Prepare()`, and it fails open to vanilla.
+
+## 2026-10-08: Revision 3 (two states, wake into Power Save, ramp and cooldown)
+
+**Why (user, after in-game test 2):**
+- "we should just remove standby and only have the Deep Standby which will inherit the name. remove the double press."
+- "Waking should wake in to low power mode. but keep the toggle cool down."
+- A 5 s ramp-down on battery usage and a 5 s toggle cooldown, "with appropriate messages".
+
+**What changed:**
+- **States.** `StandbyLevel` is now Normal, PowerSave and Standby (wire values 0, 1, 2). The old double-tap Standby is gone, and the old Deep Standby is renamed Standby.
+- **Gestures.** `PressDetector` is back to Tap and LongPress. A tap fires at once on release, since there's no double tap to wait for. The `DoubleTapSeconds` setting is removed.
+- **Waking** goes to Power Save (`KeyActions.WakeTarget`), from a tap or an automatic wake. Every gesture in Standby wakes.
+- **Drain ramp** (`DrainRamp`, pure and tested). `StandbyRegistry` now stores, per Human, when the level changed and the drain factor in effect at that moment. `DrainPatch` asks it for the ramped factor using `StandbyClock`, a Stopwatch, because the life tick runs on a worker thread where Unity's `Time` isn't usable. Easing down takes `[Timing] RampDownSeconds` (5). Going up is immediate, so quick toggling can't bank cheap seconds. A change mid-ramp starts from the current effective rate.
+- **Toggle cooldown** (`ToggleCooldown`, `KeyActions.IsGatedByCooldown`, pure and tested).
+  - After any state change, key actions that change state (Power Save on or off, wake) wait `[Timing] ToggleCooldownSeconds` (5).
+  - Opening the menu isn't gated, but **Start** shows "Start in N s" until the cooldown ends.
+  - Automatic wake conditions bypass the cooldown. They aren't toggles, and a danger wake must never wait.
+  - My reading of "keep the toggle cool down": it applies to waking with the key too.
+- **Messages:** "powering down… N s" on the status line during the ramp; "Standby systems cycling – ready in N s" when the key is pressed during the cooldown; "Woke into Power Save: <reason>" on an automatic wake.
+- **Safety net** enters Standby (drain frozen) with the config-default wake conditions, minus the low-battery wake, and turns off night vision.
+- **Overlay.** The measured `PanelHandsGameObject` rect (top 90 px above the bottom at 1080p) isn't the cards the user sees: the overlay still covered them even at 80 %. The anchor is now a live config value, `[Overlay] BottomPercent` (default 72), and the rect measurement is gone.
+- **Config.** The `DoubleTapSeconds` key and the old `[Standby] DrainFactor` and `[DeepStandby]` sections are no longer read; stale lines in an existing `.cfg` are ignored. `[Standby] CognitionLossFloor` keeps its meaning (85).

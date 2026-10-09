@@ -4,29 +4,33 @@ H.E.M. Droids trade cognition for battery life — ride out a night or a storm o
 
 ## Controls (default key `Z`, rebind in Settings > Controls > Inventory: "Droid Standby")
 
-| | **Power Save** | **Standby** | **Deep Standby (Time Skip)** |
-|---|---|---|---|
-| **Key** | single tap | double tap | hold 3 s → menu → **Start** |
-| **Top speed and jump** | 12.5 % | 0 % (no walking, jumping or jetpack) | frozen |
-| **Mouse look** | 12.5 % | 6.25 % | frozen |
-| **Battery drain** (droid's own) | ×0.5 | ×0.25 | frozen |
-| **Cognition loss held** (vision) | 40 | 85 | 85 |
-| **World interaction** (doors, switches, tools) | yes | no | no |
-| **Inventory** (slot keys, Ctrl/Alt + mouse, battery swaps) | yes | yes | no |
-| **Built-in night vision** | yes | yes | switched off, blocked |
-| **Wakes on** | tap | tap, or silently on the default wake conditions (never on low battery) | tap, or the conditions ticked in the menu |
+| | **Power Save** | **Standby** |
+|---|---|---|
+| **Key** | tap | hold 3 s → menu → **Start** (or Enter) |
+| **Top speed, jump, throw** | 12.5 % | frozen |
+| **Mouse look** | 12.5 % | frozen |
+| **Battery drain** (droid's own) | ×0.5 | frozen |
+| **Cognition loss held** (vision) | 40 | 85 |
+| **World interaction** (doors, switches, tools) | yes | no |
+| **Inventory** | yes | no |
+| **Built-in night vision** | yes | switched off, blocked |
+| **Wakes on** | tap → Normal | tap, or a condition ticked in the menu → **Power Save** |
 
 - **Only the standby key wakes you.** Ctrl/Alt mouse mode and every other key are left alone.
-- **Power Save:** a single tap takes effect after the double-tap window (0.35 s). Tap again for Normal.
-- **Deep Standby menu:**
-  - Opened by holding the key 3 s from any state. It doesn't change your state until you press **Start** (or Enter). Cancel, or a tap, closes it.
-  - Wake conditions you can tick: **light** (sunrise), **wind**, **storm start/end** incl. solar storms (outdoors only), **battery** charged or low, and **danger** (damage, pressure swing, temperature).
-  - Time acceleration comes in phase 2. For now, Start freezes controls and drain at normal speed.
-- **Lights and tools drain normally in every state.** Helmet lights and headlamps run on their own batteries. Night Vision Goggles are a tool and are not affected.
-- **AFK safety net:** total battery ≤ 10 % and no input for 60 s → Standby. In single-player, or when you're the only player on your own hosted game, it also pauses until you come back (a joining player ends the pause).
-- **Fixes a vanilla bug:** the helmet-light key raised *every* droid's battery drain by 5 %, and it stayed raised after the light went off until night vision was toggled. With this mod, each droid pays the 5 % only while its own helmet light is on and powered.
-  - It's optional (`[Fixes] HelmetLightDrainFix`).
-  - It switches itself off if a game update changes that code.
+- **Ramp-down:** entering a lower-drain state eases the battery drain down over 5 s ("powering down… N s"). Raising the drain is immediate.
+- **Toggle cooldown:** after any state change, the key can't change state again for 5 s ("Standby systems cycling – ready in N s"). That includes waking. Automatic wake conditions ignore the cooldown, so a danger wake is never delayed.
+- **Standby menu:** opened by holding the key 3 s. It doesn't change your state until Start; Cancel or a tap closes it. Wake conditions you can tick:
+  - **light** (sunrise);
+  - **wind**;
+  - **storm start/end** incl. solar storms (outdoors only);
+  - **battery** charged or low;
+  - **danger** (damage, pressure swing, temperature).
+
+  Time acceleration comes in phase 2.
+- **Lights and tools drain normally.** Helmet lights and headlamps run on their own batteries. Night Vision Goggles are a tool and are not affected.
+- **AFK safety net:** total battery ≤ 10 % and no input for 60 s → Standby (drain frozen). In single-player, or when you're the only player on your own hosted game, it also pauses until you come back.
+- **Fixes a vanilla bug:** the helmet-light key raised *every* droid's battery drain by 5 % until night vision was toggled. Now each droid pays the 5 % only while its own helmet light is on. The fix is optional (`[Fixes] HelmetLightDrainFix`) and switches itself off if a game update changes that code.
+- **Overlay position:** `[Overlay] BottomPercent` (default 72) sets how far down the screen the overlay sits, read live.
 
 The visuals and slowdown are vanilla's own cognition (stun) effects — the mod only holds a minimum. Beds, cryo tubes and the Droid Sleeper keep their vanilla behaviour (zero drain, charging). Standby is never saved: loading always starts at Normal.
 

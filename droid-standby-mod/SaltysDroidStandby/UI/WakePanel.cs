@@ -29,43 +29,12 @@ namespace SaltysDroidStandby.UI
         private static readonly Vector4 Amber = new Vector4(1f, 0.75f, 0.3f, 1f);
 
         private static readonly Vector2 BottomCenter = new Vector2(0.5f, 1f);
-        private static readonly Vector3[] Corners = new Vector3[4];
-
-        // Bottom-centre anchor just above the hand-slot panel (user: "raised by the height of the
-        // notification card ... it is overlaying the hands item displays"). ImGui y is top-down,
-        // Unity screen y bottom-up. In-game test 2026-10-08: the measured panel top still put the
-        // overlay over the hand cards (their top is ~90 % down the screen), so the result is capped
-        // at 80 % down -- one card height above them -- and the measurement is logged once.
-        private const float LowestAnchor = 0.8f;
-        private static bool _anchorLogged;
-
-        private static Vector2 Anchor()
-        {
-            float y = Screen.height * LowestAnchor;
-            try
-            {
-                GameObject hands = InventoryManager.Instance != null ? InventoryManager.Instance.PanelHandsGameObject : null;
-                if (hands != null && hands.activeInHierarchy && hands.transform is RectTransform rt)
-                {
-                    rt.GetWorldCorners(Corners);
-                    Canvas canvas = rt.GetComponentInParent<Canvas>();
-                    Camera cam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
-                    float topUnity = RectTransformUtility.WorldToScreenPoint(cam, Corners[1]).y; // [1] = top-left
-                    float measured = Screen.height - topUnity - 8f;
-                    y = Mathf.Clamp(measured, Screen.height * 0.3f, Screen.height * LowestAnchor);
-                    if (!_anchorLogged)
-                    {
-                        _anchorLogged = true;
-                        SaltysDroidStandby.Log($"Overlay anchor: screen {Screen.width}x{Screen.height}, hands panel top {topUnity:F0}px from bottom (canvas {canvas?.renderMode}), measured y {measured:F0}, used y {y:F0}");
-                    }
-                }
-            }
-            catch (System.Exception)
-            {
-                // keep the fallback position
-            }
-            return new Vector2(Screen.width * 0.5f, y);
-        }
+        // Bottom-centre anchor. In-game tests showed the measured hand panel (PanelHandsGameObject:
+        // top 90 px above the bottom at 1080p) isn't the cards the overlay covered, so the bottom
+        // edge is now a live config value ([Overlay] BottomPercent, default 72 %) the player can
+        // nudge in-game. ImGui y is top-down.
+        private static Vector2 Anchor() =>
+            new Vector2(Screen.width * 0.5f, Screen.height * StandbyConfig.OverlayBottomFraction);
 
         public static void Postfix()
         {
@@ -94,11 +63,17 @@ namespace SaltysDroidStandby.UI
 
             if (LocalController.PausedBySafetyNet) { DrawSafetyNet(); return; }
             if (LocalController.MenuOpen) { DrawMenu(); return; }
+            // Revision 3 messages: the drain ramp ("powering down") and the toggle cooldown.
+            float ramp = LocalController.RampSecondsLeft;
+            string powering = ramp > 0f ? $"  - powering down... {Mathf.CeilToInt(ramp)} s" : "";
             switch (LocalController.Level)
             {
-                case StandbyLevel.PowerSave: DrawLine("Power Save Mode"); break;
-                case StandbyLevel.Standby: DrawLine("Standby - tap the standby key to wake"); break;
-                case StandbyLevel.DeepStandby: DrawLine("Deep Standby - waking on: " + Describe(LocalController.Selected) + "  (tap the standby key to wake)"); break;
+                case StandbyLevel.PowerSave: DrawLine("Power Save Mode" + powering); break;
+                case StandbyLevel.Standby: DrawLine("Standby - waking on: " + Describe(LocalController.Selected) + "  (tap the standby key to wake)" + powering); break;
+            }
+            if (LocalController.CooldownNoticeVisible)
+            {
+                DrawLine($"Standby systems cycling - ready in {Mathf.CeilToInt(LocalController.CooldownRemaining)} s");
             }
             if (LocalController.LastWakeReason != null) DrawWakeMessage();
         }
@@ -109,8 +84,8 @@ namespace SaltysDroidStandby.UI
             WakeThresholds t = StandbyConfig.Thresholds();
             ImGui.SetNextWindowBgAlpha(0.92f);
             ImGui.SetNextWindowPos(Anchor(), ImGuiCond.Always, BottomCenter);
-            ImGui.Begin("Deep Standby (Time Skip)##SaltysDroidStandby", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse);
-            ImGui.TextColored(Amber, "Deep Standby - wake me when:");
+            ImGui.Begin("Standby (Time Skip)##SaltysDroidStandby", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse);
+            ImGui.TextColored(Amber, "Standby - wake me into Power Save when:");
             ImGui.Separator();
             Toggle(WakeCondition.Light, $"Light above {t.LightPercent:F0}%  (now {r.LightPercent:F0}%)");
             Toggle(WakeCondition.Wind, $"Wind above {t.WindPercent:F0}%  (now {r.WindPercent:F0}%)");
@@ -119,7 +94,15 @@ namespace SaltysDroidStandby.UI
             Toggle(WakeCondition.Danger, "Danger: damage, pressure swing, temperature");
             ImGui.Separator();
             ImGui.Text("Controls and battery drain freeze until you wake.");
-            if (ImGui.Button("Start")) LocalController.StartDeep();
+            float cooldown = LocalController.CooldownRemaining;
+            if (cooldown > 0f)
+            {
+                ImGui.TextColored(Amber, $"Start in {Mathf.CeilToInt(cooldown)} s");
+            }
+            else if (ImGui.Button("Start"))
+            {
+                LocalController.StartStandby();
+            }
             ImGui.SameLine();
             if (ImGui.Button("Cancel")) LocalController.CancelMenu();
             ImGui.Text("Enter = Start. Tap the standby key to cancel.");

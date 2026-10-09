@@ -116,3 +116,21 @@ Log lines expected once each: `Cognition floor patch succeeded`, `Drain scaling 
   - storm wakes;
   - multiplayer (no second player).
   - [ ] Holding Q in Power Save throws only weakly (the meter stops at about ⅛). In Standby, Q just drops the item. In Normal, full throws.
+
+## Revision 3 (2026-10-08)
+
+**States and waking**
+- [ ] A tap enters Power Save at once (no ⅓ s wait). Tap again for Normal, once the cooldown is over.
+- [ ] There's no double-tap state any more: two quick taps give Power Save, then "systems cycling".
+- [ ] Hold 3 s → the "Standby (Time Skip)" menu → Start enters Standby (frozen).
+- [ ] A tap wakes into **Power Save**, not Normal. An automatic wake does the same, with the chime and "Woke into Power Save: …".
+
+**Ramp and cooldown**
+- [ ] After entering Power Save or Standby, the status line shows "powering down… 5…1 s" and then goes away.
+- [ ] Within 5 s of any change, the key shows "Standby systems cycling – ready in N s" and does nothing.
+- [ ] Opening the menu within 5 s of a change: Start shows "Start in N s", then becomes a button.
+- [ ] A danger wake (take damage) fires at once, even right after entering Standby.
+
+**Safety net and overlay**
+- [ ] Safety net: enters Standby (frozen), with the "Saved you" prompt when solo.
+- [ ] Overlay: does it clear the hand cards at the default 72 %? If not, change `[Overlay] BottomPercent` and report the value that works.

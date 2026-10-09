@@ -31,7 +31,7 @@ namespace SaltysDroidStandby.Patches
             try
             {
                 if (!GameManager.RunSimulation || !__instance.IsArtificial) return;
-                float factor = StandbyConfig.DrainFactor(StandbyRegistry.Get(__instance));
+                float factor = StandbyRegistry.DrainFactor(__instance, StandbyClock.Now); // ramp applied (Revision 3)
                 bool lightFix = LightDrainFix.Active;
                 if (factor >= 1f && !lightFix) return;
                 BatteryCell battery = __instance.RobotBattery;

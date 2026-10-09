@@ -55,7 +55,7 @@ namespace SaltysDroidStandby
             try
             {
                 StandbyConfig.Bind(config);
-                Log("Config bound: Standby floor=" + StandbyConfig.StunFloor(StandbyLevel.Standby) + ", double tap=" + StandbyConfig.DoubleTapSeconds + "s, hold=" + StandbyConfig.HoldSeconds + "s");
+                Log("Config bound: Standby floor=" + StandbyConfig.StunFloor(StandbyLevel.Standby) + ", hold=" + StandbyConfig.HoldSeconds + "s, ramp=" + StandbyConfig.RampSeconds + "s, cooldown=" + StandbyConfig.CooldownSeconds + "s");
             }
             catch (Exception e)
             {
