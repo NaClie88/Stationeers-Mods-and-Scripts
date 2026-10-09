@@ -58,6 +58,8 @@ namespace SaltysDroidStandby.UI
                 return;
             }
 
+            if (StandbyConfig.ShowPositionGrid && InventoryManager.ParentHuman.IsArtificial) DrawPositionGrid();
+
             bool interactive = LocalController.MenuOpen || LocalController.PausedBySafetyNet;
             SetCursorFree(interactive);
 
@@ -76,6 +78,29 @@ namespace SaltysDroidStandby.UI
                 DrawLine($"Standby systems cycling - ready in {Mathf.CeilToInt(LocalController.CooldownRemaining)} s");
             }
             if (LocalController.LastWakeReason != null) DrawWakeMessage();
+        }
+
+        // TEMPORARY test aid (user, 2026-10-08): numbered lines every 2 % of screen height from
+        // 60 % to 98 %, so the player can read off where the overlay's bottom edge should sit
+        // ([Overlay] BottomPercent). The current setting is drawn in amber. Remove once chosen.
+        private static void DrawPositionGrid()
+        {
+            ImDrawListPtr dl = ImGui.GetForegroundDrawList();
+            float w = Screen.width, h = Screen.height;
+            float x0 = w * 0.30f, x1 = w * 0.70f;
+            int current = Mathf.RoundToInt(StandbyConfig.OverlayBottomFraction * 100f);
+            uint minor = ImGui.GetColorU32(new Vector4(0.4f, 0.9f, 1f, 0.35f));
+            uint major = ImGui.GetColorU32(new Vector4(0.4f, 0.9f, 1f, 0.8f));
+            uint mark = ImGui.GetColorU32(Amber);
+            for (int pct = 60; pct <= 98; pct += 2)
+            {
+                float y = h * pct / 100f;
+                bool isMajor = pct % 10 == 0;
+                uint col = pct == current ? mark : (isMajor ? major : minor);
+                dl.AddLine(new Vector2(x0, y), new Vector2(x1, y), col, pct == current || isMajor ? 2f : 1f);
+                dl.AddText(new Vector2(x0 - 34f, y - 7f), col, pct.ToString());
+                dl.AddText(new Vector2(x1 + 6f, y - 7f), col, pct.ToString());
+            }
         }
 
         private static void DrawMenu()
