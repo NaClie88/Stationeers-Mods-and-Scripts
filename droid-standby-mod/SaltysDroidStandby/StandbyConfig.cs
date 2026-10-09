@@ -10,7 +10,7 @@ namespace SaltysDroidStandby
         public static ConfigEntry<float> Hold, Ramp, Cooldown, OverlayBottom;
         public static ConfigEntry<float> PowerSaveFloor, PowerSaveDrain;
         public static ConfigEntry<float> StandbyFloorEntry;
-        public static ConfigEntry<bool> LightFix, ShowGrid;
+        public static ConfigEntry<bool> LightFix;
         public static ConfigEntry<int> Consecutive;
         public static ConfigEntry<float> LightThreshold, WindThreshold;
         public static ConfigEntry<float> BatteryCharged, BatteryLow;
@@ -32,8 +32,7 @@ namespace SaltysDroidStandby
             StandbyFloorEntry = c.Bind("Standby", "CognitionLossFloor", 85f, new ConfigDescription("Minimum cognition loss held in Standby (battery drain is frozen there). Keep below 90 (vanilla falls unconscious at 90 in a bed, 100 anywhere).", new AcceptableValueRange<float>(0f, 89f)));
             Ramp = c.Bind("Timing", "RampDownSeconds", 5f, new ConfigDescription("Battery drain eases down to the new state's rate over this long. Raising the drain is immediate.", new AcceptableValueRange<float>(0f, 30f)));
             Cooldown = c.Bind("Timing", "ToggleCooldownSeconds", 5f, new ConfigDescription("After any state change, the standby key can't change state again for this long (waking included). Automatic wakes ignore it.", new AcceptableValueRange<float>(0f, 30f)));
-            ShowGrid = c.Bind("Overlay", "ShowPositionGrid", true, "TEMPORARY test aid: draw numbered lines (percent of screen height) to pick BottomPercent. Turn off once set.");
-            OverlayBottom = c.Bind("Overlay", "BottomPercent", 82f, new ConfigDescription("How far down the screen the bottom edge of the standby overlay sits (percent of screen height). Lower it to move the overlay up. Read live.", new AcceptableValueRange<float>(20f, 98f)));
+            OverlayBottom = c.Bind("Overlay", "BottomPercent", 90f, new ConfigDescription("How far down the screen the bottom edge of the standby overlay sits (percent of screen height). Lower it to move the overlay up. Read live.", new AcceptableValueRange<float>(20f, 98f)));
 
             Consecutive = c.Bind("Wake", "ConsecutiveChecks", 3, new ConfigDescription("Checks (about 1 s apart) a threshold must hold before waking.", new AcceptableValueRange<int>(1, 10)));
             LightThreshold = c.Bind("Wake", "LightPercent", 20f, new ConfigDescription("Wake when light (sun height x storm dimming) rises above this %.", new AcceptableValueRange<float>(1f, 100f)));
@@ -59,10 +58,9 @@ namespace SaltysDroidStandby
             Verbose = c.Bind("Debug", "VerboseLogging", false, "Log level changes, wake checks and refunds.");
         }
 
-        public static bool ShowPositionGrid => ShowGrid == null || ShowGrid.Value;
         public static float RampSeconds => Ramp != null ? Ramp.Value : 5f;
         public static float CooldownSeconds => Cooldown != null ? Cooldown.Value : 5f;
-        public static float OverlayBottomFraction => (OverlayBottom != null ? OverlayBottom.Value : 82f) / 100f;
+        public static float OverlayBottomFraction => (OverlayBottom != null ? OverlayBottom.Value : 90f) / 100f;
         public static float HoldSeconds => Hold != null ? Hold.Value : 3f;
         public static bool LightDrainFixEnabled => LightFix == null || LightFix.Value;
         public static float CheckIntervalSeconds => 1f;

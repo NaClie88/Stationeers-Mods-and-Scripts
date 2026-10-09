@@ -30,7 +30,7 @@ H.E.M. Droids trade cognition for battery life — ride out a night or a storm o
 - **Lights and tools drain normally.** Helmet lights and headlamps run on their own batteries. Night Vision Goggles are a tool and are not affected.
 - **AFK safety net:** total battery ≤ 10 % and no input for 60 s → Standby (drain frozen). In single-player, or when you're the only player on your own hosted game, it also pauses until you come back.
 - **Fixes a vanilla bug:** the helmet-light key raised *every* droid's battery drain by 5 % until night vision was toggled. Now each droid pays the 5 % only while its own helmet light is on. The fix is optional (`[Fixes] HelmetLightDrainFix`) and switches itself off if a game update changes that code.
-- **Overlay position:** `[Overlay] BottomPercent` (default 82) sets how far down the screen the overlay sits, read live.
+- **Overlay position:** `[Overlay] BottomPercent` (default 90) sets how far down the screen the overlay sits, read live.
 
 The visuals and slowdown are vanilla's own cognition (stun) effects — the mod only holds a minimum. Beds, cryo tubes and the Droid Sleeper keep their vanilla behaviour (zero drain, charging). Standby is never saved: loading always starts at Normal.
 
