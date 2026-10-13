@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Util;
 using HarmonyLib;
@@ -38,26 +37,9 @@ namespace SaltysRotationCycle.Patches
         // _GetNext runs on the main thread, so a plain HashSet is fine.
         private static readonly HashSet<string> _logged = new HashSet<string>();
 
-        private static MethodInfo _willMerge;
-        private static Type _gridMergeable;
-        private static MethodInfo _playSound;
-        private static readonly int RotateBlueprintHash = Animator.StringToHash("RotateBlueprint");
-
-        public static void Prepare()
-        {
-            _gridMergeable = AccessTools.TypeByName("IGridMergeable");
-            if (_gridMergeable != null)
-            {
-                _willMerge = AccessTools.Method(_gridMergeable, "WillMergeWhenPlaced");
-            }
-            Type audio = AccessTools.TypeByName("UIAudioManager");
-            if (audio != null)
-            {
-                _playSound = AccessTools.Method(audio, "Play", new[] { typeof(int) });
-            }
-            SaltysRotationCycle.Log("Lookups: IGridMergeable " + (_willMerge != null ? "found" : "MISSING") +
-                ", UIAudioManager.Play " + (_playSound != null ? "found" : "MISSING"));
-        }
+        // The game's own "RotateBlueprint" sound hash (private static on SmartRotate).
+        private static readonly int RotateBlueprintHash =
+            (int)AccessTools.Field(typeof(SmartRotate), "RotateBlueprintHash").GetValue(null);
 
         public static bool Prefix(ISmartRotatable rotatable, bool isForward, Quaternion offset, Vector3 centerOfRotation)
         {
@@ -69,8 +51,7 @@ namespace SaltysRotationCycle.Patches
             {
                 // A pipe or cable that will merge into the one it's placed on keeps the game's
                 // plain single step: its orientation must match what it merges with.
-                if (_willMerge != null && _gridMergeable.IsInstanceOfType(rotatable) &&
-                    (bool)_willMerge.Invoke(rotatable, null))
+                if (rotatable is IGridMergeable mergeable && mergeable.WillMergeWhenPlaced())
                 {
                     return true;
                 }
@@ -84,7 +65,7 @@ namespace SaltysRotationCycle.Patches
                 {
                     StepGameTable(rotatable, isForward, offset, centerOfRotation);
                 }
-                PlaySound();
+                UIAudioManager.Play(RotateBlueprintHash);
                 return false;
             }
             catch (Exception e)
@@ -217,14 +198,6 @@ namespace SaltysRotationCycle.Patches
         private static string PermutationKey(ISmartRotatable rotatable, Quaternion offset, Quaternion rotation)
         {
             return string.Join(",", rotatable.GetOpenEndLocationPermutation(offset, rotation));
-        }
-
-        private static void PlaySound()
-        {
-            if (_playSound != null)
-            {
-                _playSound.Invoke(null, new object[] { RotateBlueprintHash });
-            }
         }
 
         private static void LogOnce(ISmartRotatable rotatable, string what)

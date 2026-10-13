@@ -20,5 +20,5 @@ Request: reorder the C key's orientation cycle so a part spins through every var
 - **Look-alikes skipped by default:** orientations that give the same open-end permutation as an earlier one (the game's own notion of "same", via `GetOpenEndLocationPermutation`) are dropped, so a straight pipe has 3 stops, not 24 with invisible spins. `ShowEverySpin` config turns that off.
 - **Restricted parts** (RotationAxis not All, Grid+Floor-only, Face not All/All, FaceMount) would be rotated into orientations they don't allow, so they step through the game's own `RotationsList` table one entry per press, without `_BestMatchCount`.
 - **Merging pipes/cables** (`IGridMergeable.WillMergeWhenPlaced`) keep the game's code untouched.
-- `IGridMergeable` and `UIAudioManager` are looked up by name (namespaces unverified from the cloud side). Any exception falls back to the game's own smart rotate for that press.
+- Compile-checked on the PC against the real game DLLs (0 errors). Any exception falls back to the game's own smart rotate for that press.
 - Trade-off: the base game's auto-pick of the best-connected orientation is gone.
