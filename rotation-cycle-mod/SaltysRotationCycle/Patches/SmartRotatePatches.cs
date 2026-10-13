@@ -16,8 +16,8 @@ namespace SaltysRotationCycle.Patches
     // the order a player sees looks random. This prefix replaces it with a fixed order:
     //   1. spin the part a quarter turn at a time about its main axis (4 presses), then
     //   2. tip the main axis to the next direction: up, north, east, south, west, down.
-    // The main axis is the part's local up for grid parts and its local forward (the face it is
-    // mounted on) for face-placed parts.
+    // The main axis of a grid part comes from its connection points (see MainAxis); a
+    // face-placed part spins about the face it is mounted on (local forward).
     //
     // Only the final Quaternion is sent to the server or saved, never a rotation index, so this is
     // client-side only.
@@ -30,9 +30,14 @@ namespace SaltysRotationCycle.Patches
             Vector3.up, Vector3.forward, Vector3.right, Vector3.back, Vector3.left, Vector3.down
         };
 
-        // The 24 orientations in cycle order, one list per main-axis convention.
-        private static readonly Quaternion[] GridCycle = BuildCycle(mainIsForward: false);
-        private static readonly Quaternion[] FaceCycle = BuildCycle(mainIsForward: true);
+        // Face parts always spin about their mount face (local forward).
+        private static readonly Quaternion[] FaceCycle = BuildCycle(Vector3.forward);
+
+        // Grid parts: one cycle per prefab, built from that prefab's main axis.
+        private static readonly Dictionary<string, Quaternion[]> _gridCycles = new Dictionary<string, Quaternion[]>();
+        private static Dictionary<string, Vector3> _overrides;
+
+        private const NetworkType FlowTypes = NetworkType.Pipe | NetworkType.PipeLiquid | NetworkType.Chute;
 
         // _GetNext runs on the main thread, so a plain HashSet is fine.
         private static readonly HashSet<string> _logged = new HashSet<string>();
@@ -89,7 +94,7 @@ namespace SaltysRotationCycle.Patches
             switch (rotatable.GetPlacementType())
             {
                 case PlacementSnap.Grid:
-                    return rotatable.GetAllowedRotations() == AllowedRotations.Floor ? null : GridCycle;
+                    return rotatable.GetAllowedRotations() == AllowedRotations.Floor ? null : GridCycleFor(rotatable);
                 case PlacementSnap.Face:
                     return rotatable.GetAllowedRotations() == AllowedRotations.All ? FaceCycle : null;
                 default:
@@ -131,7 +136,7 @@ namespace SaltysRotationCycle.Patches
                 rotatable.Rotate(axis, angle, offset, centerOfRotation);
             }
 
-            LogOnce(rotatable, (cycle == FaceCycle ? "face" : "grid") + " main-axis cycle, " + stops.Count + " stops");
+            LogOnce(rotatable, (cycle == FaceCycle ? "face (mount side)" : "grid") + " main-axis cycle, " + stops.Count + " stops");
         }
 
         // The game's own table for this part, one entry per press, with no auto-pick.
@@ -160,23 +165,178 @@ namespace SaltysRotationCycle.Patches
             LogOnce(rotatable, "game table " + type + ", " + table.Length + " stops");
         }
 
-        // Main axis first: for each axis direction, four quarter-turn spins about it.
-        private static Quaternion[] BuildCycle(bool mainIsForward)
+        private static Quaternion[] GridCycleFor(ISmartRotatable rotatable)
         {
+            string name = PrefabName(rotatable);
+            if (!_gridCycles.TryGetValue(name, out Quaternion[] cycle))
+            {
+                Vector3 main = MainAxis(rotatable, name, out string why);
+                cycle = BuildCycle(main);
+                _gridCycles[name] = cycle;
+                SaltysRotationCycle.Log("Main axis for " + name + ": local " + AxisName(main) + " (" + why + ")");
+            }
+            return cycle;
+        }
+
+        // Which local axis a grid part spins about, as a positive unit axis (X, Y or Z).
+        //   1. A config override for this prefab.
+        //   2. The line through two opposite pipe/chute ends: inline pumps, valves, regulators,
+        //      straight pipes.
+        //   3. The line all pipe/chute ends sit on: a tank or vent with one port.
+        //   4. Steps 2-3 again with every end (power/data too), for cable-inline parts.
+        //   5. Otherwise the part's own up: elbows, tees, crosses, parts with no ends.
+        private static Vector3 MainAxis(ISmartRotatable rotatable, string name, out string why)
+        {
+            if (Overrides().TryGetValue(name, out Vector3 forced))
+            {
+                why = "config override";
+                return forced;
+            }
+
+            var flow = new List<Vector3>();
+            var all = new List<Vector3>();
+            var described = new List<string>();
+            List<Connection> ends = rotatable.GetOpenEnds();
+            if (ends != null)
+            {
+                foreach (Connection end in ends)
+                {
+                    if (end == null || end.Transform == null || !end.Transform.IsChildOf(rotatable.Transform))
+                    {
+                        continue;
+                    }
+                    Vector3 dir = Snap(rotatable.Transform.InverseTransformDirection(end.Transform.forward));
+                    all.Add(dir);
+                    if ((end.ConnectionType & FlowTypes) != 0)
+                    {
+                        flow.Add(dir);
+                    }
+                    described.Add(end.ConnectionType + "/" + end.ConnectionRole + " " + SignedName(dir));
+                }
+            }
+            string endList = "ends: " + (described.Count > 0 ? string.Join(", ", described.ToArray()) : "none");
+
+            if (LineFrom(flow, out Vector3 line) || LineFrom(all, out line))
+            {
+                why = endList;
+                return line;
+            }
+            why = "no single connection line, using the part's up; " + endList;
+            return Vector3.up;
+        }
+
+        private static bool LineFrom(List<Vector3> dirs, out Vector3 line)
+        {
+            line = Vector3.zero;
+            if (dirs.Count == 0)
+            {
+                return false;
+            }
+            // Exactly one axis with ends on both sides.
+            int pairs = 0;
+            foreach (Vector3 axis in new[] { Vector3.right, Vector3.up, Vector3.forward })
+            {
+                if (dirs.Contains(axis) && dirs.Contains(-axis))
+                {
+                    pairs++;
+                    line = axis;
+                }
+            }
+            if (pairs == 1)
+            {
+                return true;
+            }
+            if (pairs > 1)
+            {
+                return false;
+            }
+            // Otherwise every end on the same side.
+            foreach (Vector3 d in dirs)
+            {
+                if (d != dirs[0])
+                {
+                    return false;
+                }
+            }
+            line = Abs(dirs[0]);
+            return true;
+        }
+
+        // "StructureTankSmall=Y, StructureVolumePump=Z" -> prefab name to local axis.
+        private static Dictionary<string, Vector3> Overrides()
+        {
+            if (_overrides != null)
+            {
+                return _overrides;
+            }
+            _overrides = new Dictionary<string, Vector3>();
+            foreach (string entry in (SaltysRotationCycle.AxisOverrides.Value ?? "").Split(','))
+            {
+                string[] parts = entry.Split('=');
+                if (parts.Length != 2)
+                {
+                    continue;
+                }
+                string axis = parts[1].Trim().ToUpperInvariant();
+                Vector3 v = axis == "X" ? Vector3.right : axis == "Y" ? Vector3.up : axis == "Z" ? Vector3.forward : Vector3.zero;
+                if (v != Vector3.zero)
+                {
+                    _overrides[parts[0].Trim()] = v;
+                }
+                else
+                {
+                    SaltysRotationCycle.Log("Ignoring AxisOverrides entry '" + entry.Trim() + "': axis must be X, Y or Z");
+                }
+            }
+            return _overrides;
+        }
+
+        // Main axis first: for each world direction, the orientation that puts the part's main
+        // axis on it, then four quarter-turn spins about it.
+        private static Quaternion[] BuildCycle(Vector3 mainLocal)
+        {
+            Quaternion local = Quaternion.LookRotation(mainLocal, Perpendicular(mainLocal));
             var cycle = new Quaternion[24];
             int n = 0;
             foreach (Vector3 axis in AxisOrder)
             {
-                Vector3 reference = Mathf.Abs(axis.y) > 0.5f ? Vector3.forward : Vector3.up;
-                Quaternion start = mainIsForward
-                    ? Quaternion.LookRotation(axis, reference)   // local forward on the axis
-                    : Quaternion.LookRotation(reference, axis);  // local up on the axis
+                Quaternion start = Quaternion.LookRotation(axis, Perpendicular(axis)) * Quaternion.Inverse(local);
                 for (int spin = 0; spin < 4; spin++)
                 {
                     cycle[n++] = Quaternion.AngleAxis(90f * spin, axis) * start;
                 }
             }
             return cycle;
+        }
+
+        private static Vector3 Perpendicular(Vector3 axis)
+        {
+            return Mathf.Abs(axis.y) > 0.5f ? Vector3.forward : Vector3.up;
+        }
+
+        private static Vector3 Snap(Vector3 v)
+        {
+            float x = Mathf.Abs(v.x), y = Mathf.Abs(v.y), z = Mathf.Abs(v.z);
+            if (x >= y && x >= z)
+            {
+                return new Vector3(Mathf.Sign(v.x), 0f, 0f);
+            }
+            return y >= z ? new Vector3(0f, Mathf.Sign(v.y), 0f) : new Vector3(0f, 0f, Mathf.Sign(v.z));
+        }
+
+        private static Vector3 Abs(Vector3 v)
+        {
+            return new Vector3(Mathf.Abs(v.x), Mathf.Abs(v.y), Mathf.Abs(v.z));
+        }
+
+        private static string AxisName(Vector3 axis)
+        {
+            return axis.x != 0f ? "X" : axis.y != 0f ? "Y" : "Z";
+        }
+
+        private static string SignedName(Vector3 dir)
+        {
+            return (dir.x + dir.y + dir.z > 0f ? "+" : "-") + AxisName(dir);
         }
 
         private static int NearestIndex(Quaternion[] cycle, Quaternion rotation)
@@ -200,9 +360,14 @@ namespace SaltysRotationCycle.Patches
             return string.Join(",", rotatable.GetOpenEndLocationPermutation(offset, rotation));
         }
 
+        private static string PrefabName(ISmartRotatable rotatable)
+        {
+            return rotatable is Thing thing && !string.IsNullOrEmpty(thing.PrefabName) ? thing.PrefabName : rotatable.GetType().Name;
+        }
+
         private static void LogOnce(ISmartRotatable rotatable, string what)
         {
-            string name = rotatable is Thing thing ? thing.PrefabName : rotatable.GetType().Name;
+            string name = PrefabName(rotatable);
             if (_logged.Add(name))
             {
                 SaltysRotationCycle.Log("C cycle for " + name + ": " + what +

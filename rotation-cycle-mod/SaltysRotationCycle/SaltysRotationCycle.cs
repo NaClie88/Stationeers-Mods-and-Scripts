@@ -21,6 +21,7 @@ namespace SaltysRotationCycle
         public static Mod MOD;
 
         public static ConfigEntry<bool> ShowEverySpin;
+        public static ConfigEntry<string> AxisOverrides;
 
         public static void Log(string line)
         {
@@ -58,6 +59,10 @@ namespace SaltysRotationCycle
                 ShowEverySpin = Config.Bind("General", "ShowEverySpin", false,
                     "Stop at every one of the 24 orientations, even ones whose connections land in the same " +
                     "places (e.g. spinning a straight pipe about its own length). Off: those look-alikes are skipped.");
+                AxisOverrides = Config.Bind("General", "AxisOverrides", "",
+                    "Force the axis a part spins about, for parts the automatic choice gets wrong. " +
+                    "Comma-separated PrefabName=Axis with Axis X, Y or Z in the part's own frame, " +
+                    "e.g. StructureTankSmall=Y. Prefab names and their chosen axis are in the log.");
                 var harmony = new Harmony(pluginGuid);
                 PatchSafely(harmony, typeof(Patches.SmartRotateCyclePatch), "Smart rotate cycle patch");
                 _patched = true;

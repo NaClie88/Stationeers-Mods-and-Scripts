@@ -11,7 +11,15 @@ With this mod, every tap goes to the next orientation in a fixed order:
 1. **Spin about the main axis** a quarter turn at a time (4 taps).
 2. **Tip the main axis** to the next direction and spin again: up, north, east, south, west, down.
 
-The main axis is the part's own "up" for parts that snap to the grid (pipes, cables, most devices), and the face it is mounted on for face-placed parts.
+The main axis is worked out per part from its connection points:
+
+- **Two pipe or chute ends facing opposite ways** (pumps, valves, regulators, straight pipes): the line through them.
+- **All pipe or chute ends on one side** (a tank with one port): that direction.
+- **No pipe or chute ends**: the same tests on power/data ends, for cable-inline parts.
+- **Anything else** (elbows, tees, crosses): the part's own up.
+- **Face-placed parts** spin about the face they're mounted on.
+
+Power and data ports don't count when a part has pipe ends, so a pump's side power socket doesn't throw it off. The log lists every part's ports and the axis chosen (`Main axis for …`). For a part the automatic choice gets wrong, add it to `AxisOverrides` in the mod's config, e.g. `StructureTankSmall=Y` (X, Y or Z in the part's own frame).
 
 - **Shift+C** goes backwards through the same order.
 - **Hold C and scroll** steps forwards or backwards.

@@ -22,3 +22,12 @@ Request: reorder the C key's orientation cycle so a part spins through every var
 - **Merging pipes/cables** (`IGridMergeable.WillMergeWhenPlaced`) keep the game's code untouched.
 - Compile-checked on the PC against the real game DLLs (0 errors). Any exception falls back to the game's own smart rotate for that press.
 - Trade-off: the base game's auto-pick of the best-connected orientation is gone.
+
+## 2026-10-13: Per-part main axis
+
+Feedback: one axis for every part is wrong. Tanks should spin about vertical, inline pipe devices (pumps, valves) about the pipe's length.
+
+- The game has no "main axis" field. What it does store per part is `SmallGrid.OpenEnds` (`List<Connection>`): each `Connection` has `ConnectionType` (a `NetworkType` flag: Pipe, PipeLiquid, Chute, Power, Data, ...), `ConnectionRole` (Input/Output/...) and a `Transform` whose `forward` points out of the part into the neighbouring cell (that's how `GetFacingGrid` works). On the construction cursor these are live children of the cursor, so `InverseTransformDirection(end.Transform.forward)` gives a local direction per end.
+- `MainAxis` rule: config override → the line through an opposite pair of pipe/chute ends (only if exactly one such line) → the line all pipe/chute ends sit on → the same two tests on every end → local up. The result is a positive local axis, so a bottom-port tank starts upright.
+- The cycle is built per prefab and cached: for each world direction (up, N, E, S, W, down) the orientation that puts the main axis there, then four spins about it. Face parts keep local forward.
+- Port layouts live in the asset bundles, not code, so the mod logs each prefab's ends and chosen axis once (`Main axis for …`) for checking after a play session. `AxisOverrides` config is the manual-mapping escape hatch.
