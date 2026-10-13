@@ -85,6 +85,7 @@
     <Compile Include="Patches\UiAscendedCompat.cs" />
     <Compile Include="Patches\UiAscendedBetaBox.cs" />
     <Compile Include="Patches\UiAscendedBetaWheel.cs" />
+    <Compile Include="Patches\WirelessTopUpPatch.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup />

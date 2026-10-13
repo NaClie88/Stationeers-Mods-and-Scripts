@@ -102,6 +102,7 @@ namespace SaltysDroidDualBattery
                 PatchSafely(harmony, typeof(Patches.DroidSleeperPatch), "Droid Sleeper slot-2 charging patch");
                 PatchSafely(harmony, typeof(Patches.BatteryLabelLocalizationPatch), "Battery label localization patch");
                 PatchSafely(harmony, typeof(Patches.BatteryChargerPatch), "Disposable charger targeting patch");
+                PatchSafely(harmony, typeof(Patches.WirelessTopUpPatch), "Wireless battery top-up patch");
                 _patched = true;
                 Log("Awake() completed");
             }

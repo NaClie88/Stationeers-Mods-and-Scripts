@@ -9,6 +9,7 @@ A Stationeers mod that gives **H.E.M. Droids a second battery slot**, so you can
 - **Hot-swap.** While the droid runs on β, pull the empty α battery and put in a fresh one, with no power loss.
 - **Droid Sleeper charges both batteries.** Both slots charge every power tick at the sleeper's normal rate, and the extra power is drawn from the sleeper's cable network, the same way vanilla already charges a suit battery.
 - **Disposable Battery Charger.** It charges α first if it isn't full, then β, then the suit battery.
+- **Wireless backup.** If one slot holds a wireless battery at 50% or more, it tops off the other slot's normal battery at 300 per power tick (the rate an Omni wireless transmitter charges one battery), like an area power controller charging its backup battery. Energy is moved, not created, and the wireless battery always keeps its last 50%. Two wireless batteries don't feed each other.
 - **Localized labels.** The labels use the game's own translated name for the droid battery slot plus **α / β** (English: "Battery α" / "Battery β"). They update when you change language and keep the game's per-language font.
 
 ## Requirements and install
@@ -50,6 +51,7 @@ The H.E.M. Droid's battery slot is really vanilla's **Uniform** slot, retyped to
 | `Patches/DroidSleeperPatch.cs` | prefix + postfix `DroidSleeper.ChargeRobot` | Charge both slot batteries each tick, skipping the one vanilla just charged. |
 | `Patches/BatteryLabels.cs` | postfix `LocalizedText.Refresh` | Localized α/β labels; hands #5 back to vanilla for non-droids. |
 | `Patches/BatteryChargerPatch.cs` | postfix `DisposableBatteryCharger.GetTargetBattery` | Charger targets α, then β, then vanilla's answer. |
+| `Patches/WirelessTopUpPatch.cs` | postfix `BatteryCell.OnPowerTick` | A wireless battery at 50% or more in one droid slot moves up to 300 per tick into the other slot's non-wireless battery. Server only. Runs off the main thread, so no Unity APIs and every exception is caught. |
 | `Patches/UiAscendedCompat.cs` | (applies the two below) | Detects UI Ascended by type name on the first HUD build; one log line per hook; a hook that throws disables itself. |
 | `Patches/UiAscendedBetaBox.cs` | postfixes on UI Ascended's `EquipmentColumnWidget.BuildContent` / `Layout` / `UpdatePanel` / `CollectDropZones` | The β box beside #5, styled through the widget's own helpers, plus its drop target. |
 | `Patches/UiAscendedBetaWheel.cs` | postfixes on UI Ascended's `EquipmentKeyRadialFeature.BuildRoot` / `CanOpen` / `Title` | β (and an empty α) as slot entries in the 5 wheel. |

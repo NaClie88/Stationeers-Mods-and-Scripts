@@ -830,6 +830,14 @@ Then set its `modconfig.xml` entry to `Enabled="true"`.
 
 - [ ] **Step 9: Non-droid (Review Focus 3).** Respawn or load as a human: no β box, no extra wheel entry, #5 label is UI Ascended's own.
 
+- [ ] **Step 9b: Wireless top-off (added 2026-10-13, separate feature).** The log shows `Wireless battery top-up patch succeeded`. Turn on Debug → VerboseLogging for start/stop lines.
+  1. Wireless battery at 50% or more in β, partly drained normal battery in α: α's % rises while β's falls by the same energy.
+  2. It stops once β reaches 50%.
+  3. Swap the two (wireless in α): it tops off β the same way.
+  4. Two wireless batteries: no transfer.
+  5. Near a powered Omni transmitter, the wireless battery keeps refilling while it feeds the other one.
+  6. No `Wireless top-up threw` line in the log.
+
 - [ ] **Step 10: Without UI Ascended.** Optional, at the user's choice: remove it from the profile again and check the log shows `UI Ascended not loaded -- compat skipped` and the vanilla β button works as in v0.2.
 
 - [ ] **Step 11: Record results in UpdateNotes and commit**

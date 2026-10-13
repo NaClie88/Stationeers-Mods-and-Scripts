@@ -233,3 +233,26 @@ Installed (MD5 `bff37231…`). In-game check pending: labels read "Battery α / 
 - If the update hook switches itself off after an error, the β box is now hidden rather than frozen on screen with stale data.
 
 Deferred (minor): #5's label is rewritten twice a frame; drop-zone search could match a second, duplicated equipment column; no drag-hover highlight on β; β's icon ignores a theme's icon tint; the classic-mode wheel sublabel loses its "(empty)"/state text; the comments and docs say "away from the screen centre", but β actually goes toward it, as the Meson tag does (the behaviour is right).
+
+## 2026-10-13: Wireless battery tops off the other slot (v0.3)
+
+**Goal (user).** If either slot holds a wireless battery at 50% or more, it should top off the other slot's battery when that one isn't wireless, like an area power controller charging the battery it will drain if it loses power.
+
+**Research (decompiled `Assembly-CSharp`; kept in a scratchpad).**
+- `WirelessBattery : BatteryCell` is charged by a `PowerTransmitterOmni` within `_maxDistance` (15 m). The Omni gives each battery up to `_batteryChargeRate` (300) per power tick through `AddPowerWireless`, with 25–75% lost over distance.
+- An Omni only skips batteries whose parent is a non-battery-powered `Device`. A `Human` isn't a `Device`, so a wireless battery in a droid slot already charges from a nearby Omni.
+- `BatteryCell.OnPowerTick` runs for every battery, including ones in a droid's slots. It's declared on `BatteryCell` and `WirelessBattery` doesn't override it.
+
+**Design (agreed in chat).**
+- Rate: **300 per tick**, the Omni's per-battery rate (user's choice over the Droid Sleeper rate, a config value, or instant).
+- Energy is moved, not created. The wireless battery never gives away charge below 50%.
+- Nothing happens when the other slot is empty, also wireless, or full.
+- Server only (`GameManager.RunSimulation`). Clients see the networked `CurrentPowerPercentage`.
+
+**Implementation.** `Patches/WirelessTopUpPatch.cs`, a postfix on `BatteryCell.OnPowerTick`:
+- For a `WirelessBattery` in α or β of a droid that has the β slot: `amount = min(300, other.PowerDelta, wireless.PowerStored - 50%)`.
+- `target.AddPowerSafe(amount)` (the Omni's own call) adds the charge, and the wireless battery is debited exactly what was accepted.
+- The power tick runs off the main thread: there are no UnityEngine.Object APIs (`is` patterns and `ReferenceEquals`, not `==`), and everything is caught. The first exception logs once and turns the feature off for the session.
+- With `VerboseLogging` on, it logs start/stop once per change. Clean build, 0 warnings.
+
+**To verify in-game:** see plan Task 4, Step 9b.
