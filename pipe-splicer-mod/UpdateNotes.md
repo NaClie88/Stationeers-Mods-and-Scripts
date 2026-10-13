@@ -22,3 +22,10 @@ Request (in the Rotation Cycle thread): when placing a new connection into a lon
 - Postfix spawns the replacement pieces in the same frame. Logs the pieces, the extra cost and, for pipes, network pressure/moles before and 2 s after.
 - Client: `Piping.CanReplace` postfix and `Cable._IsCollision` postfix let the cursor through over a long straight of the same type with the wrench in hand; `Piping`/`Cable.CanReplace` then check the kit covers `extra` + the junction and show "needs N more" if not.
 - **Open questions for the in-game test:** does `GetPipe(localPosition)` return the long piece; do the spawned pieces register correctly while the long one is being destroyed in the same frame (vanilla does destroy-then-create the same way); does the pressure line show no change.
+
+## 2026-10-13: Review against the decompile
+
+- Compiles (0 errors). `OnServer.Destroy` is deferred to end of frame, `SmallCell.Add` overwrites a slot and `RemoveSmallGridStructure` only clears a slot still holding that object, so the long piece's late deregistration can't wipe the new pieces. Vanilla's own merge relies on the same.
+- Gas: the new pieces join the old network mid-frame (volume briefly long + new); at end of frame `Pipe.OnDestroy(long)` removes its volume, snapshots the full gas and divides it over the rebuilt network by volume. Conserved.
+- The junction's shape is the OR of the new piece's and the long piece's open-end layout, and its price is looked up by the long piece's ConnectionType. Both need the long prefab to describe itself as a Straight along its length; that's prefab data, so the prefix now sets ConnectionType Straight + the matching permutation on the doomed piece if needed and logs what it found (`Merge layout for …`).
+- Known risk, same as vanilla merges: a tee whose third end joins a separate pressurised network merges it mid-frame with a `CreateAdd` that may land on an atmosphere the end-of-frame rebuild orphans, so that side network's gas could be lost. Test it; the 2 s pressure line shows it.

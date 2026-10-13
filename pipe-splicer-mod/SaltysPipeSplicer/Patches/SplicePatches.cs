@@ -91,6 +91,8 @@ namespace SaltysPipeSplicer.Patches
                     }
                 }
 
+                Splice.DescribeAsStraight(old);
+
                 if (old is Pipe pipe && pipe.PipeNetwork != null && pipe.PipeNetwork.Atmosphere != null)
                 {
                     plan.PressureBefore = pipe.PipeNetwork.Atmosphere.PressureGassesAndLiquids.ToString();
@@ -282,6 +284,38 @@ namespace SaltysPipeSplicer.Patches
             }
             return merge.ToolExit.PrefabHash == offhand.PrefabHash ||
                 (offhand.ReplacementOf != null && merge.ToolExit.PrefabHash == offhand.ReplacementOf.PrefabHash);
+        }
+
+        // The game shapes the junction from the OR of the new piece's and the old piece's open-end
+        // layout, and prices it against the kit's first constructable with the old piece's
+        // ConnectionType. Both are only right if the long piece describes itself as a Straight
+        // along its own length, so make sure it does. It's about to be destroyed anyway.
+        public static void DescribeAsStraight(Structure old)
+        {
+            if (!(old is ISmartRotatable rotatable))
+            {
+                return;
+            }
+            SmartRotate.ConnectionType type = rotatable.GetConnectionType();
+            string perm = string.Join(",", rotatable.GetOpenEndsPermutation());
+
+            // Which local axis the run lies along, from the prefab's own cells.
+            Grid3[] local = old.GridBounds._gridsSmall;
+            Vector3 span = local[local.Length - 1].ToVector3() - local[0].ToVector3();
+            float x = Mathf.Abs(span.x), y = Mathf.Abs(span.y), z = Mathf.Abs(span.z);
+            // Face slots: 0 Up, 1 South, 2 East, 3 North, 4 West, 5 Down.
+            int[] straight = y >= x && y >= z ? new[] { 1, 0, 0, 0, 0, 1 }
+                : z >= x ? new[] { 0, 1, 0, 1, 0, 0 }
+                : new[] { 0, 0, 1, 0, 1, 0 };
+
+            bool same = type == SmartRotate.ConnectionType.Straight && perm == string.Join(",", straight);
+            if (!same)
+            {
+                rotatable.SetConnectionType(SmartRotate.ConnectionType.Straight);
+                rotatable.SetOpenEndsPermutation(straight);
+            }
+            SaltysPipeSplicer.LogOnce("Merge layout for " + old.PrefabName + ": ConnectionType " + type + " [" + perm + "]" +
+                (same ? " (already a straight)" : " -> Straight [" + string.Join(",", straight) + "] for the merge"));
         }
 
         public static int EntryOf(Structure prefab)
