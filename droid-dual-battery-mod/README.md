@@ -29,6 +29,15 @@ A Stationeers mod that gives **H.E.M. Droids a second battery slot**, so you can
 
 LaunchPad config → **Debug → VerboseLogging** (off by default) logs battery switches (α → β) and setup detail to `BepInEx/LogOutput.log`.
 
+### Stationeers UI Ascended
+
+[Stationeers UI Ascended](https://steamcommunity.com/sharedfiles/filedetails/?id=3776545141) (by FlorpyDorp + JXSN) replaces the vanilla HUD, including the panel that holds the β button. When it's loaded, the mod adds β to UI Ascended's own HUD instead:
+
+- **β box.** A small box attached to the side of UI Ascended's #5 box shows battery β's icon and charge (`β NN%`), dimmed when empty. #5 reads **BATTERY α**. Drag a battery onto the β box to install it. The box follows the active theme and HUD scale.
+- **5 wheel.** Tapping 5 lists β alongside α, the same way UI Ascended lists a bag's slots: take β to hand, drop a battery on it, or stow the battery in your hand into it. With α empty, the wheel still opens and lists both slots.
+
+UI Ascended is optional: it's detected by name on the first world load, and without it nothing changes. If a UI Ascended update renames something this relies on, the affected piece switches itself off and logs why. The battery logic keeps working.
+
 ## How it works
 
 The H.E.M. Droid's battery slot is really vanilla's **Uniform** slot, retyped to `Battery` when the game learns the character is a droid (`Human.SetSpeciesSpecificSlots`). That's also why it sits on the #5 key and why its HUD label said "Uniform". Every system that uses the droid's battery reads one property, `Human.RobotBattery`. The mod hooks those two points plus the HUD:
@@ -41,6 +50,9 @@ The H.E.M. Droid's battery slot is really vanilla's **Uniform** slot, retyped to
 | `Patches/DroidSleeperPatch.cs` | prefix + postfix `DroidSleeper.ChargeRobot` | Charge both slot batteries each tick, skipping the one vanilla just charged. |
 | `Patches/BatteryLabels.cs` | postfix `LocalizedText.Refresh` | Localized α/β labels; hands #5 back to vanilla for non-droids. |
 | `Patches/BatteryChargerPatch.cs` | postfix `DisposableBatteryCharger.GetTargetBattery` | Charger targets α, then β, then vanilla's answer. |
+| `Patches/UiAscendedCompat.cs` | (applies the two below) | Detects UI Ascended by type name on the first HUD build; one log line per hook; a hook that throws disables itself. |
+| `Patches/UiAscendedBetaBox.cs` | postfixes on UI Ascended's `EquipmentColumnWidget.Layout` / `UpdatePanel` / `CollectDropZones` | The β box beside #5, styled through the widget's own helpers, plus its drop target. |
+| `Patches/UiAscendedBetaWheel.cs` | postfixes on UI Ascended's `EquipmentKeyRadialFeature.BuildRoot` / `CanOpen` | β (and an empty α) as slot entries in the 5 wheel. |
 
 Design notes:
 
@@ -72,5 +84,6 @@ The full development log, including dead ends, test results and the reasoning be
 - [Stationeers Community Wiki: HEM Droid](https://stationeers-wiki.com/HEM_Droid): the droid's Uniform slot is replaced by a battery slot, and a droid can run off a battery held in hand.
 - [Steam discussion: "H.E.M. Droids and Batteries"](https://steamcommunity.com/app/544550/discussions/0/1754653387142881010/): players asking for "Main and Reserve" droid batteries.
 - Project skeleton (csproj, plugin bootstrap, `build-and-install.sh`) is reused from this repo's own *Salty's Fabricator Overflow* mod.
+- [Stationeers UI Ascended](https://steamcommunity.com/sharedfiles/filedetails/?id=3776545141) by FlorpyDorp + JXSN. Its v1.0.3 DLL was decompiled with ILSpy only to find the members the compat patches hook. The β box copies its Meson Scanner tag's approach, and the wheel uses its own `ItemMenuBuilder.BuildSlotEntry`. No code was copied, and nothing from it is redistributed.
 
 **Author:** NaClie88 (Salty).

@@ -205,3 +205,23 @@ Installed (MD5 `bff37231…`). In-game check pending: labels read "Battery α / 
 - **Multiplayer slot creation: checked, not a bug.** A mid-session spawn reaches clients via `Thing.DeserializeNew` → `Create` → `DeserializeOnJoin` → `Human.DeserializeOnJoin` → `UpdateCosmeticIdentity`. That's the same synchronous path as joining, so a client's copy of a new droid gets slot β before any battery is placed in it. (`HumanIdentityMessage` doesn't re-run `SetSpeciesSpecificSlots`, but it's only used for cosmetic changes on existing bodies, which never change species.)
 - **FIXED: the Disposable Battery Charger couldn't charge a dead α while β had charge.** `DisposableBatteryCharger.GetTargetBattery` targets `human.RobotBattery` (which is β whenever α is empty) and falls back to the suit battery. It's the same blind spot the sleeper had. New `BatteryChargerPatch` (postfix): α if it isn't full (vanilla's own 0.99 threshold), then β, then vanilla's answer.
 - Reviewed and fine: the hand-battery fallback order, the label refresh against destroyed HUD objects, and `RobotBattery` on humans (the uniform holds a Uniform, so there's no change).
+
+## 2026-10-13: Stationeers UI Ascended compatibility (v0.3)
+
+**Goal (user).** With [Stationeers UI Ascended](https://steamcommunity.com/sharedfiles/filedetails/?id=3776545141) v1.0.3 (Workshop 3776545141) active, battery β must show on the HUD and be swappable. It should *not* sit in line with the six equipment boxes, but hang off #5 "the way bags/jetpacks show contents". Design: [`docs/specs/2026-10-13-ui-ascended-compat-design.md`](docs/specs/2026-10-13-ui-ascended-compat-design.md); plan: [`docs/plans/2026-10-13-ui-ascended-compat.md`](docs/plans/2026-10-13-ui-ascended-compat.md).
+
+**Findings (decompiled UI Ascended; kept in a scratchpad, not committed).**
+- Already fine with no change: its battery readout reads `Human.RobotBattery` (our getter patch), and its Universal Inventory walks every entry of `Human.Slots`, so it lists β.
+- Broken: `HideVanillaClothing` (default on) hides the vanilla panel, and our cloned β button with it. `EquipmentColumnWidget` is hard-coded to six boxes (#5 = `UniformSlot`, labelled "BATTERY" on robots). The #5 wheel (`EquipmentKeyRadialFeature`) only manages the #5 occupant and won't open when #5 is empty.
+- Precedent for a "child" element: UI Ascended attaches a Meson Scanner mode tag beside the glasses box (`UpdateMesonTag` / `LayoutMesonTag`).
+- `PanelGraphic`'s size lives in private non-serialized fields (`_w`, `_h`), so `Instantiate` wouldn't copy it. New panels are made with `HudPanel.MakePanel` and styled every frame through the widget's own helpers, as the Meson tag is.
+
+**Implementation.**
+- `UiAscendedCompat`: on the first `HudSlotPatch.Postfix` (every LaunchPad mod is loaded by then), looks up `EquipmentColumnWidget` by name. If it isn't there, logs `UI Ascended not loaded -- compat skipped`. No compile-time reference. `HookGuard` turns a hook off after its first exception.
+- `UiAscendedBetaBox`: postfixes on `Layout` / `UpdatePanel` / `CollectDropZones`.
+  - A 0.6× box sits beside #5, away from the screen centre, or above/below #5 when the column is a row.
+  - It shows the icon and `β NN%` (`CurrentPowerPercentage`, which is networked), dimmed when empty. #5 reads "BATTERY α".
+  - Its drop zone is #5's zone, shifted by the same offset.
+  - Tracked per widget in a `ConditionalWeakTable`, so a HUD rebuild gets a fresh box.
+- `UiAscendedBetaWheel`: postfixes on `BuildRoot` / `CanOpen` for the `"UniformSlot"` feature. It appends UI Ascended's own `BuildSlotEntry(β)` (and `BuildSlotEntry(α)` when α is empty), sublabelled "Battery α/β". The wheel also opens when only β holds a battery.
+- `Harmony` instance kept on the plugin (`HarmonyInstance`) for the late patching. Version **0.3**. Clean build, 0 warnings.
