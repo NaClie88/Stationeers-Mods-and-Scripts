@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Salty's Rotation Cycle</Name>
+  <ModID>com.naclie88.SaltysRotationCycle</ModID>
+  <Author>Joshua</Author>
+  <Version>0.1</Version>
+  <Description>Reorders the C (smart rotate) key while placing structures, so repeated presses spin the part through every turn about its main axis before moving on to the next facing.</Description>
+</ModMetadata>

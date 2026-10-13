@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Salty's Pipe Splicer</Name>
+  <ModID>com.naclie88.SaltysPipeSplicer</ModID>
+  <Author>Joshua</Author>
+  <Version>0.1</Version>
+  <Description>Wrench-merge a junction into the middle of a 3, 5 or 10-long pipe or cable and the rest of the run is rebuilt from shorter pieces around it, keeping the gas in the pipe and the power on.</Description>
+</ModMetadata>
