@@ -816,7 +816,7 @@ Then set its `modconfig.xml` entry to `Enabled="true"`.
 - [ ] **Step 3: Install.** Game closed: `bash build-and-install.sh`. Expected: `Installed OK (<md5>)`. Record the MD5 in UpdateNotes.
 
 - [ ] **Step 4: Log check (user launches the game, loads a droid save).** In `Stationeers/BepInEx/LogOutput.log` expect, in order:
-  `UI Ascended detected -- applying compat patches`, `UI Ascended compat: β box layout patched`, `... β box update patched`, `... β box drop target patched`, `... β wheel entry patched`, `... β wheel open patched`, `UI Ascended: added battery β box beside #5`. No `threw -- disabled` lines.
+  `UI Ascended detected -- applying compat patches`, `UI Ascended compat: β box build patched`, `... β box layout patched`, `... β box update patched`, `... β box drop target patched`, `... β wheel entry patched`, `... β wheel open patched`, `... β wheel title patched`, `UI Ascended: added battery β box beside #5`. No `threw -- disabled` lines.
 
 - [ ] **Step 5: Droid HUD checklist (user).** β box beside #5, #5 reads `BATTERY α`, β shows icon + `β NN%` that drops while running on β; empty β is dimmed and reads `β`. Drag a battery from hand or Universal Inventory onto the β box: it installs. Tap 5: wheel shows α (take to hand) and `Battery β`. Take β to hand, then install it back via the β entry. Empty α, tap 5: the wheel still opens with both slots.
 
@@ -825,6 +825,8 @@ Then set its `modconfig.xml` entry to `Enabled="true"`.
 - [ ] **Step 7: #5 hidden (Review Focus 2).** In F9 set the equipment column's "Slot count" to 4: the β box disappears. Restore it.
 
 - [ ] **Step 8: Horizontal row (Review Focus 4).** In F9 turn on "Horizontal row" for the equipment column: the β box sits above or below #5 and doesn't cover #4/#6. Turn it back off.
+
+- [ ] **Step 8b: Curvature / bloom (final-review finding).** Turn HUD Bloom on (this forces Dome curvature), then try the CurvedRt and Curved world canvas curvature modes: in each, the β box's panel, icon and label all render. Also turn "Show labels" off and on: the `β NN%` label follows. With α empty and β holding a battery, tap 5: the wheel's title reads "Battery", not "UniformSlot".
 
 - [ ] **Step 9: Non-droid (Review Focus 3).** Respawn or load as a human: no β box, no extra wheel entry, #5 label is UI Ascended's own.
 

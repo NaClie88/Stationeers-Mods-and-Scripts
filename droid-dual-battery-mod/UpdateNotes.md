@@ -225,3 +225,11 @@ Installed (MD5 `bff37231…`). In-game check pending: labels read "Battery α / 
   - Tracked per widget in a `ConditionalWeakTable`, so a HUD rebuild gets a fresh box.
 - `UiAscendedBetaWheel`: postfixes on `BuildRoot` / `CanOpen` for the `"UniformSlot"` feature. It appends UI Ascended's own `BuildSlotEntry(β)` (and `BuildSlotEntry(α)` when α is empty), sublabelled "Battery α/β". The wheel also opens when only β holds a battery.
 - `Harmony` instance kept on the plugin (`HarmonyInstance`) for the late patching. Version **0.3**. Clean build, 0 warnings.
+
+**Independent code review (whole branch).** Every reflected member and Harmony signature was checked against the decompiled source, and all five planned edge cases hold. Fixed from the review:
+- **β box could be invisible with HUD Bloom or the Dome/CurvedRt/Curved-world curvature modes.** UI Ascended re-layers its canvas (the curved modes' camera culls by layer), gives graphics world materials, and caches its fx list once, *after* building panels. A box created later missed all of that. It is now built in a postfix on `EquipmentColumnWidget.BuildContent`, as UI Ascended builds its own Meson tag. The late path (HUD built before our patches) copies the root's layer.
+- β's label now mirrors #5's `enabled`, so it follows the theme's "Show labels" toggle.
+- With α empty, the 5 wheel's title fell back to the raw key name `UniformSlot`. A postfix on the `Title` getter now returns the localized "Battery".
+- If the update hook switches itself off after an error, the β box is now hidden rather than frozen on screen with stale data.
+
+Deferred (minor): #5's label is rewritten twice a frame; drop-zone search could match a second, duplicated equipment column; no drag-hover highlight on β; β's icon ignores a theme's icon tint; the classic-mode wheel sublabel loses its "(empty)"/state text; the comments and docs say "away from the screen centre", but β actually goes toward it, as the Meson tag does (the behaviour is right).

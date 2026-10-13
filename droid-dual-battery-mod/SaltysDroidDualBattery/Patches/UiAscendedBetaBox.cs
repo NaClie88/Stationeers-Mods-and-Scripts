@@ -95,6 +95,10 @@ namespace SaltysDroidDualBattery.Patches
                 return;
             }
 
+            // Built inside UI Ascended's own BuildContent, like its Meson tag, so the HUD's
+            // one-time setup that follows (layer, world materials, fx list) includes β.
+            UiAscendedCompat.Patch(harmony, AccessTools.Method(column, "BuildContent", new[] { typeof(RectTransform) }),
+                typeof(UiAscendedBetaBox), nameof(BuildContentPostfix), "β box build");
             UiAscendedCompat.Patch(harmony, AccessTools.Method(column, "Layout", new[] { typeof(float) }),
                 typeof(UiAscendedBetaBox), nameof(LayoutPostfix), "β box layout");
             UiAscendedCompat.Patch(harmony, AccessTools.Method(column, "UpdatePanel"),
@@ -107,6 +111,22 @@ namespace SaltysDroidDualBattery.Patches
             else
             {
                 SaltysDroidDualBattery.Log("UI Ascended compat: drop zone members not found -- β drop target skipped");
+            }
+        }
+
+        private static void BuildContentPostfix(object __instance)
+        {
+            if (_layoutGuard.Disabled)
+            {
+                return;
+            }
+            try
+            {
+                GetOrBuild(__instance);
+            }
+            catch (Exception e)
+            {
+                _layoutGuard.Fail(e);
             }
         }
 
@@ -130,6 +150,7 @@ namespace SaltysDroidDualBattery.Patches
         {
             if (_updateGuard.Disabled)
             {
+                Hide(__instance);
                 return;
             }
             try
@@ -139,6 +160,23 @@ namespace SaltysDroidDualBattery.Patches
             catch (Exception e)
             {
                 _updateGuard.Fail(e);
+                Hide(__instance);
+            }
+        }
+
+        // With the update hook off, β would otherwise freeze on screen with stale data.
+        private static void Hide(object widget)
+        {
+            try
+            {
+                if (_betas.TryGetValue(widget, out Beta beta) && beta.PanelGo != null)
+                {
+                    SetActive(beta, false);
+                }
+            }
+            catch
+            {
+                // Nothing more we can do; the guard has already logged.
             }
         }
 
@@ -192,6 +230,9 @@ namespace SaltysDroidDualBattery.Patches
             var source = (TextMeshProUGUI)_boxLabel.GetValue(BatteryBox(widget));
             TextMeshProUGUI label = UnityEngine.Object.Instantiate(source, root, false);
             label.name = "BatteryBeta_Label";
+            // Built late (HUD existed before our patches): match the HUD's render layer, which
+            // UI Ascended's camera-rendered curvature modes cull by.
+            panel.gameObject.layer = icon.gameObject.layer = label.gameObject.layer = root.gameObject.layer;
             beta = new Beta { PanelGo = panel.gameObject, Panel = panel, Icon = icon, Label = label };
             _betas.Add(widget, beta);
             SaltysDroidDualBattery.Log("UI Ascended: added battery β box beside #5");
@@ -341,6 +382,8 @@ namespace SaltysDroidDualBattery.Patches
                 text.a *= 0.7f;
             }
             beta.Label.color = text;
+            // Follow the theme's "Show labels" toggle like the other boxes.
+            beta.Label.enabled = label5.enabled;
             int pct = occupied ? cell.CurrentPowerPercentage : -1;
             if (pct != beta.LastPct)
             {

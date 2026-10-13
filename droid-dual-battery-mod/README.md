@@ -51,8 +51,8 @@ The H.E.M. Droid's battery slot is really vanilla's **Uniform** slot, retyped to
 | `Patches/BatteryLabels.cs` | postfix `LocalizedText.Refresh` | Localized α/β labels; hands #5 back to vanilla for non-droids. |
 | `Patches/BatteryChargerPatch.cs` | postfix `DisposableBatteryCharger.GetTargetBattery` | Charger targets α, then β, then vanilla's answer. |
 | `Patches/UiAscendedCompat.cs` | (applies the two below) | Detects UI Ascended by type name on the first HUD build; one log line per hook; a hook that throws disables itself. |
-| `Patches/UiAscendedBetaBox.cs` | postfixes on UI Ascended's `EquipmentColumnWidget.Layout` / `UpdatePanel` / `CollectDropZones` | The β box beside #5, styled through the widget's own helpers, plus its drop target. |
-| `Patches/UiAscendedBetaWheel.cs` | postfixes on UI Ascended's `EquipmentKeyRadialFeature.BuildRoot` / `CanOpen` | β (and an empty α) as slot entries in the 5 wheel. |
+| `Patches/UiAscendedBetaBox.cs` | postfixes on UI Ascended's `EquipmentColumnWidget.BuildContent` / `Layout` / `UpdatePanel` / `CollectDropZones` | The β box beside #5, styled through the widget's own helpers, plus its drop target. |
+| `Patches/UiAscendedBetaWheel.cs` | postfixes on UI Ascended's `EquipmentKeyRadialFeature.BuildRoot` / `CanOpen` / `Title` | β (and an empty α) as slot entries in the 5 wheel. |
 
 Design notes:
 

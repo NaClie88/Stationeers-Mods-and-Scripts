@@ -42,6 +42,30 @@ namespace SaltysDroidDualBattery.Patches
                 typeof(UiAscendedBetaWheel), nameof(BuildRootPostfix), "β wheel entry");
             UiAscendedCompat.Patch(harmony, AccessTools.Method(wheel, "CanOpen"),
                 typeof(UiAscendedBetaWheel), nameof(CanOpenPostfix), "β wheel open");
+            UiAscendedCompat.Patch(harmony, AccessTools.PropertyGetter(wheel, "Title"),
+                typeof(UiAscendedBetaWheel), nameof(TitlePostfix), "β wheel title");
+        }
+
+        private static readonly HookGuard _titleGuard = new HookGuard("β wheel title");
+
+        // With α empty the wheel's title falls back to the raw key name ("UniformSlot").
+        private static void TitlePostfix(object __instance, ref string __result)
+        {
+            if (__result != BatteryButton || _titleGuard.Disabled)
+            {
+                return;
+            }
+            try
+            {
+                if (BetaSlotFor(__instance, out _) != null)
+                {
+                    __result = BatteryLabels.BatteryName();
+                }
+            }
+            catch (Exception e)
+            {
+                _titleGuard.Fail(e);
+            }
         }
 
         // The #5 feature for a droid with a β slot; everything else is left alone.
