@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Salty's Ceiling Solar</Name>
+  <ModID>com.naclie88.SaltysCeilingSolar</ModID>
+  <Author>Joshua</Author>
+  <Version>0.1</Version>
+  <Description>Lets the Basic Solar Panel be mounted on ceilings and walls, so it can sit behind glass roofs and glass walls. Power output follows the direction the panel actually faces.</Description>
+</ModMetadata>
