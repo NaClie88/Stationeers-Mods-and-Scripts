@@ -25,7 +25,7 @@ Power and data ports don't count when a part has pipe ends, so a pump's side pow
 - **Hold C and scroll** steps forwards or backwards.
 - Orientations that look identical to the game, such as spinning a straight pipe about its own length, are skipped. Set `ShowEverySpin = true` in the mod's config to stop at all 24.
 - Parts that can't turn on every axis (wall-only, floor-only, one-axis or wall-mounted parts) step through the game's own orientation list one entry per tap, without the jump-to-most-connections behaviour.
-- A pipe or cable that will merge into the one you're aiming at keeps the game's behaviour.
+- Cables get their axis from their power/data ends (a straight cable spins about its length), including when one will merge into a cable already there. The same goes for pipes.
 - The other rotate keys (Insert/Delete/Home/End/PageUp/PageDown) are unchanged.
 
 You lose the base game's "auto-pick the orientation with the most connections". The fixed order is the trade.

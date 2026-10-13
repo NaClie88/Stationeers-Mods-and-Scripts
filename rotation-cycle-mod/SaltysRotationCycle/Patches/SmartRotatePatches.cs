@@ -54,13 +54,8 @@ namespace SaltysRotationCycle.Patches
             }
             try
             {
-                // A pipe or cable that will merge into the one it's placed on keeps the game's
-                // plain single step: its orientation must match what it merges with.
-                if (rotatable is IGridMergeable mergeable && mergeable.WillMergeWhenPlaced())
-                {
-                    return true;
-                }
-
+                // Pipes and cables that will merge into the piece they're placed on get the same
+                // cycle: the game only skips its auto-pick for them, the orientations are the same.
                 Quaternion[] cycle = PickCycle(rotatable);
                 if (cycle != null)
                 {
