@@ -155,3 +155,24 @@ A double tap in Standby woke the droid on the first tap, because taps are immedi
 At 72 % the user saw the overlay "almost in the middle of the screen". The earlier "still on the hands" report probably came from a build before the 80 % cap (the user: "or i gave you instructions at the wrong development cycle"). ImGui draws into a Screen-sized render texture (`ImGuiManager`), so the percentages are true screen fractions. The new default follows the original instruction, "raise by one card height": the overlay started centred at 90 % and a card is about 8.5 % of the screen, so its bottom edge now sits at about 82 %. **Note for players:** BepInEx doesn't overwrite a value already saved in the `.cfg`. An existing `BottomPercent = 72` stays at 72 until it's edited or deleted.
 - **Temporary position grid** (user idea): `[Overlay] ShowPositionGrid` (default on, for now) draws numbered lines every 2 % from 60 % to 98 % of the screen height, with the current `BottomPercent` in amber. The user reads off the right line; then the grid is removed.
 - **Overlay height chosen:** with the grid, the user picked line **90** for the overlay's bottom edge. That's the new default, and the grid is removed.
+
+## 2026-10-13: Phase 2 (Time Skip) research and the §8 probe
+
+**Three clocks (decompile).** A Time Skip has to move all of them together:
+
+| What | Clock | Lever |
+|---|---|---|
+| Gases, power, logic, droid drain, charging | `GameManager.GameTick`, paced by a real-time `Stopwatch` against `GameTickSpeedMs` (getter over `static readonly DefaultTickSpeedMs = 500`) | shorten the interval |
+| Day/night | `OrbitalSimulation.UpdateEachFrame` → `UpdateAllBodies(Time.deltaTime)` × `TimeScale` (private setter) | orbit `TimeScale` (or `Time.timeScale`) |
+| Weather schedule | `GameManager.GameTime = Time.time` | `Time.timeScale` |
+
+- **Plants and vegetation** get the *real* seconds since the last tick (`PlantLifeTick(LastTickTimeSeconds)`, `UpdateGlobalVegetation`; `Plant.OnLifeTick` adds it to `_stageTime`). Faster ticks alone wouldn't grow them faster, so a skip must feed the nominal 0.5 s.
+- **Ceiling.** Each tick hops thread pool → main thread (`UniTask.SwitchToMainThread`), so there's at most one tick per rendered frame. Speed ≤ min(fps / 2, 1000 / tick-work-ms / 2) × real time: about 30× at 60 fps, less on a big base.
+- **This changes spec §7's "choppy, low frame rate" idea:** a low frame rate would *slow* the skip. Instead, blank the world view during the skip (the droid is asleep), so frames are cheap.
+
+**Design direction (user, 2026-10-13), to fold into the spec after the probe:**
+- **Adaptive speed.** Run ticks as fast as the machine allows, measure the achieved speed each second, show it (`Fast-forward ≈ 12×`), and drive day/night and weather from the *measured* speed so every clock stays in step on any machine.
+- **Configurable cap on the maximum speed.** The user wants players never to be locked into full-speed lag.
+- **Exit must be prioritised.** Check the wake key at the very start of each frame and drop to 1× at once; only the tick already in flight finishes, since a half-finished tick isn't safe. A frame-time guard (for example, frames > 50 ms) backs the speed off automatically, so key presses always register promptly.
+
+**Probe (throwaway, not committed):** a standalone BepInEx plugin, `SaltysTimeSkipProbe.dll`, kept in the git-ignored folder `.superpowers/tskip-probe/`. It adds a console command `tskip <N|max> [ts] [dark]`, an **End-key** exit test, and a `[TSKIP]` log line every second: fps, worst frame, ticks/s, achieved speed, tick work ms (avg/max), time of day, weather countdown, plant stage time, battery. Results to be recorded here after the user's run.
