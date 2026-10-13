@@ -4,5 +4,5 @@
   <ModID>com.naclie88.SaltysCeilingSolar</ModID>
   <Author>Joshua</Author>
   <Version>0.1</Version>
-  <Description>Lets the Basic Solar Panel be mounted on ceilings and walls, so it can sit behind glass roofs and glass walls. Power output follows the direction the panel actually faces.</Description>
+  <Description>Adds a third style to the Kit (Solar Panel Basic): Solar Panel (Clinging). It mounts on the inside of a wall or ceiling with its cells facing the surface it clings to, so behind glass it soaks up sunlight from outside while staying sheltered from storms. The Flat and Angled styles are unchanged. Required on server and clients in multiplayer.</Description>
 </ModMetadata>

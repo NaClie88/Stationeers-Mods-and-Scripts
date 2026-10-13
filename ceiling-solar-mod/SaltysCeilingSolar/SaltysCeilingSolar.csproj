@@ -64,7 +64,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SaltysCeilingSolar.cs" />
-    <Compile Include="Patches\SolarPanelPatches.cs" />
+    <Compile Include="Patches\ClingingPanelDiagnostics.cs" />
+    <Compile Include="Patches\ClingingPanelPrefab.cs" />
+    <Compile Include="Patches\ClingingPanelText.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup />

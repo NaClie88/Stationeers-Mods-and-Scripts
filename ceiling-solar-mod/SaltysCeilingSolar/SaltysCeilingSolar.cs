@@ -1,5 +1,6 @@
 using System;
 using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using LaunchPadBooster;
@@ -19,6 +20,10 @@ namespace SaltysCeilingSolar
 
         public static Mod MOD;
 
+        public static ConfigEntry<bool> VerboseLogging;
+
+        public static bool Verbose => VerboseLogging != null && VerboseLogging.Value;
+
         public static void Log(string line)
         {
             Logger.LogInfo(line);
@@ -29,14 +34,35 @@ namespace SaltysCeilingSolar
             try
             {
                 MOD = new Mod(pluginName, pluginVersion);
-                // The construction cursor is client-side, so every player who wants to place a
-                // flipped panel needs the mod.
+                // The kit's style is sent as an index into its build list and the panel spawns by
+                // prefab hash, so server and clients must all have the clinging style.
                 MOD.Networking.Required = true;
                 Log("LaunchPadBooster.Mod created (multiplayer required)");
             }
             catch (Exception e)
             {
                 Log("LaunchPadBooster.Mod creation FAILED");
+                Log(e.ToString());
+            }
+        }
+
+        // Called by LaunchPadBooster's reflection-based entrypoint dispatch once this mod's
+        // ConfigFile is available.
+        public void OnLoaded(ConfigFile config)
+        {
+            try
+            {
+                VerboseLogging = config.Bind(
+                    "Debug",
+                    "VerboseLogging",
+                    false,
+                    "When a clinging panel faces the sun but makes no power, log what blocks its sunlight " +
+                    "to BepInEx/LogOutput.log (at most every 10 s per panel).");
+                Log("Config bound: VerboseLogging=" + VerboseLogging.Value);
+            }
+            catch (Exception e)
+            {
+                Log("Config binding FAILED");
                 Log(e.ToString());
             }
         }
@@ -55,7 +81,10 @@ namespace SaltysCeilingSolar
             try
             {
                 var harmony = new Harmony(pluginGuid);
-                PatchSafely(harmony, typeof(Patches.SolarPanelRotationPatch), "Solar panel rotation patch");
+                PatchSafely(harmony, typeof(Patches.ClingingPanelPrefabPatch), "Clinging panel prefab patch");
+                PatchSafely(harmony, typeof(Patches.ClingingPanelNamePatch), "Clinging panel name patch");
+                PatchSafely(harmony, typeof(Patches.ClingingPanelDescriptionPatch), "Clinging panel description patch");
+                PatchSafely(harmony, typeof(Patches.ClingingPanelDiagnosticsPatch), "Clinging panel diagnostics patch");
                 _patched = true;
                 Log("Awake() completed");
             }
