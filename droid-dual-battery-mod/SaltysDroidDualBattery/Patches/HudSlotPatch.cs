@@ -27,6 +27,7 @@ namespace SaltysDroidDualBattery.Patches
 
         public static void Postfix(Entity parent)
         {
+            UiAscendedCompat.TryApply();
             Refresh(parent as Human);
         }
 

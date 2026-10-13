@@ -78,7 +78,7 @@ namespace SaltysDroidDualBattery.Patches
         }
 
         // Missing translation -> Localization returns "<N:lang:key>"; fall back to English.
-        private static string BatteryName()
+        internal static string BatteryName()
         {
             string name = Localization.GetName(NameKey);
             return string.IsNullOrEmpty(name) || name.StartsWith("<") ? "Battery" : name;

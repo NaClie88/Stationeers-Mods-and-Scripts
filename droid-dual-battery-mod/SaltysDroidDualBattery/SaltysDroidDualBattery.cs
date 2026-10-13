@@ -12,7 +12,7 @@ namespace SaltysDroidDualBattery
     {
         public const string pluginGuid = "com.naclie88.SaltysDroidDualBattery";
         public const string pluginName = "Salty's Droid Dual Battery";
-        public const string pluginVersion = "0.2";
+        public const string pluginVersion = "0.3";
 
         // Same setup as the other Salty mods: a static ManualLogSource created independently
         // of everything else, so it can report a failure anywhere below (including a
@@ -20,6 +20,10 @@ namespace SaltysDroidDualBattery
         public static new readonly ManualLogSource Logger = BepInEx.Logging.Logger.CreateLogSource(pluginName);
 
         public static Mod MOD;
+
+        // Kept so patches can be applied after Awake (UI Ascended compat is patched on the
+        // first HUD build, once every LaunchPad mod has loaded).
+        internal static Harmony HarmonyInstance;
 
         public static ConfigEntry<bool> VerboseLogging;
 
@@ -91,7 +95,7 @@ namespace SaltysDroidDualBattery
             }
             try
             {
-                var harmony = new Harmony(pluginGuid);
+                var harmony = HarmonyInstance = new Harmony(pluginGuid);
                 PatchSafely(harmony, typeof(Patches.ExtraBatterySlotPatch), "Droid second battery slot patch");
                 PatchSafely(harmony, typeof(Patches.RobotBatteryPatch), "Robot battery selection patch");
                 PatchSafely(harmony, typeof(Patches.HudSlotPatch), "HUD slot button patch");
