@@ -13,10 +13,10 @@ With this mod, every tap goes to the next orientation in a fixed order:
 
 The main axis is worked out per part from its connection points:
 
-- **Two pipe or chute ends facing opposite ways** (pumps, valves, regulators, straight pipes): the line through them.
+- **Two pipe or chute ends facing opposite ways** (pumps, valves, regulators, straight pipes, a tee's through-run): the line through them. A flat cross spins in its own plane.
 - **All pipe or chute ends on one side** (a tank with one port): that direction.
 - **No pipe or chute ends**: the same tests on power/data ends, for cable-inline parts.
-- **Anything else** (elbows, tees, crosses): the part's own up.
+- **Anything else** (elbows, parts with no ends): the part's own up.
 - **Face-placed parts** spin about the face they're mounted on.
 
 Power and data ports don't count when a part has pipe ends, so a pump's side power socket doesn't throw it off. The log lists every part's ports and the axis chosen (`Main axis for …`). For a part the automatic choice gets wrong, add it to `AxisOverrides` in the mod's config, e.g. `StructureTankSmall=Y` (X, Y or Z in the part's own frame).

@@ -181,10 +181,11 @@ namespace SaltysRotationCycle.Patches
         // Which local axis a grid part spins about, as a positive unit axis (X, Y or Z).
         //   1. A config override for this prefab.
         //   2. The line through two opposite pipe/chute ends: inline pumps, valves, regulators,
-        //      straight pipes.
+        //      straight pipes, and a tee's through-run. With two such lines (a cross), the axis
+        //      at right angles to both.
         //   3. The line all pipe/chute ends sit on: a tank or vent with one port.
         //   4. Steps 2-3 again with every end (power/data too), for cable-inline parts.
-        //   5. Otherwise the part's own up: elbows, tees, crosses, parts with no ends.
+        //   5. Otherwise the part's own up: elbows, parts with no ends.
         private static Vector3 MainAxis(ISmartRotatable rotatable, string name, out string why)
         {
             if (Overrides().TryGetValue(name, out Vector3 forced))
@@ -205,7 +206,12 @@ namespace SaltysRotationCycle.Patches
                     {
                         continue;
                     }
-                    Vector3 dir = Snap(rotatable.Transform.InverseTransformDirection(end.Transform.forward));
+                    Vector3 local = rotatable.Transform.InverseTransformDirection(end.Transform.forward);
+                    if (local.sqrMagnitude < 0.25f)
+                    {
+                        continue;
+                    }
+                    Vector3 dir = Snap(local);
                     all.Add(dir);
                     if ((end.ConnectionType & FlowTypes) != 0)
                     {
@@ -234,6 +240,7 @@ namespace SaltysRotationCycle.Patches
             }
             // Exactly one axis with ends on both sides.
             int pairs = 0;
+            Vector3 unpaired = Vector3.zero;
             foreach (Vector3 axis in new[] { Vector3.right, Vector3.up, Vector3.forward })
             {
                 if (dirs.Contains(axis) && dirs.Contains(-axis))
@@ -241,12 +248,21 @@ namespace SaltysRotationCycle.Patches
                     pairs++;
                     line = axis;
                 }
+                else
+                {
+                    unpaired = axis;
+                }
             }
             if (pairs == 1)
             {
                 return true;
             }
-            if (pairs > 1)
+            if (pairs == 2)
+            {
+                line = unpaired; // a flat cross spins in its own plane
+                return true;
+            }
+            if (pairs == 3)
             {
                 return false;
             }
