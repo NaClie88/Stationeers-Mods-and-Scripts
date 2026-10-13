@@ -32,7 +32,7 @@ A Stationeers mod that adds **Solar Panel (Clinging)**, a third style of the Kit
 | Harmony patch | Purpose |
 |---|---|
 | prefix `Prefab.LoadAll` | Copies `StructureSolarPanelFlat` as `StructureSolarPanelClinging`, turns each arm's `Cells` 180°, borrows `StructureSolarPanel45`'s placement settings, adds it to `WorldManager.SourcePrefabs` and appends it to `ItemKitSolarPanelBasic`'s build list (LaunchPadBooster's `AddToMultiConstructorKit`). The game then registers it and builds its placement cursor like any vanilla prefab. Logs the placement settings, the layers that block sunlight and the panel's hierarchy once. |
-| postfix `Localization.GetThingName` / `GetThingDescription` | Gives the new prefab its name and description in every language. |
+| postfix `Assets.Scripts.Localization.GetThingName` / `GetThingDescription` | Gives the new prefab its name and description in every language. |
 | postfix `SolarPanel.CalculateSolarEfficiency` | `VerboseLogging` only: explains a clinging panel that faces the sun but makes nothing. |
 
 ## Sources and credits
