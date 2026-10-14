@@ -82,7 +82,6 @@ namespace SaltysCeilingSolar
             {
                 var harmony = new Harmony(pluginGuid);
                 PatchSafely(harmony, typeof(Patches.ClingingPanelPrefabPatch), "Clinging panel prefab patch");
-                PatchSafely(harmony, typeof(Patches.ClingingPanelRenderPatch), "Clinging panel render patch");
                 PatchSafely(harmony, typeof(Patches.ClingingPanelScannerPatch), "Clinging panel scanner patch");
                 PatchSafely(harmony, typeof(Patches.ClingingPanelCursorPatch), "Clinging panel cursor patch");
                 PatchSafely(harmony, typeof(Patches.ClingingPanelNamePatch), "Clinging panel name patch");

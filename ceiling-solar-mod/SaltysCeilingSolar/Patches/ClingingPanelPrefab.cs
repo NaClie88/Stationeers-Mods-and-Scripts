@@ -68,11 +68,7 @@ namespace SaltysCeilingSolar.Patches
                 }
                 FlipChildren(clone);
 
-                // Pivot the batched frame is drawn at (see ClingingPanelRenderPatch).
-                var pivot = new GameObject(ClingingPanelRenderPatch.PivotName).transform;
-                pivot.SetParent(clone.transform, false);
-                pivot.localPosition = FlipMatrix.MultiplyPoint3x4(Vector3.zero);
-                pivot.localRotation = FlipMatrix.rotation;
+                MoveFrameUnderPivot(clone);
 
                 // Our own kit insertion rather than LaunchPadBooster's AddToMultiConstructorKit:
                 // that helper also sets BuildStates[0].Tool.ToolExit to the kit, which made the
@@ -107,11 +103,9 @@ namespace SaltysCeilingSolar.Patches
         // along the mount normal so it still occupies the same slab of space: the cells end up
         // against the mount and the frame sticks out into the room.
         //
-        // The frame mesh is batch-rendered at the ROOT transform (Structure.Awake destroys the
-        // root MeshRenderer and draws BuildStates[i].InitialDrawData at the root's matrix), and
-        // the root's rotation belongs to placement. So the root stays as is, its children and
-        // collider get FlipMatrix here, and ClingingPanelRenderPatch multiplies FlipMatrix into
-        // the batch matrix of clinging panels.
+        // The root's rotation belongs to placement, so the root stays as is: its children and
+        // collider get FlipMatrix, and the root's own frame renderer moves onto a child pivot
+        // that carries it (MoveFrameUnderPivot).
         public static Matrix4x4 FlipMatrix = Matrix4x4.identity;
         private static Vector3 _normal;
         private static float _min;
@@ -211,6 +205,90 @@ namespace SaltysCeilingSolar.Patches
                         break;
                 }
             }
+        }
+
+        public const string PivotName = "~SaltysClingFlip";
+
+        // The frame (the part built first) is the ROOT's own MeshRenderer, which no child
+        // transform can move, and the root's rotation belongs to placement. So the frame's mesh
+        // gets a new renderer on a child pivot carrying FlipMatrix and the root renderer goes.
+        // Thing.Awake finds renderers with GetComponentsInChildren, so the moved one still gets
+        // paint, visibility and build-state toggling. (Two earlier attempts patched the batch
+        // renderer, but that path is dead in this game version: ThingRenderer.Mode() always
+        // returns MeshRenderer.)
+        private static void MoveFrameUnderPivot(SolarPanel panel)
+        {
+            var pivot = new GameObject(PivotName).transform;
+            pivot.SetParent(panel.transform, false);
+            pivot.localPosition = FlipMatrix.MultiplyPoint3x4(Vector3.zero);
+            pivot.localRotation = FlipMatrix.rotation;
+            pivot.gameObject.layer = panel.gameObject.layer;
+
+            MeshRenderer oldRenderer = panel.GetComponent<MeshRenderer>();
+            MeshFilter oldFilter = panel.GetComponent<MeshFilter>();
+            SaltysCeilingSolar.Log("Clinging frame: renderMode=" + panel.structureRenderMode +
+                ", root renderer=" + (oldRenderer != null) + ", root mesh=" +
+                (oldFilter != null && oldFilter.sharedMesh != null ? oldFilter.sharedMesh.name : "none") +
+                ", build states=" + (panel.BuildStates?.Count ?? 0) + ", renderers on prefab=" + (panel.Renderers?.Count ?? 0));
+            if (oldRenderer == null || oldFilter == null)
+            {
+                SaltysCeilingSolar.Log("Clinging frame NOT moved: no root mesh renderer");
+                return;
+            }
+
+            var frame = new GameObject("Frame");
+            frame.layer = panel.gameObject.layer;
+            frame.transform.SetParent(pivot, false);
+            frame.AddComponent<MeshFilter>().sharedMesh = oldFilter.sharedMesh;
+            MeshRenderer newRenderer = frame.AddComponent<MeshRenderer>();
+            newRenderer.sharedMaterials = oldRenderer.sharedMaterials;
+            newRenderer.shadowCastingMode = oldRenderer.shadowCastingMode;
+            newRenderer.receiveShadows = oldRenderer.receiveShadows;
+            newRenderer.enabled = oldRenderer.enabled;
+
+            // References the prefab still holds to the root renderer.
+            int visualizers = 0;
+            if (panel.BuildStates != null)
+            {
+                foreach (var state in panel.BuildStates)
+                {
+                    Traverse visualizer = Traverse.Create(state).Field("Visualizer");
+                    if (visualizer.FieldExists() && ReferenceEquals(visualizer.GetValue(), oldRenderer))
+                    {
+                        visualizer.SetValue(newRenderer);
+                        visualizers++;
+                    }
+                }
+                // Structure.Awake fills an empty BuildStates[0].Visualizer from the root's
+                // GetComponent<MeshRenderer>(), which is now null.
+                if (panel.BuildStates.Count > 0)
+                {
+                    Traverse first = Traverse.Create(panel.BuildStates[0]).Field("Visualizer");
+                    if (first.FieldExists() && first.GetValue() == null)
+                    {
+                        first.SetValue(newRenderer);
+                        visualizers++;
+                    }
+                }
+            }
+            int renderers = 0;
+            if (panel.Renderers != null)
+            {
+                for (int i = panel.Renderers.Count - 1; i >= 0; i--)
+                {
+                    var r = panel.Renderers[i];
+                    if (r != null && ReferenceEquals(Traverse.Create(r).Field("UnityRenderer").GetValue(), oldRenderer))
+                    {
+                        panel.Renderers[i] = new ThingRenderer(panel, newRenderer);
+                        renderers++;
+                    }
+                }
+            }
+
+            UnityEngine.Object.DestroyImmediate(oldRenderer);
+            UnityEngine.Object.DestroyImmediate(oldFilter);
+            SaltysCeilingSolar.Log("Clinging frame moved under the flip pivot (" + visualizers +
+                " build-state visualizer(s), " + renderers + " cached renderer(s) repointed)");
         }
 
         private static string DescribeExitTools(Structure s)

@@ -31,8 +31,7 @@ A Stationeers mod that adds **Solar Panel (Clinging)**, a third style of the Kit
 
 | Harmony patch | Purpose |
 |---|---|
-| prefix `Prefab.LoadAll` | Copies `StructureSolarPanelFlat` as `StructureSolarPanelClinging`, works out a local flip (half a turn plus a shift along the mount normal), applies it to the copy's children and root collider, adds the copy to `WorldManager.SourcePrefabs` and appends it to `ItemKitSolarPanelBasic`'s build list. The game then registers it and builds its placement cursor like any vanilla prefab. Logs the placement, deconstruct tool, flip, sunlight-blocking layers and layout once. |
-| postfix `BatchInstance.GetTRS` | The frame is batch-rendered at the root's pose, so the flip is multiplied into the clinging panel's frame matrix (shadows follow). |
+| prefix `Prefab.LoadAll` | Copies `StructureSolarPanelFlat` as `StructureSolarPanelClinging`, works out a local flip (half a turn plus a shift along the mount normal), applies it to the copy's children and root collider, moves the root's frame renderer onto a flipped child pivot, adds the copy to `WorldManager.SourcePrefabs` and appends it to `ItemKitSolarPanelBasic`'s build list. The game then registers it and builds its placement cursor like any vanilla prefab. Logs the placement, deconstruct tool, flip, sunlight-blocking layers and layout once. |
 | postfix `Structure.GetBatchMatrix` | The same, for meson scanner overlays. |
 | postfix `InventoryManager.HandleStructurePrefab` | Flips the clinging cursor's blueprint ghost so the placement preview matches. |
 | postfix `Assets.Scripts.Localization.GetThingName` / `GetThingDescription` | Gives the new prefab its name and description in every language. |
@@ -40,7 +39,7 @@ A Stationeers mod that adds **Solar Panel (Clinging)**, a third style of the Kit
 
 ## Sources and credits
 
-- Game behaviour was established by decompiling Stationeers' `Assembly-CSharp.dll` (Update 0.2.6428.27798) and `LaunchPadBooster.dll` with [ILSpy](https://github.com/icsharpcode/ILSpy) (`ilspycmd`). Key types: `SolarPanel`, `SolarPanelArm`, `Structure`, `Prefab`, `WorldManager`, `MultiConstructor`, `InventoryManager`, `RenderBatch`/`BatchInstance`, `Localization`.
+- Game behaviour was established by decompiling Stationeers' `Assembly-CSharp.dll` (Update 0.2.6428.27798) and `LaunchPadBooster.dll` with [ILSpy](https://github.com/icsharpcode/ILSpy) (`ilspycmd`). Key types: `SolarPanel`, `SolarPanelArm`, `Structure`, `Prefab`, `WorldManager`, `MultiConstructor`, `InventoryManager`, `Localization`.
 - Built on [BepInEx](https://github.com/BepInEx/BepInEx), [Harmony](https://github.com/pardeike/Harmony) and [StationeersLaunchPad / LaunchPadBooster](https://github.com/StationeersLaunchPad/LaunchPadBooster).
 - Project skeleton shared with this repo's *Salty's Fabricator Overflow*.
 - Built in collaboration with Claude (Anthropic).
