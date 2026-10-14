@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Salty's Ceiling Solar</Name>
+  <ModID>com.naclie88.SaltysCeilingSolar</ModID>
+  <Author>Joshua</Author>
+  <Version>0.1</Version>
+  <Description>Adds a third style to the Kit (Solar Panel Basic): Solar Panel (Clinging). It mounts on the inside of a wall or ceiling with its cells facing the surface it clings to, so behind glass it soaks up sunlight from outside while staying sheltered from storms. The Flat and Angled styles are unchanged. Required on server and clients in multiplayer.</Description>
+</ModMetadata>
