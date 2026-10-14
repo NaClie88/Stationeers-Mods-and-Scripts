@@ -55,7 +55,13 @@ namespace SaltysCeilingSolar.Patches
                     }
                     else
                     {
-                        SaltysCeilingSolar.Log("Clinging panel at " + __instance.transform.position + " makes 0 with a clear centre ray (terrain, eclipse, or angle over 60 degrees from the sun)");
+                        // Vanilla gives 0 at 60 degrees or more off the sun, during an eclipse, or
+                        // when the voxel terrain (not in the collision mask) is in the way.
+                        float angle = Vector3.Angle(arm.Cells.forward, sun);
+                        SaltysCeilingSolar.Log("Clinging panel at " + __instance.transform.position + " makes 0 with a clear centre ray: " +
+                            angle.ToString("F0") + " degrees off the sun" + (angle >= 60f ? " (60+ gives 0)" : "") +
+                            ", eclipse=" + OrbitalSimulation.IsEclipse + ", cells face " + arm.Cells.forward.ToString("F2") +
+                            ", sun " + sun.ToString("F2") + (angle < 60f && !OrbitalSimulation.IsEclipse ? " -> likely terrain in the way" : ""));
                     }
                 }
             }

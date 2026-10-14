@@ -298,7 +298,7 @@ namespace SaltysCeilingSolar.Patches
                 return;
             }
             sb.Append("\n  ").Append(' ', depth * 2).Append(t.name)
-                .Append(" pos ").Append(t.localPosition.ToString("F3"))
+                .Append(" local pos ").Append(t.localPosition.ToString("F3"))
                 .Append(" rot ").Append(t.localEulerAngles.ToString("F0"));
             if (cells.Contains(t))
             {
