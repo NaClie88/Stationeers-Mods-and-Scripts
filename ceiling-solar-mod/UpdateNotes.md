@@ -43,3 +43,9 @@ The owner placed clinging panels. The third kit style appeared, but:
 2. **Deconstructing demanded the kit.** LaunchPadBooster's `AddToMultiConstructorKit` also sets `BuildStates[0].Tool.ToolExit = kit`, and `ToolExit` is the tool *required* to deconstruct (`Structure.AttackWith` → `ToolUse.IsToolExit`). `BuildState`/`ToolUse` are plain `[Serializable]` classes, deep-copied by `Instantiate`, so only the clone was affected. Fix: append to `ItemKitSolarPanelBasic.Constructables` directly and keep the flat panel's own `ToolExit`. The log now names the deconstruct tool.
 
 Also from the log: Flat and Angled are both `FaceMount / Z / All`, so borrowing the Angled settings changed nothing. The clone now simply keeps the flat panel's placement. The panel's `CollisionMask` is `Default, Player, Terrain`. `VerboseLogging` now defaults to on while testing, and no longer logs panels that merely face away from the sun.
+
+## 2026-10-14: Second test: frame still unflipped
+
+Deconstruct with the normal tools (drill, crowbar) is confirmed fixed. The frame (the part built first) still faced the old way, and the log never printed the "frame flipped in the batch renderer" line. So the `BatchInstance.GetTRS` postfix never ran. The likely cause is that the JIT inlined that tiny struct method into `RenderBatch.Populate`, so Harmony's patch is bypassed. (`Structure.GetBatchMatrix`, a one-line getter, may be inlined too; it only feeds the meson scanner.)
+
+Fix: the clone gets a child pivot `~SaltysClingFlip` carrying `FlipMatrix`, and a postfix on `ThingRenderer.GetRendererTransform()` returns that pivot instead of the root for clinging panels. `RenderBatch` reaches that method through the `IBatchable` interface, so it can't be inlined. Register, the instance matrix (`GetTRS` reads the transform it's handed) and Deregister (matched by transform) all use the same answer.

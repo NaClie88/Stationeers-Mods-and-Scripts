@@ -68,6 +68,12 @@ namespace SaltysCeilingSolar.Patches
                 }
                 FlipChildren(clone);
 
+                // Pivot the batched frame is drawn at (see ClingingPanelRenderPatch).
+                var pivot = new GameObject(ClingingPanelRenderPatch.PivotName).transform;
+                pivot.SetParent(clone.transform, false);
+                pivot.localPosition = FlipMatrix.MultiplyPoint3x4(Vector3.zero);
+                pivot.localRotation = FlipMatrix.rotation;
+
                 // Our own kit insertion rather than LaunchPadBooster's AddToMultiConstructorKit:
                 // that helper also sets BuildStates[0].Tool.ToolExit to the kit, which made the
                 // kit the tool needed to deconstruct the panel. Appended, so the existing kit
