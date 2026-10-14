@@ -44,8 +44,7 @@ namespace SaltysCeilingSolar.Patches
                     float dot = Vector3.Dot(arm.Cells.forward, sun);
                     if (dot <= 0f)
                     {
-                        SaltysCeilingSolar.Log("Clinging panel at " + __instance.transform.position + " makes 0: cells face away from the sun (dot " + dot.ToString("F2") + ")");
-                        continue;
+                        continue; // night, or facing away from the sun: nothing to explain
                     }
                     var ray = new Ray(arm.Cells.position + arm.Cells.rotation * new Vector3(0f, 0f, 0.5f), sun);
                     if (Physics.Raycast(ray, out RaycastHit hit, float.PositiveInfinity, __instance.CollisionMask))

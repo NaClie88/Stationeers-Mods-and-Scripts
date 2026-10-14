@@ -55,9 +55,9 @@ namespace SaltysCeilingSolar
                 VerboseLogging = config.Bind(
                     "Debug",
                     "VerboseLogging",
-                    false,
+                    true,
                     "When a clinging panel faces the sun but makes no power, log what blocks its sunlight " +
-                    "to BepInEx/LogOutput.log (at most every 10 s per panel).");
+                    "to BepInEx/LogOutput.log (at most every 10 s per panel). On while the mod is being tested.");
                 Log("Config bound: VerboseLogging=" + VerboseLogging.Value);
             }
             catch (Exception e)
@@ -82,6 +82,9 @@ namespace SaltysCeilingSolar
             {
                 var harmony = new Harmony(pluginGuid);
                 PatchSafely(harmony, typeof(Patches.ClingingPanelPrefabPatch), "Clinging panel prefab patch");
+                PatchSafely(harmony, typeof(Patches.ClingingPanelRenderPatch), "Clinging panel render patch");
+                PatchSafely(harmony, typeof(Patches.ClingingPanelScannerPatch), "Clinging panel scanner patch");
+                PatchSafely(harmony, typeof(Patches.ClingingPanelCursorPatch), "Clinging panel cursor patch");
                 PatchSafely(harmony, typeof(Patches.ClingingPanelNamePatch), "Clinging panel name patch");
                 PatchSafely(harmony, typeof(Patches.ClingingPanelDescriptionPatch), "Clinging panel description patch");
                 PatchSafely(harmony, typeof(Patches.ClingingPanelDiagnosticsPatch), "Clinging panel diagnostics patch");
